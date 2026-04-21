@@ -34,7 +34,17 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    let loginEmail = email
+    if (!email.includes('@')) {
+      const { data } = await supabase.rpc('get_email_by_pseudo', { p_pseudo: email })
+      if (!data) {
+        setError('Pseudo introuvable')
+        setLoading(false)
+        return
+      }
+      loginEmail = data
+    }
+    const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password })
     if (error) {
       setError(error.message)
     } else {
@@ -96,7 +106,7 @@ export default function LoginPage() {
         {/* Formulaire connexion */}
         {tab === 'connexion' && (
           <form onSubmit={handleSignIn} className="space-y-4">
-            <Field label="Email" type="email" value={email} onChange={setEmail} placeholder="toi@exemple.com" />
+            <Field label="Pseudo ou Email" type="text" value={email} onChange={setEmail} placeholder="pseudo ou toi@exemple.com" />
             <Field label="Mot de passe" type="password" value={password} onChange={setPassword} placeholder="••••••••" />
             {error && <p className="text-sm text-red-600">{error}</p>}
             <SubmitButton loading={loading} label="Se connecter" />

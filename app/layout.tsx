@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import BottomNav from "./components/BottomNav";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -19,18 +18,15 @@ export const metadata: Metadata = {
   description: "Application d'entraînement Monstro",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
     <html lang="fr">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased pb-16 lg:pb-0 lg:pt-14`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
-        <BottomNav />
       </body>
     </html>
   );

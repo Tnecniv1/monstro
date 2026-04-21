@@ -39,6 +39,8 @@ export default function NouvelEntrainementModal({
 
   const [step, setStep] = useState<Step>('feuille')
   const [feuilles, setFeuilles] = useState<Feuille[]>([])
+  const [focusIds, setFocusIds] = useState<Set<string>>(new Set())
+  const [showFocusOnly, setShowFocusOnly] = useState(false)
   const [recherche, setRecherche] = useState('')
   const [feuille, setFeuille] = useState<Feuille | null>(null)
   const [refExo, setRefExo] = useState<number>(1)
@@ -46,30 +48,36 @@ export default function NouvelEntrainementModal({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase
-      .from('feuille_entrainement')
-      .select(`
-        id, titre, volume, ordre,
-        noeud:noeud_id (
-          id, nom, parent_id,
-          parent:parent_id (
+    Promise.all([
+      supabase
+        .from('feuille_entrainement')
+        .select(`
+          id, titre, volume, ordre,
+          noeud:noeud_id (
             id, nom, parent_id,
-            grandparent:parent_id ( id, nom )
+            parent:parent_id (
+              id, nom, parent_id,
+              grandparent:parent_id ( id, nom )
+            )
           )
-        )
-      `)
-      .order('ordre')
-      .then(({ data }) => setFeuilles((data as unknown as Feuille[]) ?? []))
+        `)
+        .order('ordre'),
+      supabase.from('feuille_focus').select('feuille_id'),
+    ]).then(([{ data: f }, { data: focus }]) => {
+      setFeuilles((f as unknown as Feuille[]) ?? [])
+      setFocusIds(new Set(focus?.map((x) => x.feuille_id) ?? []))
+    })
   }, [])
 
   const feuillesFiltrees = useMemo(() => {
+    const base = showFocusOnly ? feuilles.filter((f) => focusIds.has(f.id)) : feuilles
     const q = recherche.toLowerCase()
-    if (!q) return feuilles
-    return feuilles.filter((f) => {
+    if (!q) return base
+    return base.filter((f) => {
       const chemin = cheminFeuille(f).toLowerCase()
       return f.titre.toLowerCase().includes(q) || chemin.includes(q)
     })
-  }, [feuilles, recherche])
+  }, [feuilles, focusIds, showFocusOnly, recherche])
 
   function choisirFeuille(f: Feuille) {
     setFeuille(f)
@@ -122,7 +130,7 @@ export default function NouvelEntrainementModal({
         {/* Étape 1 : choisir la feuille */}
         {step === 'feuille' && (
           <>
-            <div className="px-6 pt-4 shrink-0">
+            <div className="px-6 pt-4 space-y-3 shrink-0">
               <input
                 type="text"
                 placeholder="Rechercher par titre ou chemin…"
@@ -131,12 +139,22 @@ export default function NouvelEntrainementModal({
                 autoFocus
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
               />
+              <button
+                onClick={() => setShowFocusOnly((v) => !v)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  showFocusOnly
+                    ? 'bg-yellow-400 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                • Focus uniquement
+              </button>
             </div>
 
             <ul className="overflow-y-auto flex-1 px-6 py-3 space-y-1">
               {feuillesFiltrees.length === 0 && (
                 <p className="text-sm text-gray-400 text-center py-8">
-                  Aucune feuille trouvée.
+                  {showFocusOnly ? 'Aucune feuille en focus.' : 'Aucune feuille trouvée.'}
                 </p>
               )}
               {feuillesFiltrees.map((f) => {

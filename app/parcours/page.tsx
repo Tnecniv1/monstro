@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import TableauHistorique, { type EntHistorique } from './TableauHistorique'
@@ -50,7 +51,7 @@ export default async function ParcoursPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-10">
 
-        {/* Header */}
+        <Link href="/" className="text-sm text-gray-400 hover:text-gray-700 transition-colors">← Monstro</Link>
         <h1 className="text-2xl font-bold text-gray-900">Parcours</h1>
 
         {/* Section Historique */}
