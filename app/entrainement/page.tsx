@@ -22,7 +22,7 @@ export default async function EntrainementPage() {
       date_creation,
       feuille_entrainement ( titre ),
       observation ( etat ),
-      session ( temps_min )
+      session ( temps_min, date )
     `)
     .eq('user_id', user.id)
     .order('date_creation', { ascending: false })
@@ -30,7 +30,13 @@ export default async function EntrainementPage() {
   const entrainements = (data ?? []) as unknown as Entrainement[]
 
   const enCours = entrainements.find((e) => e.statut === 'en_cours') ?? null
-  const termines = entrainements.filter((e) => e.statut !== 'en_cours')
+  const termines = entrainements
+    .filter((e) => e.statut !== 'en_cours')
+    .sort((a, b) => {
+      const dateA = a.session.map((s) => s.date).sort().reverse()[0] ?? a.date_creation
+      const dateB = b.session.map((s) => s.date).sort().reverse()[0] ?? b.date_creation
+      return dateB.localeCompare(dateA)
+    })
 
   return (
     <div className="min-h-screen bg-gray-50">

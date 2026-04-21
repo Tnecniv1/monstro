@@ -4,6 +4,31 @@ interface UserScore {
   id: string
   pseudo: string
   score: number
+  avatar_url?: string | null
+}
+
+function Avatar({ url, pseudo, size }: { url?: string | null; pseudo: string; size: number }) {
+  const initial = pseudo ? pseudo[0].toUpperCase() : '?'
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt={pseudo}
+        width={size}
+        height={size}
+        className="rounded-full object-cover"
+        style={{ width: size, height: size }}
+      />
+    )
+  }
+  return (
+    <div
+      className="rounded-full bg-gray-200 flex items-center justify-center font-semibold text-gray-600"
+      style={{ width: size, height: size, fontSize: size * 0.4 }}
+    >
+      {initial}
+    </div>
+  )
 }
 
 interface Props {
@@ -43,10 +68,8 @@ export default function ClassementClient({ classement, userId }: Props) {
             if (!user) return <div key={rank} className="flex-1" />
             return (
               <div key={user.id} className="flex flex-col items-center gap-2 flex-1">
-                <div
-                  className={`${podiumSize[rank]} rounded-full ${medals[rank].bg} flex items-center justify-center font-bold text-white ${podiumText[rank]}`}
-                >
-                  {rank + 1}
+                <div className={`${podiumSize[rank]} rounded-full ${medals[rank].bg} flex items-center justify-center overflow-hidden ring-4 ${medals[rank].bg}`}>
+                  <Avatar url={user.avatar_url} pseudo={user.pseudo} size={rank === 0 ? 96 : rank === 1 ? 80 : 64} />
                 </div>
                 <p className={`font-semibold text-gray-900 text-center truncate max-w-full ${podiumText[rank]}`}>
                   {user.pseudo}
@@ -72,6 +95,7 @@ export default function ClassementClient({ classement, userId }: Props) {
                 }`}
               >
                 <span className="w-6 text-sm text-gray-400 text-right shrink-0">{rank}</span>
+                <Avatar url={user.avatar_url} pseudo={user.pseudo} size={28} />
                 <span className={`flex-1 text-sm font-medium ${isMe ? 'text-gray-900' : 'text-gray-700'}`}>
                   {user.pseudo}
                 </span>

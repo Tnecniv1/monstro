@@ -14,13 +14,13 @@ export default async function ClassementPage() {
 
   const { data: profiles } = await supabase
     .from('user_profile')
-    .select('id, pseudo')
+    .select('id, pseudo, avatar_url')
 
   const { data: observations } = await supabase
     .from('observation')
     .select('etat, entrainement!inner(user_id)')
 
-  type Profile = { id: string; pseudo: string | null }
+  type Profile = { id: string; pseudo: string | null; avatar_url: string | null }
   type ObsRow = { etat: string; entrainement: { user_id: string } }
 
   const scores = (profiles ?? [] as Profile[]).map((profile) => {
@@ -32,7 +32,7 @@ export default async function ClassementPage() {
       if (o.etat === 'echec') return acc - 1
       return acc
     }, 0)
-    return { id: profile.id, pseudo: profile.pseudo ?? '—', score }
+    return { id: profile.id, pseudo: profile.pseudo ?? '—', avatar_url: profile.avatar_url ?? null, score }
   })
 
   scores.sort((a, b) => b.score - a.score)

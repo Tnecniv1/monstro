@@ -3,11 +3,13 @@ import { getUser } from '@/lib/supabase/getUser'
 import { createClient } from '@/lib/supabase/server'
 import PixelGrid from './components/PixelGrid'
 import StreakBadge from './components/StreakBadge'
+import LogoutButton from './components/LogoutButton'
 
 export default async function HomePage() {
   const { user, profile } = await getUser()
   const pseudo = profile?.pseudo ?? user.email ?? ''
   const isAdmin = profile?.role === 'admin'
+  const avatarUrl = profile?.avatar_url ?? null
   const supabase = createClient()
 
   const { data: entIds } = await supabase
@@ -56,17 +58,37 @@ export default async function HomePage() {
     }
   }
 
-  console.log('streak:', streak, 'dates:', uniqueDates)
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-8 space-y-8">
-      <div className="w-full max-w-sm flex items-center justify-between mb-6">
-        <span className="font-semibold text-gray-900">{pseudo}</span>
-        {isAdmin && (
-          <Link href="/admin" className="text-sm text-gray-400 hover:text-gray-700">
-            Admin
-          </Link>
-        )}
+      <div className="w-full max-w-sm flex items-center justify-between">
+        <Link href="/profil" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={pseudo}
+              width={28}
+              height={28}
+              className="rounded-full object-cover"
+              style={{ width: 28, height: 28 }}
+            />
+          ) : (
+            <div
+              className="rounded-full bg-gray-200 flex items-center justify-center font-semibold text-gray-600 text-xs"
+              style={{ width: 28, height: 28 }}
+            >
+              {pseudo ? pseudo[0].toUpperCase() : '?'}
+            </div>
+          )}
+          <span className="font-semibold text-gray-900">{pseudo}</span>
+        </Link>
+        <div className="flex items-center gap-4">
+          {isAdmin && (
+            <Link href="/admin" className="text-sm text-gray-400 hover:text-gray-700">
+              Admin
+            </Link>
+          )}
+          <LogoutButton />
+        </div>
       </div>
       <StreakBadge streak={streak} />
       <PixelGrid count={count ?? 0} />

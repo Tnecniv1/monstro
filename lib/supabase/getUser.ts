@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 export type UserProfile = {
   pseudo: string | null
   role: string | null
+  avatar_url: string | null
 }
 
 export async function getUser() {
@@ -17,7 +18,7 @@ export async function getUser() {
 
   const { data: profile } = await supabase
     .from('user_profile')
-    .select('pseudo, role')
+    .select('pseudo, role, avatar_url')
     .eq('id', user.id)
     .single()
 

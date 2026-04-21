@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-type Session = { temps_min: number }
+type Session = { temps_min: number; date: string }
 export type Entrainement = {
   id: string
   ref_exo: number
@@ -62,6 +62,8 @@ export default function CarteEntrainement({
   const [error, setError] = useState<string | null>(null)
 
   const tempsTotal = e.session.reduce((sum, s) => sum + s.temps_min, 0)
+  const derniereSession = e.session.map((s) => s.date).sort().reverse()[0] ?? null
+  const dateAffichee = derniereSession ?? e.date_creation
   const feuille = e.feuille_entrainement
   const etat = e.observation?.etat ?? null
 
@@ -116,9 +118,10 @@ export default function CarteEntrainement({
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-0.5">
             <p className="font-semibold text-gray-900">
-              {feuille?.titre ?? 'Séance sans titre'}
+              {feuille?.titre ?? 'Sans titre'}
+              <span className="text-gray-400 font-normal ml-1">— Exo {e.ref_exo}</span>
             </p>
-            <p className="text-xs text-gray-400">{formatDate(e.date_creation)}</p>
+            <p className="text-xs text-gray-400">{formatDate(dateAffichee)}</p>
           </div>
           {enCours && (
             <span className="shrink-0 rounded-full bg-black px-2.5 py-0.5 text-xs font-medium text-white">
