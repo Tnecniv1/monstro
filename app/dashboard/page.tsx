@@ -42,7 +42,7 @@ export default async function DashboardPage() {
   type SessionRow = {
     date: string
     temps_min: number
-    entrainement: { user_id: string }
+    entrainement: { user_id: string }[]
   }
 
   type EntrainementRow = {
@@ -54,14 +54,17 @@ export default async function DashboardPage() {
   }
 
   const tempsParUser: Record<string, number> = {}
-  for (const s of (sessionsToday ?? []) as SessionRow[]) {
-    const uid = s.entrainement.user_id
-    tempsParUser[uid] = (tempsParUser[uid] ?? 0) + (s.temps_min ?? 0)
+  for (const s of (sessionsToday ?? []) as unknown as SessionRow[]) {
+    const uid = s.entrainement[0]?.user_id
+    if (uid) {
+      tempsParUser[uid] = (tempsParUser[uid] ?? 0) + (s.temps_min ?? 0)
+    }
   }
 
   const enriched = (profiles ?? []).map((profile) => {
     const actif =
-      (sessionsToday as SessionRow[] | null)?.some((s) => s.entrainement.user_id === profile.id) ||
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      sessionsToday?.some((s: any) => s.entrainement[0]?.user_id === profile.id) ||
       (entrainementsToday as EntrainementRow[] | null)?.some((e) => e.user_id === profile.id) ||
       false
     const temps = tempsParUser[profile.id] ?? 0
