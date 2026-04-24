@@ -1,3 +1,5 @@
+export const revalidate = 0
+
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getUser } from '@/lib/supabase/getUser'
@@ -42,7 +44,7 @@ export default async function DashboardPage() {
   type SessionRow = {
     date: string
     temps_min: number
-    entrainement: { user_id: string }[]
+    entrainement: { user_id: string }
   }
 
   type EntrainementRow = {
@@ -55,7 +57,7 @@ export default async function DashboardPage() {
 
   const tempsParUser: Record<string, number> = {}
   for (const s of (sessionsToday ?? []) as unknown as SessionRow[]) {
-    const uid = s.entrainement[0]?.user_id
+    const uid = s.entrainement.user_id
     if (uid) {
       tempsParUser[uid] = (tempsParUser[uid] ?? 0) + (s.temps_min ?? 0)
     }
@@ -64,14 +66,12 @@ export default async function DashboardPage() {
   const enriched = (profiles ?? []).map((profile) => {
     const actif =
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sessionsToday?.some((s: any) => s.entrainement[0]?.user_id === profile.id) ||
+      sessionsToday?.some((s: any) => s.entrainement.user_id === profile.id) ||
       (entrainementsToday as EntrainementRow[] | null)?.some((e) => e.user_id === profile.id) ||
       false
-    const temps = tempsParUser[profile.id] ?? 0
-    return { ...profile, actif, temps }
+    const tempsTotal = tempsParUser[profile.id] ?? 0
+    return { ...profile, actif, tempsTotal }
   })
-
-  console.log('enriched:', enriched.map(e => ({ pseudo: e.pseudo, actif: e.actif, temps: e.temps })))
 
   enriched.sort((a, b) => Number(b.actif) - Number(a.actif))
 
@@ -95,15 +95,15 @@ export default async function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {enriched.map(({ id, pseudo, prenom, nom, avatar_url, actif, temps }) => {
+          {enriched.map(({ id, pseudo, prenom, nom, avatar_url, actif, tempsTotal }) => {
             const label = pseudo ?? `${prenom} ${nom}`
 
             if (actif) {
               return (
                 <div key={id} className="relative bg-white rounded-xl border-2 border-gray-900 shadow-sm p-4">
-                  {temps > 0 && (
+                  {tempsTotal > 0 && (
                     <span className="absolute top-2 right-2 bg-yellow-400 text-black text-xs font-medium rounded-full px-2 py-0.5">
-                      {formatTemps(temps)}
+                      {formatTemps(tempsTotal)}
                     </span>
                   )}
                   <div className="flex items-center gap-2">
