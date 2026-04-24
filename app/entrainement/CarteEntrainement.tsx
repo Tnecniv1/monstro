@@ -190,7 +190,7 @@ export default function CarteEntrainement({
                 value={tempsMin}
                 onChange={(ev) => setTempsMin(Number(ev.target.value))}
                 required
-                className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-black"
               />
             </div>
             <div className="flex-1 space-y-1">
@@ -202,7 +202,7 @@ export default function CarteEntrainement({
                 value={date}
                 onChange={(ev) => setDate(ev.target.value)}
                 required
-                className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-black"
               />
             </div>
           </div>

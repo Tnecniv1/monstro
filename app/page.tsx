@@ -82,6 +82,16 @@ export default async function HomePage() {
           <span className="font-semibold text-gray-900">{pseudo}</span>
         </Link>
         <div className="flex items-center gap-4">
+          <Link href="/dashboard">
+            <svg xmlns="http://www.w3.org/2000/svg"
+              width="20" height="20" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor"
+              strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+              className="text-gray-400 hover:text-gray-700 transition-colors cursor-pointer">
+              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </Link>
           {isAdmin && (
             <Link href="/admin" className="text-sm text-gray-400 hover:text-gray-700">
               Admin
