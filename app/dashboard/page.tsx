@@ -39,16 +39,30 @@ export default async function DashboardPage() {
     month: 'long',
   })
 
+  type SessionRow = {
+    date: string
+    temps_min: number
+    entrainement: { user_id: string }
+  }
+
+  type EntrainementRow = {
+    id: string
+    user_id: string
+    ref_exo: number
+    statut: string
+    feuille_entrainement: { titre: string } | null
+  }
+
   const tempsParUser: Record<string, number> = {}
-  for (const s of sessionsToday ?? []) {
-    const uid = (s.entrainement as any).user_id
+  for (const s of (sessionsToday ?? []) as SessionRow[]) {
+    const uid = s.entrainement.user_id
     tempsParUser[uid] = (tempsParUser[uid] ?? 0) + (s.temps_min ?? 0)
   }
 
   const enriched = (profiles ?? []).map((profile) => {
     const actif =
-      sessionsToday?.some((s: any) => s.entrainement.user_id === profile.id) ||
-      entrainementsToday?.some((e: any) => e.user_id === profile.id) ||
+      (sessionsToday as SessionRow[] | null)?.some((s) => s.entrainement.user_id === profile.id) ||
+      (entrainementsToday as EntrainementRow[] | null)?.some((e) => e.user_id === profile.id) ||
       false
     const temps = tempsParUser[profile.id] ?? 0
     return { ...profile, actif, temps }
@@ -72,7 +86,7 @@ export default async function DashboardPage() {
             <span className={activeCount > 0 ? 'text-green-600' : 'text-red-500'}>
               {activeCount}
             </span>
-            <span className="text-gray-400"> / {enriched.length} actifs aujourd'hui</span>
+            <span className="text-gray-400"> / {enriched.length} actifs aujourd&apos;hui</span>
           </h1>
           <p className="text-sm text-gray-400 capitalize mt-0.5">{dateLabel}</p>
         </div>
