@@ -27,11 +27,13 @@ export default async function HomePage() {
           .eq('etat', 'succes')
           .in('entrainement_id', ids)
       : Promise.resolve({ count: 0 }),
-    supabase
-      .from('session')
-      .select('date, entrainement!inner(user_id)')
-      .filter('entrainement.user_id', 'eq', user.id)
-      .order('date', { ascending: false }),
+    ids.length > 0
+      ? supabase
+          .from('session')
+          .select('date')
+          .in('entrainement_id', ids)
+          .order('date', { ascending: false })
+      : Promise.resolve({ data: [] }),
   ])
 
   const uniqueDates = Array.from(

@@ -340,6 +340,19 @@ function NoeudAccordeon({
     }
   }
 
+  async function handleDeleteFeuille(id: string, titre: string) {
+    if (!confirm(`Supprimer "${titre}" ?`)) return
+    const { error } = await supabase
+      .from('feuille_entrainement')
+      .delete()
+      .eq('id', id)
+    if (error) {
+      alert('Erreur : ' + error.message)
+    } else {
+      rechargerFeuilles()
+    }
+  }
+
   async function handleDelete() {
     const { count: feuilleCount } = await supabase
       .from('feuille_entrainement')
@@ -459,6 +472,15 @@ function NoeudAccordeon({
                         PDF↗
                       </a>
                     )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteFeuille(f.id, f.titre)
+                      }}
+                      className="text-gray-300 hover:text-red-500 transition-colors text-sm ml-auto"
+                    >
+                      ×
+                    </button>
                   </div>
                 </div>
               ))}
