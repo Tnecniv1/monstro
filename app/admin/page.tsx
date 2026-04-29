@@ -23,6 +23,9 @@ export default async function AdminPage() {
           <Link href="/" className="text-sm text-gray-400 hover:text-gray-700 transition-colors">
             ← Retour
           </Link>
+          <Link href="/admin/corrections" className="text-sm text-gray-400 hover:text-gray-700 transition-colors">
+            Corrections →
+          </Link>
         </div>
 
         <h1 className="text-2xl font-bold text-gray-900">Administration</h1>

@@ -20,7 +20,7 @@ export default async function EntrainementPage() {
       ref_exo,
       statut,
       date_creation,
-      feuille_entrainement ( titre ),
+      feuille_entrainement ( titre, correction ( pdf_url ) ),
       observation ( etat ),
       session ( temps_min, date )
     `)

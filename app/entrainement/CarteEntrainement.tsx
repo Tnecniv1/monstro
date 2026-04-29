@@ -10,7 +10,7 @@ export type Entrainement = {
   ref_exo: number
   statut: string
   date_creation: string
-  feuille_entrainement: { titre: string } | null
+  feuille_entrainement: { titre: string; correction: { pdf_url: string } | null } | null
   observation: { etat: string } | null
   session: Session[]
 }
@@ -65,6 +65,7 @@ export default function CarteEntrainement({
   const derniereSession = e.session.map((s) => s.date).sort().reverse()[0] ?? null
   const dateAffichee = derniereSession ?? e.date_creation
   const feuille = e.feuille_entrainement
+  const correction = feuille?.correction ?? null
   const etat = e.observation?.etat ?? null
 
   function toggleAction(action: ActiveAction) {
@@ -169,6 +170,14 @@ export default function CarteEntrainement({
             >
               Terminer
             </button>
+            {correction?.pdf_url && (
+              <button
+                onClick={() => window.open(correction.pdf_url, '_blank')}
+                className="text-xs px-2 py-1 rounded border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors"
+              >
+                C
+              </button>
+            )}
           </div>
         )}
       </div>
