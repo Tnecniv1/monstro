@@ -8,12 +8,13 @@ type NoeudBase = { id: string; nom: string; parent_id: string | null }
 type Noeud = NoeudBase & {
   parent: (NoeudBase & { grandparent: NoeudBase | null }) | null
 }
+type CorrectionRow = { id: string; pdf_url: string }
 export type FeuilleRow = {
   id: string
   titre: string
   ordre: number
   noeud: Noeud | null
-  correction: { id: string; pdf_url: string }[] | null
+  correction: CorrectionRow[] | null
 }
 
 function getAncestorChain(feuille: FeuilleRow): NoeudBase[] {
@@ -39,7 +40,7 @@ function hasCorrection(f: FeuilleRow): boolean {
 function getCorrectionUrl(f: FeuilleRow): string | null {
   return Array.isArray(f.correction)
     ? f.correction[0]?.pdf_url ?? null
-    : (f.correction as any)?.pdf_url ?? null
+    : (f.correction as unknown as CorrectionRow | null)?.pdf_url ?? null
 }
 
 function sanitizeFileName(name: string): string {
@@ -120,6 +121,15 @@ function UploadForm({
     if (!pdfUrl) { setError('URL ou PDF requis.'); return }
     setLoading(true)
     setError(null)
+    const { data: existing } = await supabase
+      .from('correction')
+      .select('pdf_url')
+      .eq('feuille_id', feuilleId)
+      .single()
+    if (existing?.pdf_url && existing.pdf_url !== pdfUrl) {
+      const path = existing.pdf_url.match(/\/storage\/v1\/object\/public\/pdfs\/(.+)/)?.[1]
+      if (path) await supabase.storage.from('pdfs').remove([path])
+    }
     const { error } = await supabase
       .from('correction')
       .upsert({ feuille_id: feuilleId, pdf_url: pdfUrl }, { onConflict: 'feuille_id' })
@@ -237,6 +247,15 @@ export default function CorrectionsClient({ feuilles = [] }: { feuilles: Feuille
 
   async function handleDeleteCorrection(correctionId: string) {
     if (!confirm('Supprimer cette correction ?')) return
+    const { data: corr } = await supabase
+      .from('correction')
+      .select('pdf_url')
+      .eq('id', correctionId)
+      .single()
+    if (corr?.pdf_url) {
+      const path = corr.pdf_url.match(/\/storage\/v1\/object\/public\/pdfs\/(.+)/)?.[1]
+      if (path) await supabase.storage.from('pdfs').remove([path])
+    }
     const { error } = await supabase.from('correction').delete().eq('id', correctionId)
     if (error) {
       alert('Erreur : ' + error.message)

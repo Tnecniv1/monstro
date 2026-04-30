@@ -276,6 +276,173 @@ function FormulaireFeuille({
   )
 }
 
+// ── Formulaire inline remplacement feuille ─────────────────────────
+function FormulaireRemplacerFeuille({
+  feuille,
+  onCancel,
+  onSuccess,
+}: {
+  feuille: Feuille
+  onCancel: () => void
+  onSuccess: () => void
+}) {
+  const supabase = createClient()
+  const [titre, setTitre] = useState(feuille.titre)
+  const [pdfUrl, setPdfUrl] = useState(feuille.pdf_url ?? '')
+  const [volume, setVolume] = useState(feuille.volume)
+  const [ordre, setOrdre] = useState(feuille.ordre)
+  const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [dragOver, setDragOver] = useState(false)
+  const [fichierNom, setFichierNom] = useState<string | null>(null)
+
+  function sanitizeFileName(name: string): string {
+    return name
+      .replace(/é|è|ê|ë/g, 'e').replace(/à|â|ä/g, 'a').replace(/ù|û|ü/g, 'u')
+      .replace(/î|ï/g, 'i').replace(/ô|ö/g, 'o').replace(/ç/g, 'c')
+      .replace(/É|È|Ê|Ë/g, 'E').replace(/À|Â|Ä/g, 'A').replace(/Ù|Û|Ü/g, 'U')
+      .replace(/Î|Ï/g, 'I').replace(/Ô|Ö/g, 'O').replace(/Ç/g, 'C')
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+  }
+
+  async function uploadPdf(file: File) {
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      setError('Seuls les fichiers PDF sont acceptés.')
+      return
+    }
+    setUploading(true)
+    setError(null)
+    const safeName = sanitizeFileName(file.name)
+    const path = `entrainements/${Date.now()}_${safeName}`
+    const { error: uploadError } = await supabase.storage
+      .from('pdfs')
+      .upload(path, file, { contentType: 'application/pdf', upsert: false })
+    if (uploadError) { setError(uploadError.message); setUploading(false); return }
+    const { data: urlData } = supabase.storage.from('pdfs').getPublicUrl(path)
+    setPdfUrl(urlData.publicUrl)
+    setFichierNom(file.name)
+    setUploading(false)
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file) uploadPdf(file)
+  }
+
+  function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) uploadPdf(file)
+  }
+
+  async function deleteFromStorage(url: string) {
+    const path = url.match(/\/storage\/v1\/object\/public\/pdfs\/(.+)/)?.[1]
+    if (!path) return
+    await supabase.storage.from('pdfs').remove([path])
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+    const { data: old } = await supabase
+      .from('feuille_entrainement')
+      .select('pdf_url')
+      .eq('id', feuille.id)
+      .single()
+    if (old?.pdf_url && old.pdf_url !== (pdfUrl || null))
+      await deleteFromStorage(old.pdf_url)
+    const { error } = await supabase
+      .from('feuille_entrainement')
+      .update({ titre, pdf_url: pdfUrl || null, volume, ordre })
+      .eq('id', feuille.id)
+    if (error) { setError(error.message); setLoading(false); return }
+    onSuccess()
+  }
+
+  return (
+    <div className="bg-blue-50 border-l-2 border-blue-400 px-3 py-3 space-y-3">
+      <p className="text-xs font-medium text-blue-500 uppercase tracking-wide">Modifier la feuille</p>
+
+      <label
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-4 text-center cursor-pointer transition-colors ${
+          dragOver ? 'border-blue-400 bg-blue-100' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+        }`}
+      >
+        <input type="file" accept=".pdf" onChange={handleFileInput} className="sr-only" />
+        {uploading ? (
+          <p className="text-xs text-gray-400">Upload en cours…</p>
+        ) : fichierNom ? (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-green-600">✓ {fichierNom}</p>
+            <p className="text-xs text-gray-400">Cliquer pour changer</p>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400">
+            Nouveau PDF — glissez ou <span className="underline">cliquez</span>
+          </p>
+        )}
+      </label>
+
+      <form onSubmit={handleSubmit} className="space-y-2">
+        <div className="flex flex-wrap gap-2">
+          <Input
+            type="text"
+            placeholder="Titre"
+            value={titre}
+            onChange={(e) => setTitre(e.target.value)}
+            required
+            className="flex-1 min-w-40"
+          />
+          <Input
+            type="text"
+            placeholder="https://… (PDF)"
+            value={pdfUrl}
+            onChange={(e) => setPdfUrl(e.target.value)}
+            className="flex-1 min-w-48"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-xs text-gray-500">Vol.</label>
+          <Input
+            type="number"
+            value={volume}
+            min={1}
+            onChange={(e) => setVolume(Number(e.target.value))}
+            required
+            className="w-14"
+          />
+          <label className="text-xs text-gray-500">Ordre</label>
+          <Input
+            type="number"
+            value={ordre}
+            min={1}
+            onChange={(e) => setOrdre(Number(e.target.value))}
+            required
+            className="w-14"
+          />
+          <button
+            type="submit"
+            disabled={loading || uploading}
+            className="rounded bg-blue-500 px-3 py-1 text-xs text-white hover:bg-blue-600 disabled:opacity-50"
+          >
+            {loading ? '…' : 'Remplacer'}
+          </button>
+          <button type="button" onClick={onCancel} className="text-xs text-gray-400 hover:text-gray-600">
+            Annuler
+          </button>
+        </div>
+        {error && <p className="text-xs text-red-600">{error}</p>}
+      </form>
+    </div>
+  )
+}
+
 // ── Nœud accordéon récursif ─────────────────────────────────────────
 function NoeudAccordeon({
   noeud,
@@ -310,6 +477,7 @@ function NoeudAccordeon({
   // Actions
   const [showEnfantForm, setShowEnfantForm] = useState(false)
   const [suppression, setSuppression] = useState(false)
+  const [openReplaceId, setOpenReplaceId] = useState<string | null>(null)
 
   async function chargerFeuilles() {
     setFeuillesLoading(true)
@@ -340,8 +508,24 @@ function NoeudAccordeon({
     }
   }
 
+  async function deleteFromStorage(url: string) {
+    const path = url.match(/\/storage\/v1\/object\/public\/pdfs\/(.+)/)?.[1]
+    if (!path) return
+    await supabase.storage.from('pdfs').remove([path])
+  }
+
   async function handleDeleteFeuille(id: string, titre: string) {
-    if (!confirm(`Supprimer "${titre}" ?`)) return
+    if (!confirm(`Supprimer "${titre}" et sa correction associée ? Cette action est irréversible.`)) return
+    const { data: feuille } = await supabase
+      .from('feuille_entrainement')
+      .select('pdf_url, correction(pdf_url)')
+      .eq('id', id)
+      .single()
+    if (feuille?.pdf_url) await deleteFromStorage(feuille.pdf_url)
+    const correctionUrl = Array.isArray(feuille?.correction)
+      ? (feuille.correction as { pdf_url: string }[])[0]?.pdf_url
+      : (feuille?.correction as unknown as { pdf_url: string } | undefined)?.pdf_url
+    if (correctionUrl) await deleteFromStorage(correctionUrl)
     const { error } = await supabase
       .from('feuille_entrainement')
       .delete()
@@ -454,34 +638,53 @@ function NoeudAccordeon({
           {feuilles && feuilles.length > 0 && (
             <div className="bg-gray-50 divide-y divide-gray-100">
               {feuilles.map((f) => (
-                <div
-                  key={f.id}
-                  className="flex items-center justify-between px-3 py-2 gap-2"
-                >
-                  <span className="text-sm text-gray-700 flex-1 min-w-0 truncate">{f.titre}</span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-gray-400">{f.volume} ex.</span>
-                    {f.pdf_url && (
-                      <a
-                        href={f.pdf_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-gray-400 hover:text-gray-700"
-                        title="Voir le PDF"
-                      >
-                        PDF↗
-                      </a>
-                    )}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDeleteFeuille(f.id, f.titre)
-                      }}
-                      className="text-gray-300 hover:text-red-500 transition-colors text-sm ml-auto"
-                    >
-                      ×
-                    </button>
+                <div key={f.id}>
+                  <div className="flex items-center justify-between px-3 py-2 gap-2">
+                    <span className="text-sm text-gray-700 flex-1 min-w-0 truncate">{f.titre}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-gray-400">{f.volume} ex.</span>
+                      {f.pdf_url && (
+                        <a
+                          href={f.pdf_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-gray-400 hover:text-gray-700"
+                          title="Voir le PDF"
+                        >
+                          PDF↗
+                        </a>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setOpenReplaceId(openReplaceId === f.id ? null : f.id)
+                          }}
+                          className="text-gray-400 hover:text-blue-500 transition-colors text-sm"
+                          title="Modifier"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteFeuille(f.id, f.titre)
+                          }}
+                          className="text-gray-400 hover:text-red-500 transition-colors text-sm"
+                          title="Supprimer"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
                   </div>
+                  {openReplaceId === f.id && (
+                    <FormulaireRemplacerFeuille
+                      feuille={f}
+                      onCancel={() => setOpenReplaceId(null)}
+                      onSuccess={() => { setOpenReplaceId(null); rechargerFeuilles() }}
+                    />
+                  )}
                 </div>
               ))}
             </div>
