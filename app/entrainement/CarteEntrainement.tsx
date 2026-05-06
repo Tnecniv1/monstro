@@ -3,8 +3,14 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import ErreurModal from './ErreurModal'
 
 type Session = { temps_min: number; date: string }
+type ErreurCounts = {
+  c1: number; c2: number; c3: number; c4: number
+  s1: number; s2: number; s3: number; s4: number
+  r1: number; r2: number; r3: number; r4: number
+}
 export type Entrainement = {
   id: string
   ref_exo: number
@@ -13,6 +19,7 @@ export type Entrainement = {
   feuille_entrainement: { titre: string; correction: { pdf_url: string } | null } | null
   observation: { etat: string } | null
   session: Session[]
+  erreur: ErreurCounts | ErreurCounts[] | null
 }
 
 const ETAT_STYLE: Record<string, string> = {
@@ -60,6 +67,7 @@ export default function CarteEntrainement({
   const [date, setDate] = useState<string>(todayISO())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showErreurs, setShowErreurs] = useState(false)
 
   const tempsTotal = e.session.reduce((sum, s) => sum + s.temps_min, 0)
   const derniereSession = e.session.map((s) => s.date).sort().reverse()[0] ?? null
@@ -67,6 +75,25 @@ export default function CarteEntrainement({
   const feuille = e.feuille_entrainement
   const correction = feuille?.correction ?? null
   const etat = e.observation?.etat ?? null
+
+  const erreurData = Array.isArray(e.erreur) ? e.erreur[0] ?? null : e.erreur ?? null
+  const totalErreurs = erreurData
+    ? Object.values(erreurData).reduce((sum: number, v) => sum + (v as number), 0)
+    : null
+
+  const lastSession = e.session.map((s) => s.date).sort().reverse()[0]
+  const refDate = lastSession ?? e.date_creation
+  const isOlderThan24h =
+    e.statut === 'termine' &&
+    new Date().getTime() - new Date(refDate).getTime() > 24 * 60 * 60 * 1000
+
+  const erreurLabel = totalErreurs !== null ? String(totalErreurs) : isOlderThan24h ? '0' : 'E'
+  const erreurClassName =
+    erreurLabel === 'E'
+      ? 'border-gray-200 text-gray-500'
+      : totalErreurs && totalErreurs > 0
+        ? 'border-orange-200 text-orange-600'
+        : 'border-gray-200 text-gray-300'
 
   function toggleAction(action: ActiveAction) {
     setActiveAction((prev) => (prev === action ? null : action))
@@ -124,11 +151,19 @@ export default function CarteEntrainement({
             </p>
             <p className="text-xs text-gray-400">{formatDate(dateAffichee)}</p>
           </div>
-          {enCours && (
-            <span className="shrink-0 rounded-full bg-black px-2.5 py-0.5 text-xs font-medium text-white">
-              En cours
-            </span>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setShowErreurs(true)}
+              className={`text-xs px-2 py-1 rounded border hover:border-gray-400 hover:text-gray-700 transition-colors ml-2 ${erreurClassName}`}
+            >
+              {erreurLabel}
+            </button>
+            {enCours && (
+              <span className="rounded-full bg-black px-2.5 py-0.5 text-xs font-medium text-white">
+                En cours
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Badges */}
@@ -250,6 +285,13 @@ export default function CarteEntrainement({
           </div>
           {error && <p className="text-xs text-red-600">{error}</p>}
         </div>
+      )}
+
+      {showErreurs && (
+        <ErreurModal
+          entrainementId={e.id}
+          onClose={() => setShowErreurs(false)}
+        />
       )}
     </div>
   )

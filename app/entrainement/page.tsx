@@ -22,7 +22,8 @@ export default async function EntrainementPage() {
       date_creation,
       feuille_entrainement ( titre, correction ( pdf_url ) ),
       observation ( etat ),
-      session ( temps_min, date )
+      session ( temps_min, date ),
+      erreur ( c1,c2,c3,c4,s1,s2,s3,s4,r1,r2,r3,r4 )
     `)
     .eq('user_id', user.id)
     .order('date_creation', { ascending: false })

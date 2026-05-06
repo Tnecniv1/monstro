@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import TableauHistorique, { type EntHistorique } from './TableauHistorique'
 import GraphiqueConcentration, { type SessionRaw } from './GraphiqueConcentration'
 import GraphiqueTauxReussite from './GraphiqueTauxReussite'
+import GraphiqueErreurs, { type ErreurRaw } from './GraphiqueErreurs'
 
 export default async function ParcoursPage() {
   const supabase = createClient()
@@ -47,6 +48,20 @@ export default async function ParcoursPage() {
 
   const sessions = (sessionsRaw ?? []) as unknown as SessionRaw[]
 
+  // Dataset 3 — erreurs par entraînement
+  const { data: erreursRaw } = await supabase
+    .from('erreur')
+    .select(`
+      c1, c2, c3, c4,
+      s1, s2, s3, s4,
+      r1, r2, r3, r4,
+      entrainement!inner(user_id, date_creation)
+    `)
+    .eq('entrainement.user_id', user.id)
+    .order('entrainement(date_creation)', { ascending: true })
+
+  const erreurs = (erreursRaw ?? []) as unknown as ErreurRaw[]
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-10">
@@ -76,6 +91,14 @@ export default async function ParcoursPage() {
             Taux de réussite
           </h2>
           <GraphiqueTauxReussite historique={historique} />
+        </section>
+
+        {/* Section Tendance des erreurs */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
+            Tendance des erreurs
+          </h2>
+          <GraphiqueErreurs erreurs={erreurs} />
         </section>
 
       </div>
