@@ -121,7 +121,7 @@ export default function NouvelEntrainementModal({
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors text-xl leading-none"
+            className="text-gray-400 hover:text-gray-600 transition-colors text-2xl leading-none p-2 -mr-2"
           >
             ×
           </button>
@@ -137,11 +137,11 @@ export default function NouvelEntrainementModal({
                 value={recherche}
                 onChange={(e) => setRecherche(e.target.value)}
                 autoFocus
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-black"
               />
               <button
                 onClick={() => setShowFocusOnly((v) => !v)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                   showFocusOnly
                     ? 'bg-yellow-400 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -163,10 +163,10 @@ export default function NouvelEntrainementModal({
                   <li key={f.id}>
                     <button
                       onClick={() => choisirFeuille(f)}
-                      className="w-full text-left rounded-lg px-3 py-3 hover:bg-gray-50 transition-colors space-y-0.5"
+                      className="w-full text-left rounded-xl px-4 py-4 hover:bg-gray-50 active:bg-gray-100 transition-colors space-y-1"
                     >
-                      <p className="text-sm font-medium text-gray-900">{f.titre}</p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-base font-medium text-gray-900">{f.titre}</p>
+                      <p className="text-sm text-gray-400">
                         {chemin && `${chemin} · `}
                         {f.volume} exercice{f.volume > 1 ? 's' : ''}
                       </p>
@@ -197,7 +197,7 @@ export default function NouvelEntrainementModal({
                 max={feuille.volume}
                 value={refExo}
                 onChange={(e) => setRefExo(Number(e.target.value))}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-black"
               />
             </div>
 
@@ -206,14 +206,14 @@ export default function NouvelEntrainementModal({
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => { setStep('feuille'); setError(null) }}
-                className="flex-1 rounded-lg border border-gray-300 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex-1 rounded-xl border border-gray-300 py-4 text-base font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
               >
                 ← Retour
               </button>
               <button
                 onClick={handleCommencer}
                 disabled={loading || refExo < 1 || refExo > feuille.volume}
-                className="flex-1 rounded-lg bg-black py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                className="flex-1 rounded-xl bg-black py-4 text-base font-medium text-white hover:bg-gray-800 active:bg-gray-700 disabled:opacity-50 transition-colors"
               >
                 {loading ? 'Création…' : 'Commencer'}
               </button>

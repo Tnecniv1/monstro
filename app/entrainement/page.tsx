@@ -43,7 +43,7 @@ export default async function EntrainementPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
 
-        <Link href="/" className="text-sm text-gray-400 hover:text-gray-700 transition-colors">← Monstro</Link>
+        <Link href="/" className="inline-block text-sm text-gray-400 hover:text-gray-700 transition-colors py-2 -my-2">← Monstro</Link>
         <h1 className="text-2xl font-bold text-gray-900">Entraînements</h1>
 
         {/* Entraînement en cours */}

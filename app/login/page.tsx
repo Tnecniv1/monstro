@@ -48,7 +48,7 @@ export default function LoginPage() {
     if (error) {
       setError(error.message)
     } else {
-      router.push('/entrainement')
+      router.push('/')
       router.refresh()
     }
     setLoading(false)
@@ -68,7 +68,7 @@ export default function LoginPage() {
     if (error) {
       setError(error.message)
     } else {
-      router.push('/entrainement')
+      router.push('/')
       router.refresh()
     }
     setLoading(false)

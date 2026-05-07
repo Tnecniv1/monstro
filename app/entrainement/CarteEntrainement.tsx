@@ -184,23 +184,23 @@ export default function CarteEntrainement({
 
         {/* Actions — uniquement pour l'entraînement en cours */}
         {enCours && (
-          <div className="flex gap-2 pt-1">
+          <div className="flex gap-2 pt-2">
             <button
               onClick={() => toggleAction('session')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              className={`rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
                 activeAction === 'session'
                   ? 'bg-gray-900 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300'
               }`}
             >
-              + Ajouter une session
+              + Session
             </button>
             <button
               onClick={() => toggleAction('terminer')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              className={`rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
                 activeAction === 'terminer'
                   ? 'bg-gray-900 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300'
               }`}
             >
               Terminer
@@ -208,7 +208,7 @@ export default function CarteEntrainement({
             {correction?.pdf_url && (
               <button
                 onClick={() => window.open(correction.pdf_url, '_blank')}
-                className="text-xs px-2 py-1 rounded border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors"
+                className="text-sm px-3 py-3 rounded-xl border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 active:bg-gray-50 transition-colors"
               >
                 C
               </button>
@@ -234,7 +234,7 @@ export default function CarteEntrainement({
                 value={tempsMin}
                 onChange={(ev) => setTempsMin(Number(ev.target.value))}
                 required
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                className="w-full rounded-lg border border-gray-300 px-3 py-3 text-base text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-black"
               />
             </div>
             <div className="flex-1 space-y-1">
@@ -246,7 +246,7 @@ export default function CarteEntrainement({
                 value={date}
                 onChange={(ev) => setDate(ev.target.value)}
                 required
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                className="w-full rounded-lg border border-gray-300 px-3 py-3 text-base text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-black"
               />
             </div>
           </div>
@@ -254,7 +254,7 @@ export default function CarteEntrainement({
           <button
             type="submit"
             disabled={loading}
-            className="rounded-lg bg-black px-4 py-1.5 text-xs font-medium text-white hover:bg-gray-800 disabled:opacity-50 transition-colors"
+            className="rounded-xl bg-black px-5 py-3 text-sm font-medium text-white hover:bg-gray-800 active:bg-gray-700 disabled:opacity-50 transition-colors"
           >
             {loading ? 'Ajout…' : 'Ajouter'}
           </button>
@@ -271,14 +271,14 @@ export default function CarteEntrainement({
             <button
               onClick={() => handleTerminer('succes')}
               disabled={loading}
-              className="flex-1 rounded-lg bg-green-600 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+              className="flex-1 rounded-xl bg-green-600 py-4 text-base font-medium text-white hover:bg-green-700 active:bg-green-800 disabled:opacity-50 transition-colors"
             >
               Succès
             </button>
             <button
               onClick={() => handleTerminer('echec')}
               disabled={loading}
-              className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+              className="flex-1 rounded-xl bg-red-600 py-4 text-base font-medium text-white hover:bg-red-700 active:bg-red-800 disabled:opacity-50 transition-colors"
             >
               Échec
             </button>

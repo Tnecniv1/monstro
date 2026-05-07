@@ -5,7 +5,16 @@
       "Bash(mv /c/Users/vince/Desktop/Monstro/.claude_temp /c/Users/vince/Desktop/Monstro/monstro_app/.claude)",
       "Bash(npm install *)",
       "Bash(npm run *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(Get-ChildItem -Recurse -Force)",
+      "Bash(Select-Object -First 100)",
+      "Bash(Format-Table FullName)",
+      "Bash(grep -E '\\\\.\\(ts|tsx|json|css|mjs\\)$')",
+      "Bash(mkdir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\monstro-ios\")",
+      "Bash(mkdir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\monstro-ios\\\\www\")",
+      "Bash(mkdir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\monstro-ios\\\\assets\")",
+      "Bash(mkdir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\monstro-expo\")",
+      "Bash(mkdir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\monstro-expo\\\\assets\")"
     ]
   }
 }
