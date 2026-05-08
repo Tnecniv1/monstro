@@ -85,19 +85,19 @@ export default async function HomePage() {
           <span className="font-semibold text-gray-900">{pseudo}</span>
         </Link>
         <div className="flex items-center gap-1">
-          <Link href="/dashboard" className="p-2 rounded-lg">
+          <Link href="/dashboard" className="p-[10px] sm:p-2 rounded-lg">
             <svg xmlns="http://www.w3.org/2000/svg"
-              width="22" height="22" viewBox="0 0 24 24"
+              viewBox="0 0 24 24"
               fill="none" stroke="currentColor"
               strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-              className="text-gray-400 hover:text-gray-700 transition-colors">
+              className="w-6 h-6 sm:w-[22px] sm:h-[22px] text-gray-400 hover:text-gray-700 transition-colors">
               <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
               <circle cx="12" cy="12" r="3"/>
             </svg>
           </Link>
           {isAdmin && (
-            <Link href="/admin" aria-label="Admin" className="p-2 rounded-lg text-gray-400 hover:text-gray-700 transition-colors flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <Link href="/admin" aria-label="Admin" className="p-[10px] sm:p-2 rounded-lg text-gray-400 hover:text-gray-700 transition-colors flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 sm:w-5 sm:h-5">
                 <circle cx="12" cy="8" r="4"/>
                 <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
               </svg>
@@ -109,13 +109,13 @@ export default async function HomePage() {
       </div>
 
       {/* Zone centrale — streak + grille, centrée verticalement */}
-      <div className="flex-1 flex flex-col items-center justify-center gap-5 py-2">
+      <div className="flex-1 flex flex-col items-center justify-end sm:justify-center gap-5 pb-6 sm:py-2">
         <StreakBadge streak={streak} />
         <PixelGrid count={count ?? 0} />
       </div>
 
       {/* Boutons de navigation */}
-      <div className="w-full max-w-sm mx-auto space-y-3 pb-8 pt-4">
+      <div className="w-full max-w-sm mx-auto space-y-2 sm:space-y-3 pb-4 sm:pb-8 pt-3 sm:pt-4">
         <Link href="/entrainement" className="block w-full rounded-2xl py-3 sm:py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 active:bg-gray-300 transition-colors">
           Entraînement
         </Link>

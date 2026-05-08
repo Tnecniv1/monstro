@@ -208,9 +208,16 @@ export default function CarteEntrainement({
             {correction?.pdf_url && (
               <button
                 onClick={() => router.push(`/viewer?url=${encodeURIComponent(correction.pdf_url)}`)}
-                className="text-sm px-3 py-3 rounded-xl border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 active:bg-gray-50 transition-colors"
+                title="Voir la correction PDF"
+                className="flex items-center gap-1.5 text-sm px-3 py-3 rounded-xl border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 active:bg-gray-50 transition-colors"
               >
-                C
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" strokeWidth="2.5"
+                  strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                Correction
               </button>
             )}
           </div>
@@ -234,7 +241,7 @@ export default function CarteEntrainement({
                 value={tempsMin}
                 onChange={(ev) => setTempsMin(Number(ev.target.value))}
                 required
-                className="w-full rounded-lg border border-gray-300 px-3 py-3 text-base text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                className="w-full rounded-lg border border-gray-300 px-3 py-3 text-base text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-black text-left"
               />
             </div>
             <div className="flex-1 space-y-1">
@@ -246,7 +253,7 @@ export default function CarteEntrainement({
                 value={date}
                 onChange={(ev) => setDate(ev.target.value)}
                 required
-                className="w-full rounded-lg border border-gray-300 px-3 py-3 text-base text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                className="w-full rounded-lg border border-gray-300 px-3 py-3 text-base text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-black text-left"
               />
             </div>
           </div>
