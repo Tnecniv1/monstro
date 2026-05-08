@@ -14,7 +14,8 @@
       "Bash(mkdir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\monstro-ios\\\\www\")",
       "Bash(mkdir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\monstro-ios\\\\assets\")",
       "Bash(mkdir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\monstro-expo\")",
-      "Bash(mkdir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\monstro-expo\\\\assets\")"
+      "Bash(mkdir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\monstro-expo\\\\assets\")",
+      "Bash(git checkout *)"
     ]
   }
 }
