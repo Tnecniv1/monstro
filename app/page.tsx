@@ -61,73 +61,74 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="min-h-dvh bg-stone-100 flex flex-col justify-between">
-      {/* Navbar */}
-      <div className="w-full max-w-sm mx-auto flex items-center justify-between px-4 py-2">
-        <Link href="/profil" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt={pseudo}
-              width={32}
-              height={32}
-              className="rounded-full object-cover"
-              style={{ width: 32, height: 32 }}
-            />
-          ) : (
-            <div
-              className="rounded-full bg-stone-200 flex items-center justify-center font-semibold text-gray-600 text-xs"
-              style={{ width: 32, height: 32 }}
-            >
-              {pseudo ? pseudo[0].toUpperCase() : '?'}
-            </div>
-          )}
-          <span className="font-semibold text-gray-900">{pseudo}</span>
-        </Link>
+    <div className="min-h-dvh bg-stone-100">
+      <div className="max-w-sm mx-auto px-4 pt-2 pb-6 flex flex-col gap-3">
 
-        <div className="flex items-center">
-          <Link href="/dashboard" className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
-              fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
+        {/* Navbar */}
+        <div className="flex items-center justify-between">
+          <Link href="/profil" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={pseudo}
+                width={32}
+                height={32}
+                className="rounded-full object-cover"
+                style={{ width: 32, height: 32 }}
+              />
+            ) : (
+              <div
+                className="rounded-full bg-stone-200 flex items-center justify-center font-semibold text-gray-600 text-xs"
+                style={{ width: 32, height: 32 }}
+              >
+                {pseudo ? pseudo[0].toUpperCase() : '?'}
+              </div>
+            )}
+            <span className="font-semibold text-gray-900">{pseudo}</span>
           </Link>
-          {isAdmin && (
-            <Link href="/admin" className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 transition-colors">
+          <div className="flex items-center">
+            <Link href="/dashboard" className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
                 fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                <circle cx="12" cy="12" r="3"/>
               </svg>
             </Link>
-          )}
-          <LogoutButton />
+            {isAdmin && (
+              <Link href="/admin" className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </Link>
+            )}
+            <LogoutButton />
+          </div>
         </div>
-      </div>
 
-      {/* Streak + grille */}
-      <div className="flex flex-col items-center gap-2 py-2">
+        {/* Streak */}
         <StreakBadge streak={streak} />
-        <PixelGrid count={count ?? 0} />
-      </div>
 
-      {/* Boutons de navigation */}
-      <div className="w-full max-w-sm mx-auto flex flex-col gap-2 sm:gap-3 px-4 pb-6 sm:pb-8">
-        <Link href="/entrainement" className="block w-full rounded-2xl py-[11px] sm:py-5 text-center font-bold text-base sm:text-lg bg-stone-200 text-gray-900 active:bg-stone-300 transition-colors">
+        {/* PixelGrid */}
+        <PixelGrid count={count ?? 0} />
+
+        {/* Boutons */}
+        <Link href="/entrainement" className="block w-full rounded-2xl py-[11px] text-center font-bold text-base bg-stone-200 text-gray-900 active:bg-stone-300 transition-colors">
           Entraînement
         </Link>
-        <Link href="/parcours" className="block w-full rounded-2xl py-[11px] sm:py-5 text-center font-bold text-base sm:text-lg bg-stone-200 text-gray-900 active:bg-stone-300 transition-colors">
+        <Link href="/parcours" className="block w-full rounded-2xl py-[11px] text-center font-bold text-base bg-stone-200 text-gray-900 active:bg-stone-300 transition-colors">
           Parcours
         </Link>
-        <Link href="/classement" className="block w-full rounded-2xl py-[11px] sm:py-5 text-center font-bold text-base sm:text-lg bg-stone-200 text-gray-900 active:bg-stone-300 transition-colors">
+        <Link href="/classement" className="block w-full rounded-2xl py-[11px] text-center font-bold text-base bg-stone-200 text-gray-900 active:bg-stone-300 transition-colors">
           Classement
         </Link>
-        <Link href="/bibliotheque" className="block w-full rounded-2xl py-[11px] sm:py-5 text-center font-bold text-base sm:text-lg bg-stone-200 text-gray-900 active:bg-stone-300 transition-colors">
+        <Link href="/bibliotheque" className="block w-full rounded-2xl py-[11px] text-center font-bold text-base bg-stone-200 text-gray-900 active:bg-stone-300 transition-colors">
           Bibliothèque
         </Link>
+
       </div>
     </div>
   )
