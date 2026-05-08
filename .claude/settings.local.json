@@ -15,7 +15,10 @@
       "Bash(mkdir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\monstro-ios\\\\assets\")",
       "Bash(mkdir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\monstro-expo\")",
       "Bash(mkdir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\monstro-expo\\\\assets\")",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "PowerShell(head *)",
+      "Bash(dir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\Autres\\\\application_calcul_mental\\\\pixel-mobile\")",
+      "Bash(dir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\Autres\\\\application_calcul_mental\\\\pixel-dashboard\")"
     ]
   }
 }
