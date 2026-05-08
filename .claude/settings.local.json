@@ -18,7 +18,9 @@
       "Bash(git checkout *)",
       "PowerShell(head *)",
       "Bash(dir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\Autres\\\\application_calcul_mental\\\\pixel-mobile\")",
-      "Bash(dir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\Autres\\\\application_calcul_mental\\\\pixel-dashboard\")"
+      "Bash(dir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\Autres\\\\application_calcul_mental\\\\pixel-dashboard\")",
+      "Bash(Get-ChildItem *)",
+      "Bash(git rm *)"
     ]
   }
 }
