@@ -207,7 +207,7 @@ export default function CarteEntrainement({
             </button>
             {correction?.pdf_url && (
               <button
-                onClick={() => window.open(correction.pdf_url, '_blank')}
+                onClick={() => router.push(`/viewer?url=${encodeURIComponent(correction.pdf_url)}`)}
                 className="text-sm px-3 py-3 rounded-xl border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 active:bg-gray-50 transition-colors"
               >
                 C
@@ -223,7 +223,7 @@ export default function CarteEntrainement({
           onSubmit={handleAjouterSession}
           className="border-t border-gray-100 bg-gray-50 px-5 py-4 space-y-3"
         >
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 space-y-1">
               <label className="block text-xs font-medium text-gray-600">
                 Durée (minutes)
@@ -254,7 +254,7 @@ export default function CarteEntrainement({
           <button
             type="submit"
             disabled={loading}
-            className="rounded-xl bg-black px-5 py-3 text-sm font-medium text-white hover:bg-gray-800 active:bg-gray-700 disabled:opacity-50 transition-colors"
+            className="w-full sm:w-auto rounded-xl bg-black px-5 py-3 text-sm font-medium text-white hover:bg-gray-800 active:bg-gray-700 disabled:opacity-50 transition-colors"
           >
             {loading ? 'Ajout…' : 'Ajouter'}
           </button>

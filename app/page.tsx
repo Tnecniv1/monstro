@@ -96,8 +96,12 @@ export default async function HomePage() {
             </svg>
           </Link>
           {isAdmin && (
-            <Link href="/admin" className="px-3 py-2 text-sm text-gray-400 hover:text-gray-700">
-              Admin
+            <Link href="/admin" aria-label="Admin" className="p-2 rounded-lg text-gray-400 hover:text-gray-700 transition-colors flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="8" r="4"/>
+                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+              </svg>
+              <span className="hidden sm:inline text-sm">Admin</span>
             </Link>
           )}
           <LogoutButton />
@@ -112,16 +116,16 @@ export default async function HomePage() {
 
       {/* Boutons de navigation */}
       <div className="w-full max-w-sm mx-auto space-y-3 pb-8 pt-4">
-        <Link href="/entrainement" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 active:bg-gray-300 transition-colors">
+        <Link href="/entrainement" className="block w-full rounded-2xl py-3 sm:py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 active:bg-gray-300 transition-colors">
           Entraînement
         </Link>
-        <Link href="/parcours" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 active:bg-gray-300 transition-colors">
+        <Link href="/parcours" className="block w-full rounded-2xl py-3 sm:py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 active:bg-gray-300 transition-colors">
           Parcours
         </Link>
-        <Link href="/classement" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 active:bg-gray-300 transition-colors">
+        <Link href="/classement" className="block w-full rounded-2xl py-3 sm:py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 active:bg-gray-300 transition-colors">
           Classement
         </Link>
-        <Link href="/bibliotheque" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 active:bg-gray-300 transition-colors">
+        <Link href="/bibliotheque" className="block w-full rounded-2xl py-3 sm:py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 active:bg-gray-300 transition-colors">
           Bibliothèque
         </Link>
       </div>

@@ -225,7 +225,7 @@ export default function BibliothequeClient({ feuilles, focusIds: initialFocusIds
             return (
               <div
                 key={f.id}
-                onClick={() => f.pdf_url && window.open(f.pdf_url, '_blank')}
+                onClick={() => f.pdf_url && router.push(`/viewer?url=${encodeURIComponent(f.pdf_url)}`)}
                 className={`relative rounded-xl border border-gray-200 bg-white p-5 space-y-3 ${
                   f.pdf_url ? 'cursor-pointer hover:border-gray-400 transition-colors' : 'cursor-default opacity-60'
                 }`}
