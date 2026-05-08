@@ -61,9 +61,9 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="min-h-dvh bg-stone-100 flex flex-col">
+    <div className="min-h-dvh bg-stone-100 flex flex-col justify-between">
       {/* Navbar */}
-      <div className="w-full max-w-sm mx-auto flex items-center justify-between px-4 py-3">
+      <div className="w-full max-w-sm mx-auto flex items-center justify-between px-4 py-2">
         <Link href="/profil" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           {avatarUrl ? (
             <img
@@ -108,18 +108,14 @@ export default async function HomePage() {
         </div>
       </div>
 
-      {/* Streak + barre de progression */}
-      <div className="w-full max-w-sm mx-auto px-4 pb-2">
+      {/* Streak + grille */}
+      <div className="flex flex-col items-center gap-2 py-2">
         <StreakBadge streak={streak} />
-      </div>
-
-      {/* PixelGrid — occupe l'espace restant, centrée */}
-      <div className="flex-1 flex flex-col items-center justify-center py-2">
         <PixelGrid count={count ?? 0} />
       </div>
 
       {/* Boutons de navigation */}
-      <div className="w-full max-w-sm mx-auto flex flex-col gap-[7px] sm:gap-3 px-4 pb-8 pt-2">
+      <div className="w-full max-w-sm mx-auto flex flex-col gap-2 sm:gap-3 px-4 pb-6 sm:pb-8">
         <Link href="/entrainement" className="block w-full rounded-2xl py-[11px] sm:py-5 text-center font-bold text-base sm:text-lg bg-stone-200 text-gray-900 active:bg-stone-300 transition-colors">
           Entraînement
         </Link>
