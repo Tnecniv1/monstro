@@ -109,7 +109,7 @@ export default async function HomePage() {
       </div>
 
       {/* Zone centrale — streak + grille, centrée verticalement */}
-      <div className="flex-1 flex flex-col items-center justify-end sm:justify-center gap-5 pb-6 sm:py-2">
+      <div className="flex-1 flex flex-col items-center justify-center gap-5 py-2">
         <StreakBadge streak={streak} />
         <PixelGrid count={count ?? 0} />
       </div>

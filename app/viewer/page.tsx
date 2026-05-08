@@ -8,9 +8,15 @@ function ViewerContent() {
   const searchParams = useSearchParams()
   const pdfUrl = searchParams.get('url') ?? ''
 
+  // Google Docs Viewer renders the PDF as paginated HTML — fully scrollable on iOS Safari.
+  // Direct iframe PDFs are blocked by iOS's native PDF plugin (no touch scroll support).
+  const iframeSrc = pdfUrl
+    ? `https://docs.google.com/viewer?url=${encodeURIComponent(pdfUrl)}&embedded=true`
+    : ''
+
   return (
     <div className="fixed inset-0 flex flex-col bg-white">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white shrink-0">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 bg-white shrink-0">
         <button
           onClick={() => router.back()}
           className="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 active:text-gray-500 transition-colors"
@@ -20,13 +26,28 @@ function ViewerContent() {
           </svg>
           Retour
         </button>
+        {pdfUrl && (
+          <a
+            href={pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            Ouvrir ↗
+          </a>
+        )}
       </div>
-      {pdfUrl ? (
-        <iframe
-          src={pdfUrl}
-          className="flex-1 w-full border-none"
-          title="Document PDF"
-        />
+      {iframeSrc ? (
+        <div
+          className="flex-1"
+          style={{ overflowY: 'scroll', WebkitOverflowScrolling: 'touch' }}
+        >
+          <iframe
+            src={iframeSrc}
+            className="w-full h-full border-none"
+            title="Document PDF"
+          />
+        </div>
       ) : (
         <div className="flex-1 flex items-center justify-center text-sm text-gray-400">
           Aucun document spécifié.
