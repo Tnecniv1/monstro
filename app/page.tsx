@@ -61,8 +61,8 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="min-h-dvh bg-gray-50">
-      <div className="max-w-sm mx-auto px-5 pt-3 pb-6 flex flex-col">
+    <div className="h-dvh overflow-hidden bg-gray-50">
+      <div className="max-w-sm mx-auto px-5 pt-3 pb-6 flex flex-col justify-between">
 
         {/* Navbar — équivalent du header natif de Pixel */}
         <div className="flex items-center justify-between mb-4">
