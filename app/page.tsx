@@ -84,7 +84,7 @@ export default async function HomePage() {
                 {pseudo ? pseudo[0].toUpperCase() : '?'}
               </div>
             )}
-            <span className="font-semibold text-gray-900">{pseudo}</span>
+            <span className="font-semibold text-gray-900 truncate max-w-[140px]">{pseudo}</span>
           </Link>
           <div className="flex items-center gap-1">
             <Link href="/dashboard" className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 transition-colors">
@@ -121,16 +121,16 @@ export default async function HomePage() {
 
         {/* Boutons — équivalent du ctaBlock de Pixel (gap: 14, mt: 12) */}
         <div className="flex flex-col gap-[14px] mt-3">
-          <Link href="/entrainement" className="block w-full rounded-2xl py-[18px] px-5 text-center font-bold text-lg bg-gray-200 text-gray-900 active:bg-gray-300 transition-colors">
+          <Link href="/entrainement" className="block w-full rounded-2xl py-[13px] px-5 text-center font-bold text-lg bg-gray-200 text-gray-900 active:bg-gray-300 transition-colors">
             Entraînement
           </Link>
-          <Link href="/parcours" className="block w-full rounded-2xl py-[18px] px-5 text-center font-bold text-lg bg-gray-200 text-gray-900 active:bg-gray-300 transition-colors">
+          <Link href="/parcours" className="block w-full rounded-2xl py-[13px] px-5 text-center font-bold text-lg bg-gray-200 text-gray-900 active:bg-gray-300 transition-colors">
             Parcours
           </Link>
-          <Link href="/classement" className="block w-full rounded-2xl py-[18px] px-5 text-center font-bold text-lg bg-gray-200 text-gray-900 active:bg-gray-300 transition-colors">
+          <Link href="/classement" className="block w-full rounded-2xl py-[13px] px-5 text-center font-bold text-lg bg-gray-200 text-gray-900 active:bg-gray-300 transition-colors">
             Classement
           </Link>
-          <Link href="/bibliotheque" className="block w-full rounded-2xl py-[18px] px-5 text-center font-bold text-lg bg-gray-200 text-gray-900 active:bg-gray-300 transition-colors">
+          <Link href="/bibliotheque" className="block w-full rounded-2xl py-[13px] px-5 text-center font-bold text-lg bg-gray-200 text-gray-900 active:bg-gray-300 transition-colors">
             Bibliothèque
           </Link>
         </div>
