@@ -20,19 +20,32 @@ export default async function ClassementPage() {
     .from('observation')
     .select('etat, entrainement!inner(user_id)')
 
+  const { data: correctionsReussies } = await supabase
+    .from('correction_tentative')
+    .select('entrainement_id, entrainement!inner(user_id)')
+    .eq('statut', 'succes')
+
   type Profile = { id: string; pseudo: string | null; avatar_url: string | null }
   type ObsRow = { etat: string; entrainement: { user_id: string } }
+  type CorrRow = { entrainement_id: string; entrainement: { user_id: string } }
 
   const scores = (profiles ?? [] as Profile[]).map((profile) => {
     const userObs = (observations ?? [] as ObsRow[]).filter(
       (o) => (o.entrainement as { user_id: string }).user_id === profile.id
     )
-    const score = userObs.reduce((acc, o) => {
+    const obsScore = userObs.reduce((acc, o) => {
       if (o.etat === 'succes') return acc + 1
       if (o.etat === 'echec') return acc - 1
       return acc
     }, 0)
-    return { id: profile.id, pseudo: profile.pseudo ?? '—', avatar_url: profile.avatar_url ?? null, score }
+
+    const userCorrs = (correctionsReussies ?? [] as CorrRow[]).filter(
+      (c) => (c.entrainement as { user_id: string }).user_id === profile.id
+    )
+    const entrainementsCorrigesUniques = new Set(userCorrs.map((c) => c.entrainement_id))
+    const correctionBonus = entrainementsCorrigesUniques.size * 2
+
+    return { id: profile.id, pseudo: profile.pseudo ?? '—', avatar_url: profile.avatar_url ?? null, score: obsScore + correctionBonus }
   })
 
   scores.sort((a, b) => b.score - a.score)
