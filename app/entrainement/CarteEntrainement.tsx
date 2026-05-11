@@ -11,6 +11,8 @@ type ErreurCounts = {
   s1: number; s2: number; s3: number; s4: number
   r1: number; r2: number; r3: number; r4: number
 }
+type CorrectionTentative = { id: string; statut: string; date_creation: string }
+
 export type Entrainement = {
   id: string
   ref_exo: number
@@ -20,6 +22,7 @@ export type Entrainement = {
   observation: { etat: string } | null
   session: Session[]
   erreur: ErreurCounts | ErreurCounts[] | null
+  correction_tentative: CorrectionTentative[]
 }
 
 const ETAT_STYLE: Record<string, string> = {
@@ -55,9 +58,13 @@ type ActiveAction = 'session' | 'terminer' | null
 export default function CarteEntrainement({
   e,
   enCours = false,
+  correctionEnCours = false,
+  canStartCorrection = false,
 }: {
   e: Entrainement
   enCours?: boolean
+  correctionEnCours?: boolean
+  canStartCorrection?: boolean
 }) {
   const router = useRouter()
   const supabase = createClient()
@@ -94,6 +101,12 @@ export default function CarteEntrainement({
       : totalErreurs && totalErreurs > 0
         ? 'border-orange-200 text-orange-600'
         : 'border-gray-200 text-gray-300'
+
+  const corrections = e.correction_tentative ?? []
+  const correctionReussie = corrections.find((c) => c.statut === 'succes') ?? null
+  const correctionsEchouees = corrections.filter((c) => c.statut === 'echec').length
+
+  const isActive = enCours || correctionEnCours
 
   function toggleAction(action: ActiveAction) {
     setActiveAction((prev) => (prev === action ? null : action))
@@ -134,10 +147,45 @@ export default function CarteEntrainement({
     router.refresh()
   }
 
+  async function handleCommencerCorrection() {
+    setLoading(true)
+    setError(null)
+    const { error } = await supabase
+      .from('correction_tentative')
+      .insert({ entrainement_id: e.id, statut: 'en_cours', date_creation: todayISO() })
+    if (error) {
+      setError(error.message)
+    } else {
+      router.refresh()
+    }
+    setLoading(false)
+  }
+
+  async function handleTerminerCorrection(statut: 'succes' | 'echec') {
+    const correctionActive = corrections.find((c) => c.statut === 'en_cours')
+    if (!correctionActive) return
+    setLoading(true)
+    setError(null)
+    const { error } = await supabase
+      .from('correction_tentative')
+      .update({ statut, updated_at: new Date().toISOString() })
+      .eq('id', correctionActive.id)
+    if (error) {
+      setError(error.message)
+    } else {
+      router.refresh()
+    }
+    setLoading(false)
+  }
+
   return (
     <div
       className={`rounded-xl border bg-white space-y-0 overflow-hidden ${
-        enCours ? 'border-black shadow-sm' : 'border-gray-200'
+        enCours
+          ? 'border-black shadow-sm'
+          : correctionEnCours
+            ? 'border-purple-400 shadow-sm'
+            : 'border-gray-200'
       }`}
     >
       {/* Corps principal */}
@@ -154,10 +202,40 @@ export default function CarteEntrainement({
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setShowErreurs(true)}
-              className={`text-xs px-2 py-1 rounded border hover:border-gray-400 hover:text-gray-700 transition-colors ml-2 ${erreurClassName}`}
+              className={`text-xs px-2 py-1 rounded border hover:border-gray-400 hover:text-gray-700 transition-colors ${erreurClassName}`}
             >
               {erreurLabel}
             </button>
+
+            {/* Badge / bouton correction */}
+            {correctionEnCours && (
+              <span className="rounded-full bg-purple-600 px-2.5 py-0.5 text-xs font-medium text-white">
+                C
+              </span>
+            )}
+            {!correctionEnCours && !correctionReussie && correctionsEchouees > 0 && (
+              <button
+                onClick={canStartCorrection ? handleCommencerCorrection : undefined}
+                disabled={loading || !canStartCorrection}
+                className={`text-xs px-2 py-1 rounded border transition-colors ${
+                  canStartCorrection
+                    ? 'border-purple-300 text-purple-600 hover:border-purple-500 hover:text-purple-800'
+                    : 'border-purple-200 text-purple-400 cursor-default'
+                }`}
+              >
+                C={correctionsEchouees}
+              </button>
+            )}
+            {!correctionEnCours && !correctionReussie && correctionsEchouees === 0 && canStartCorrection && etat === 'echec' && (
+              <button
+                onClick={handleCommencerCorrection}
+                disabled={loading}
+                className="text-xs px-2 py-1 rounded border border-purple-300 text-purple-600 hover:border-purple-500 hover:text-purple-800 transition-colors disabled:opacity-50"
+              >
+                C
+              </button>
+            )}
+
             {enCours && (
               <span className="rounded-full bg-black px-2.5 py-0.5 text-xs font-medium text-white">
                 En cours
@@ -168,12 +246,18 @@ export default function CarteEntrainement({
 
         {/* Badges */}
         <div className="flex flex-wrap gap-2 text-xs">
-          {etat && (
-            <span
-              className={`rounded-full px-2.5 py-0.5 font-medium ${ETAT_STYLE[etat] ?? 'bg-gray-100 text-gray-600'}`}
-            >
-              {ETAT_LABEL[etat] ?? etat}
+          {correctionReussie ? (
+            <span className="rounded-full px-2.5 py-0.5 font-medium bg-purple-100 text-purple-700">
+              Corrigé ({corrections.length} tentative{corrections.length > 1 ? 's' : ''})
             </span>
+          ) : (
+            etat && (
+              <span
+                className={`rounded-full px-2.5 py-0.5 font-medium ${ETAT_STYLE[etat] ?? 'bg-gray-100 text-gray-600'}`}
+              >
+                {ETAT_LABEL[etat] ?? etat}
+              </span>
+            )
           )}
           {tempsTotal > 0 && (
             <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-gray-600">
@@ -182,8 +266,8 @@ export default function CarteEntrainement({
           )}
         </div>
 
-        {/* Actions — uniquement pour l'entraînement en cours */}
-        {enCours && (
+        {/* Actions — entraînement en cours OU correction en cours */}
+        {isActive && (
           <div className="flex gap-2 pt-2">
             <button
               onClick={() => toggleAction('session')}
@@ -225,7 +309,7 @@ export default function CarteEntrainement({
       </div>
 
       {/* Panneau inline — Ajouter une session */}
-      {enCours && activeAction === 'session' && (
+      {isActive && activeAction === 'session' && (
         <form
           onSubmit={handleAjouterSession}
           className="border-t border-gray-100 bg-gray-50 px-5 py-4 space-y-3"
@@ -269,21 +353,23 @@ export default function CarteEntrainement({
       )}
 
       {/* Panneau inline — Terminer */}
-      {enCours && activeAction === 'terminer' && (
+      {isActive && activeAction === 'terminer' && (
         <div className="border-t border-gray-100 bg-gray-50 px-5 py-4 space-y-3">
           <p className="text-xs font-medium text-gray-600">
-            Comment s&apos;est passé cet entraînement ?
+            {correctionEnCours
+              ? 'Comment s\'est passée cette correction ?'
+              : 'Comment s\'est passé cet entraînement ?'}
           </p>
           <div className="flex gap-3">
             <button
-              onClick={() => handleTerminer('succes')}
+              onClick={() => correctionEnCours ? handleTerminerCorrection('succes') : handleTerminer('succes')}
               disabled={loading}
               className="flex-1 rounded-xl bg-green-600 py-4 text-base font-medium text-white hover:bg-green-700 active:bg-green-800 disabled:opacity-50 transition-colors"
             >
               Succès
             </button>
             <button
-              onClick={() => handleTerminer('echec')}
+              onClick={() => correctionEnCours ? handleTerminerCorrection('echec') : handleTerminer('echec')}
               disabled={loading}
               className="flex-1 rounded-xl bg-red-600 py-4 text-base font-medium text-white hover:bg-red-700 active:bg-red-800 disabled:opacity-50 transition-colors"
             >

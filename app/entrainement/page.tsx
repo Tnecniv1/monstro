@@ -13,6 +13,14 @@ export default async function EntrainementPage() {
 
   if (!user) redirect('/login')
 
+  // Expire les corrections en_cours créées avant aujourd'hui
+  const today = new Date().toISOString().slice(0, 10)
+  await supabase
+    .from('correction_tentative')
+    .update({ statut: 'echec', updated_at: new Date().toISOString() })
+    .eq('statut', 'en_cours')
+    .lt('date_creation', today)
+
   const { data } = await supabase
     .from('entrainement')
     .select(`
@@ -23,7 +31,8 @@ export default async function EntrainementPage() {
       feuille_entrainement ( titre, correction ( pdf_url ) ),
       observation ( etat ),
       session ( temps_min, date ),
-      erreur ( c1,c2,c3,c4,s1,s2,s3,s4,r1,r2,r3,r4 )
+      erreur ( c1,c2,c3,c4,s1,s2,s3,s4,r1,r2,r3,r4 ),
+      correction_tentative ( id, statut, date_creation )
     `)
     .eq('user_id', user.id)
     .order('date_creation', { ascending: false })
@@ -31,8 +40,15 @@ export default async function EntrainementPage() {
   const entrainements = (data ?? []) as unknown as Entrainement[]
 
   const enCours = entrainements.find((e) => e.statut === 'en_cours') ?? null
+
+  const correctionEnCours = entrainements.find((e) =>
+    e.correction_tentative?.some((c) => c.statut === 'en_cours')
+  ) ?? null
+
+  const canStartCorrection = !enCours && !correctionEnCours
+
   const termines = entrainements
-    .filter((e) => e.statut !== 'en_cours')
+    .filter((e) => e.statut !== 'en_cours' && e.id !== correctionEnCours?.id)
     .sort((a, b) => {
       const dateA = a.session.map((s) => s.date).sort().reverse()[0] ?? a.date_creation
       const dateB = b.session.map((s) => s.date).sort().reverse()[0] ?? b.date_creation
@@ -56,8 +72,18 @@ export default async function EntrainementPage() {
           </section>
         )}
 
+        {/* Correction en cours */}
+        {correctionEnCours && (
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
+              Correction en cours
+            </h2>
+            <CarteEntrainement e={correctionEnCours} correctionEnCours canStartCorrection={false} />
+          </section>
+        )}
+
         {/* Bouton + modale nouvel entraînement */}
-        <EntrainementClient userId={user.id} enCours={!!enCours} />
+        <EntrainementClient userId={user.id} enCours={!!enCours || !!correctionEnCours} />
 
         {/* Historique */}
         {termines.length > 0 && (
@@ -67,13 +93,17 @@ export default async function EntrainementPage() {
             </h2>
             <div className="space-y-3">
               {termines.map((e) => (
-                <CarteEntrainement key={e.id} e={e} />
+                <CarteEntrainement
+                  key={e.id}
+                  e={e}
+                  canStartCorrection={canStartCorrection}
+                />
               ))}
             </div>
           </section>
         )}
 
-        {termines.length === 0 && !enCours && (
+        {termines.length === 0 && !enCours && !correctionEnCours && (
           <p className="text-center text-sm text-gray-400 py-12">
             Aucun entraînement pour l&apos;instant.
           </p>
