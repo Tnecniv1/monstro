@@ -6,6 +6,7 @@ export interface EnrichedProfile {
   avatar_url: string | null
   actif: boolean
   tempsTotal: number
+  is_fake: boolean
 }
 
 export interface RegulariteRow {
@@ -23,6 +24,7 @@ export interface RegulariteRow {
   obj_global_ref_exercice: number | null
   obj_global_note: string | null
   jours_actifs_total: number
+  is_fake: boolean
 }
 
 export interface ObjGlobal {
@@ -37,6 +39,7 @@ export interface UserRegularite {
   pseudo: string
   avatar_url: string | null
   jours_actifs_total: number
+  is_fake: boolean
   jours: Record<number, {
     indice: number
     feuille_id: string | null

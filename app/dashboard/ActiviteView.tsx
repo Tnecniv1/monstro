@@ -16,7 +16,7 @@ interface Props {
 
 export default function ActiviteView({ enriched, dateLabel, activeCount, masquerFakes }: Props) {
   const liste = masquerFakes
-    ? enriched.filter((p) => !p.pseudo?.startsWith('fake_'))
+    ? enriched.filter((p) => !p.is_fake)
     : enriched
   const nbActifs = masquerFakes
     ? liste.filter((p) => p.actif).length

@@ -14,7 +14,7 @@ export default async function DashboardPage() {
   const supabase = createClient()
   const today = new Date().toISOString().split('T')[0]
 
-  const [{ data: profiles }, { data: sessionsToday }] = await Promise.all([
+  const [{ data: profiles }, { data: sessionsToday }, { data: fakeData }] = await Promise.all([
     supabase
       .from('user_profile')
       .select('id, pseudo, avatar_url, prenom, nom')
@@ -23,7 +23,12 @@ export default async function DashboardPage() {
       .from('session')
       .select('date, temps_min, entrainement!inner(user_id)')
       .eq('date', today),
+    supabase.rpc('get_fake_user_ids'),
   ])
+
+  const fakeUserIds = new Set(
+    (fakeData ?? []).map((r: { user_id: string }) => r.user_id)
+  )
 
   const dateLabel = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long',
@@ -43,7 +48,7 @@ export default async function DashboardPage() {
     const actif =
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sessionsToday?.some((s: any) => s.entrainement.user_id === p.id) ?? false
-    return { ...p, actif, tempsTotal: tempsParUser[p.id] ?? 0 }
+    return { ...p, actif, tempsTotal: tempsParUser[p.id] ?? 0, is_fake: fakeUserIds.has(p.id) }
   })
 
   enriched.sort((a, b) => Number(b.actif) - Number(a.actif))

@@ -85,6 +85,7 @@ export default function RegulariteView({ currentUserId, masquerFakes }: Props) {
             pseudo: row.pseudo,
             avatar_url: row.avatar_url,
             jours_actifs_total: row.jours_actifs_total ?? 0,
+            is_fake: row.is_fake ?? false,
             jours: {},
             obj_global: {
               feuille_id:    row.obj_global_feuille_id   ?? null,
@@ -120,7 +121,7 @@ export default function RegulariteView({ currentUserId, masquerFakes }: Props) {
 
   const displayedRows = useMemo(() => {
     return masquerFakes
-      ? sortedRows.filter((r) => !r.pseudo?.startsWith('fake_'))
+      ? sortedRows.filter((r) => !r.is_fake)
       : sortedRows
   }, [sortedRows, masquerFakes])
 
