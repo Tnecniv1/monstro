@@ -132,21 +132,14 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
     const obj = userRow.obj_global
     if (!telephone || !obj.feuille_titre) return
 
-    const numero = telephone
-      .replace(/[\s\-\.]/g, '')
-      .replace(/^0/, '33')
+    const tel = telephone.replace(/[\s\-\.]/g, '')
+    const numero = tel.startsWith('0') ? '33' + tel.slice(1) : tel
 
-    const lignes = [
-      `Salut ${userRow.pseudo} !`,
-      '',
-      `On se fait un entrainement ce soir ?`,
-      `Sur la feuille ${obj.feuille_titre}${obj.ref_exercice != null ? ` — exercice ${obj.ref_exercice}` : ''}`,
-    ]
-    if (obj.note) lignes.push(`Note : ${obj.note}`)
-    if (obj.pdf_url) lignes.push(obj.pdf_url)
+    let msg = `Salut ${userRow.pseudo} !\n\nOn se fait un entrainement ce soir ?\nSur la feuille ${obj.feuille_titre} — exercice ${obj.ref_exercice}.`
+    if (obj.note) msg += `\nNote : ${obj.note}`
+    if (obj.pdf_url) msg += `\n${obj.pdf_url}`
 
-    const message = lignes.join('\n')
-    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(message)}`, '_blank')
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`, '_blank')
   }
 
   function handleCellClick(userRow: UserRegularite, jourSemaine: number) {
@@ -286,7 +279,7 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
                             </div>
                           )}
                         </div>
-                        {isAdmin && userRow.telephone && (
+                        {isAdmin && userRow.telephone && userRow.obj_global.feuille_titre && (
                           <button
                             onClick={(e) => { e.stopPropagation(); ouvrirWhatsApp(userRow) }}
                             title="Envoyer sur WhatsApp"
