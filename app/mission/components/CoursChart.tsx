@@ -78,7 +78,7 @@ export function CoursChart({ historique }: CoursChartProps) {
                 background: '#fff',
                 color: '#1a1a1a',
               }}
-              formatter={(value: number) => [`${value} T/px`, 'Taux']}
+              formatter={(value) => [`${value ?? 0} T/px`, 'Taux']}
             />
             <Line
               type="monotone"
