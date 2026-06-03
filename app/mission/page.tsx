@@ -16,6 +16,24 @@ export default async function MissionPage() {
 
   const supabase = createClient()
 
+  // Calcul du niveau PixelGrid : niveau 2 = 50 succès purs (etat = 'succes')
+  const { data: entIds } = await supabase
+    .from('entrainement')
+    .select('id')
+    .eq('user_id', user.id)
+
+  const entIdList = entIds?.map((e: { id: string }) => e.id) ?? []
+  const { count: pixelCount } = entIdList.length > 0
+    ? await supabase
+        .from('observation')
+        .select('id', { count: 'exact', head: true })
+        .eq('etat', 'succes')
+        .in('entrainement_id', entIdList)
+    : { count: 0 }
+
+  const isLevel2OrMore = (pixelCount ?? 0) >= 50
+  const blocked = !isLevel2OrMore && !isAdmin
+
   const [
     { data: missions },
     { data: historiqueTaux },
@@ -64,7 +82,16 @@ export default async function MissionPage() {
   const missionsFinales = (missions && missions.length > 0) ? missions : missionsExemple
 
   return (
-    <div style={{ height: '100dvh', background: '#FFFFFF', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', height: '100dvh', background: '#FFFFFF', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+      {/* Contenu principal — grisé et non interactif si accès bloqué */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        ...(blocked ? { filter: 'grayscale(1)', opacity: 0.35, pointerEvents: 'none', userSelect: 'none' } : {}),
+      }}>
 
       <HeaderMission isAdmin={isAdmin} />
 
@@ -98,6 +125,31 @@ export default async function MissionPage() {
           userId={user.id}
         />
       </div>
+
+      </div>{/* fin du wrapper contenu */}
+
+      {/* Overlay de blocage niveau 2 */}
+      {blocked && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100,
+        }}>
+          <p style={{
+            fontSize: 18,
+            fontWeight: 600,
+            color: '#1a1a1a',
+            textAlign: 'center',
+            padding: '0 32px',
+            lineHeight: 1.5,
+          }}>
+            Passe au niveau 2 pour débloquer cette partie !
+          </p>
+        </div>
+      )}
 
     </div>
   )
