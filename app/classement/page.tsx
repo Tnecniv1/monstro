@@ -35,6 +35,7 @@ export default async function ClassementPage() {
     )
     const obsScore = userObs.reduce((acc, o) => {
       if (o.etat === 'succes') return acc + 1
+      if (o.etat === 'corrige') return acc + 1
       if (o.etat === 'echec') return acc - 1
       return acc
     }, 0)

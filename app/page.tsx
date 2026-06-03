@@ -24,7 +24,7 @@ export default async function HomePage() {
       ? supabase
           .from('observation')
           .select('id', { count: 'exact', head: true })
-          .eq('etat', 'succes')
+          .in('etat', ['succes', 'corrige'])
           .in('entrainement_id', ids)
       : Promise.resolve({ count: 0 }),
     ids.length > 0
@@ -102,7 +102,7 @@ export default async function HomePage() {
           <LogoutButton />
         </div>
       </div>
-      <StreakBadge streak={streak} />
+      <StreakBadge streak={streak} pixels={count ?? 0} />
       <PixelGrid count={count ?? 0} />
 
       <div className="w-full max-w-sm space-y-3">
@@ -117,6 +117,9 @@ export default async function HomePage() {
         </Link>
         <Link href="/bibliotheque" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 hover:bg-gray-300 transition-colors">
           Bibliothèque
+        </Link>
+        <Link href="/mission" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 hover:bg-gray-300 transition-colors">
+          Missions
         </Link>
       </div>
     </div>

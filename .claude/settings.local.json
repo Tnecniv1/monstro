@@ -20,7 +20,11 @@
       "Bash(dir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\Autres\\\\application_calcul_mental\\\\pixel-mobile\")",
       "Bash(dir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\Autres\\\\application_calcul_mental\\\\pixel-dashboard\")",
       "Bash(Get-ChildItem *)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\monstro_app\" -Recurse -File | Where-Object {$_.Extension -in '.ts', '.tsx', '.json', '.mjs', '.config'} | Select-Object FullName | Sort-Object FullName | Format-List)",
+      "Bash(dir \"C:\\\\Users\\\\vince\\\\Desktop\\\\Monstro\\\\monstro_app\")"
     ]
   }
 }

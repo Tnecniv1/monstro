@@ -112,12 +112,9 @@ export default function PixelGrid({ count }: Props) {
       </div>
 
       {/* Textes de progression */}
-      <div className="text-center space-y-0.5">
+      <div className="text-center">
         <p className="text-sm font-medium text-gray-700">
           Niveau {levelIdx + 1} / 12 ({Math.round(totalCount / TOTAL_MAX * 100)}%)
-        </p>
-        <p className="text-sm text-gray-400">
-          {totalCount.toLocaleString('fr-FR')} succès
         </p>
       </div>
     </div>
