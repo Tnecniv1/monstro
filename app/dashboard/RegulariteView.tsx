@@ -51,9 +51,6 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      console.log('[RegulariteView] prop currentUserId :', currentUserId)
-      console.log('[RegulariteView] client auth user.id :', user?.id)
-      console.log('[RegulariteView] isAdmin              :', isAdmin)
       if (user?.id) setUserId(user.id)
     })
   }, [currentUserId])
@@ -121,9 +118,11 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
     })
   }, [rows, userId])
 
-  const displayedRows = masquerFakes
-    ? sortedRows.filter((r) => !r.pseudo?.startsWith('fake_'))
-    : sortedRows
+  const displayedRows = useMemo(() => {
+    return masquerFakes
+      ? sortedRows.filter((r) => !r.pseudo?.startsWith('fake_'))
+      : sortedRows
+  }, [sortedRows, masquerFakes])
 
   function handleCellClick(userRow: UserRegularite, jourSemaine: number) {
     if (userRow.user_id !== userId) return
@@ -139,9 +138,6 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
   }
 
   function handleGlobalClick(userRow: UserRegularite) {
-    console.log('[handleGlobalClick] userRow.user_id :', userRow.user_id)
-    console.log('[handleGlobalClick] userId           :', userId)
-    console.log('[handleGlobalClick] isAdmin          :', isAdmin)
     if (userRow.user_id !== userId) return
     setModalGlobal({
       userId: userRow.user_id,
