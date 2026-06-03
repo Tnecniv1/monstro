@@ -42,7 +42,7 @@ const EMPTY_OBJ_GLOBAL: ObjGlobal = {
   note: null,
 }
 
-export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }: Props) {
+export default function RegulariteView({ currentUserId, masquerFakes }: Props) {
   const supabase = createClient()
 
   // Source de vérité pour l'ID : récupéré côté client depuis l'auth,
