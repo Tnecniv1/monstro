@@ -114,15 +114,16 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
 
   // Tri séparé : user connecté en tête, puis alpha — recalculé quand userId est résolu
   const sortedRows = useMemo(() => {
-    const filtered = masquerFakes
-      ? rows.filter((r) => !r.pseudo?.startsWith('fake_'))
-      : rows
-    return [...filtered].sort((a, b) => {
+    return [...rows].sort((a, b) => {
       if (a.user_id === userId) return -1
       if (b.user_id === userId) return 1
       return (a.pseudo ?? '').localeCompare(b.pseudo ?? '', 'fr')
     })
-  }, [rows, userId, masquerFakes])
+  }, [rows, userId])
+
+  const displayedRows = masquerFakes
+    ? sortedRows.filter((r) => !r.pseudo?.startsWith('fake_'))
+    : sortedRows
 
   function handleCellClick(userRow: UserRegularite, jourSemaine: number) {
     if (userRow.user_id !== userId) return
@@ -175,7 +176,7 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
             </tr>
           </thead>
           <tbody>
-            {sortedRows.map((userRow) => {
+            {displayedRows.map((userRow) => {
               const isOwn = userRow.user_id === userId
               const obj   = userRow.obj_global ?? EMPTY_OBJ_GLOBAL
               const hasObj = !!obj.feuille_titre
