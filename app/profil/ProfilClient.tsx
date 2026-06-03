@@ -11,6 +11,7 @@ interface Props {
   nom: string
   prenom: string
   avatarUrl: string | null
+  telephone: string
 }
 
 function Avatar({ url, pseudo, size }: { url: string | null; pseudo: string; size: number }) {
@@ -37,7 +38,7 @@ function Avatar({ url, pseudo, size }: { url: string | null; pseudo: string; siz
   )
 }
 
-export default function ProfilClient({ userId, email, pseudo: initPseudo, nom: initNom, prenom: initPrenom, avatarUrl: initAvatarUrl }: Props) {
+export default function ProfilClient({ userId, email, pseudo: initPseudo, nom: initNom, prenom: initPrenom, avatarUrl: initAvatarUrl, telephone: initTelephone }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -45,6 +46,7 @@ export default function ProfilClient({ userId, email, pseudo: initPseudo, nom: i
   const [pseudo, setPseudo] = useState(initPseudo)
   const [nom, setNom] = useState(initNom)
   const [prenom, setPrenom] = useState(initPrenom)
+  const [telephone, setTelephone] = useState(initTelephone)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(initAvatarUrl)
   const [newEmail, setNewEmail] = useState('')
   const [loading, setLoading] = useState(false)
@@ -100,7 +102,7 @@ export default function ProfilClient({ userId, email, pseudo: initPseudo, nom: i
 
     const { error: err } = await supabase
       .from('user_profile')
-      .update({ pseudo, nom, prenom })
+      .update({ pseudo, nom, prenom, telephone: telephone || null })
       .eq('id', userId)
 
     if (err) {
@@ -168,6 +170,16 @@ export default function ProfilClient({ userId, email, pseudo: initPseudo, nom: i
             type="text"
             value={pseudo}
             onChange={(e) => setPseudo(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-gray-600">Téléphone</label>
+          <input
+            type="tel"
+            value={telephone}
+            onChange={(e) => setTelephone(e.target.value)}
+            placeholder="06 12 34 56 78"
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
           />
         </div>
