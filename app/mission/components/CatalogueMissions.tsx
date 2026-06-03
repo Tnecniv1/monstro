@@ -132,7 +132,7 @@ export function CatalogueMissions({
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <p style={{ fontSize: 11, color: '#888780', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                Confirmer l'achat
+                Confirmer l&apos;achat
               </p>
               <p style={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a' }}>{missionSelectionnee.titre}</p>
             </div>
