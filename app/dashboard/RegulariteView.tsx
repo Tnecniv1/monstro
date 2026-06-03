@@ -40,6 +40,7 @@ const EMPTY_OBJ_GLOBAL: ObjGlobal = {
   feuille_titre: null,
   ref_exercice: null,
   note: null,
+  pdf_url: null,
 }
 
 export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }: Props) {
