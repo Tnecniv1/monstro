@@ -53,12 +53,11 @@ export default function DashboardShell({
           </div>
 
           {isAdmin && (
-            <label className="flex items-center gap-2 cursor-pointer select-none">
+            <div className="flex items-center gap-2 cursor-pointer select-none" onClick={() => setMasquerFakes((v) => !v)}>
               <span className="text-sm text-gray-500">Masquer les faux élèves</span>
-              <button
+              <div
                 role="switch"
                 aria-checked={masquerFakes}
-                onClick={() => setMasquerFakes((v) => !v)}
                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                   masquerFakes ? 'bg-gray-900' : 'bg-gray-200'
                 }`}
@@ -68,8 +67,8 @@ export default function DashboardShell({
                     masquerFakes ? 'translate-x-4' : 'translate-x-1'
                   }`}
                 />
-              </button>
-            </label>
+              </div>
+            </div>
           )}
         </div>
 

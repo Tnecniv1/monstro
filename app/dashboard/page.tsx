@@ -14,21 +14,16 @@ export default async function DashboardPage() {
   const supabase = createClient()
   const today = new Date().toISOString().split('T')[0]
 
-  const [{ data: profiles }, { data: sessionsToday }, { data: entrainementsToday }] =
-    await Promise.all([
-      supabase
-        .from('user_profile')
-        .select('id, pseudo, avatar_url, prenom, nom')
-        .order('pseudo'),
-      supabase
-        .from('session')
-        .select('date, temps_min, entrainement!inner(user_id)')
-        .eq('date', today),
-      supabase
-        .from('entrainement')
-        .select('id, user_id')
-        .gte('date_creation', today + 'T00:00:00+00'),
-    ])
+  const [{ data: profiles }, { data: sessionsToday }] = await Promise.all([
+    supabase
+      .from('user_profile')
+      .select('id, pseudo, avatar_url, prenom, nom')
+      .order('pseudo'),
+    supabase
+      .from('session')
+      .select('date, temps_min, entrainement!inner(user_id)')
+      .eq('date', today),
+  ])
 
   const dateLabel = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long',
@@ -37,7 +32,6 @@ export default async function DashboardPage() {
   })
 
   type SessionRow = { date: string; temps_min: number; entrainement: { user_id: string } }
-  type EntrainementRow = { id: string; user_id: string }
 
   const tempsParUser: Record<string, number> = {}
   for (const s of (sessionsToday ?? []) as unknown as SessionRow[]) {
@@ -48,9 +42,7 @@ export default async function DashboardPage() {
   const enriched: EnrichedProfile[] = (profiles ?? []).map((p) => {
     const actif =
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sessionsToday?.some((s: any) => s.entrainement.user_id === p.id) ||
-      (entrainementsToday as EntrainementRow[] | null)?.some((e) => e.user_id === p.id) ||
-      false
+      sessionsToday?.some((s: any) => s.entrainement.user_id === p.id) ?? false
     return { ...p, actif, tempsTotal: tempsParUser[p.id] ?? 0 }
   })
 
