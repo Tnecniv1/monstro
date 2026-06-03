@@ -13,6 +13,7 @@ export interface RegulariteRow {
   user_id: string
   pseudo: string
   avatar_url: string | null
+  telephone: string | null
   jour_semaine: number
   indice: number
   feuille_id: string | null
@@ -23,6 +24,7 @@ export interface RegulariteRow {
   obj_global_feuille_titre: string | null
   obj_global_ref_exercice: number | null
   obj_global_note: string | null
+  obj_global_pdf_url: string | null
   jours_actifs_total: number
   is_fake: boolean
 }
@@ -32,12 +34,14 @@ export interface ObjGlobal {
   feuille_titre: string | null
   ref_exercice: number | null
   note: string | null
+  pdf_url: string | null
 }
 
 export interface UserRegularite {
   user_id: string
   pseudo: string
   avatar_url: string | null
+  telephone: string | null
   jours_actifs_total: number
   is_fake: boolean
   jours: Record<number, {
