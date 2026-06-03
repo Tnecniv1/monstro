@@ -11,23 +11,31 @@ interface Props {
   enriched: EnrichedProfile[]
   dateLabel: string
   activeCount: number
+  masquerFakes?: boolean
 }
 
-export default function ActiviteView({ enriched, dateLabel, activeCount }: Props) {
+export default function ActiviteView({ enriched, dateLabel, activeCount, masquerFakes }: Props) {
+  const liste = masquerFakes
+    ? enriched.filter((p) => !p.pseudo?.startsWith('fake_'))
+    : enriched
+  const nbActifs = masquerFakes
+    ? liste.filter((p) => p.actif).length
+    : activeCount
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
-          <span className={activeCount > 0 ? 'text-green-600' : 'text-red-500'}>
-            {activeCount}
+          <span className={nbActifs > 0 ? 'text-green-600' : 'text-red-500'}>
+            {nbActifs}
           </span>
-          <span className="text-gray-400"> / {enriched.length} actifs aujourd&apos;hui</span>
+          <span className="text-gray-400"> / {liste.length} actifs aujourd&apos;hui</span>
         </h1>
         <p className="text-sm text-gray-400 capitalize mt-0.5">{dateLabel}</p>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {enriched.map(({ id, pseudo, prenom, nom, avatar_url, actif, tempsTotal }) => {
+        {liste.map(({ id, pseudo, prenom, nom, avatar_url, actif, tempsTotal }) => {
           const label = pseudo ?? `${prenom} ${nom}`
 
           if (actif) {

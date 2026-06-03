@@ -12,6 +12,7 @@ const JOURS_LONG  = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'
 interface Props {
   currentUserId: string
   isAdmin: boolean
+  masquerFakes?: boolean
 }
 
 function globalColor(n: number): string {
@@ -41,7 +42,7 @@ const EMPTY_OBJ_GLOBAL: ObjGlobal = {
   note: null,
 }
 
-export default function RegulariteView({ currentUserId, isAdmin }: Props) {
+export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }: Props) {
   const supabase = createClient()
 
   // Source de vérité pour l'ID : récupéré côté client depuis l'auth,
@@ -113,12 +114,15 @@ export default function RegulariteView({ currentUserId, isAdmin }: Props) {
 
   // Tri séparé : user connecté en tête, puis alpha — recalculé quand userId est résolu
   const sortedRows = useMemo(() => {
-    return [...rows].sort((a, b) => {
+    const filtered = masquerFakes
+      ? rows.filter((r) => !r.pseudo?.startsWith('fake_'))
+      : rows
+    return [...filtered].sort((a, b) => {
       if (a.user_id === userId) return -1
       if (b.user_id === userId) return 1
       return (a.pseudo ?? '').localeCompare(b.pseudo ?? '', 'fr')
     })
-  }, [rows, userId])
+  }, [rows, userId, masquerFakes])
 
   function handleCellClick(userRow: UserRegularite, jourSemaine: number) {
     if (userRow.user_id !== userId) return

@@ -24,6 +24,7 @@ export default function DashboardShell({
   isAdmin,
 }: Props) {
   const [onglet, setOnglet] = useState<Onglet>('activite')
+  const [masquerFakes, setMasquerFakes] = useState(false)
 
   function tabClass(active: boolean) {
     return active
@@ -41,13 +42,35 @@ export default function DashboardShell({
           ← Retour
         </Link>
 
-        <div className="flex items-center gap-2">
-          <button className={tabClass(onglet === 'activite')} onClick={() => setOnglet('activite')}>
-            Activité
-          </button>
-          <button className={tabClass(onglet === 'regularite')} onClick={() => setOnglet('regularite')}>
-            Régularité
-          </button>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button className={tabClass(onglet === 'activite')} onClick={() => setOnglet('activite')}>
+              Activité
+            </button>
+            <button className={tabClass(onglet === 'regularite')} onClick={() => setOnglet('regularite')}>
+              Régularité
+            </button>
+          </div>
+
+          {isAdmin && (
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <span className="text-sm text-gray-500">Masquer les faux élèves</span>
+              <button
+                role="switch"
+                aria-checked={masquerFakes}
+                onClick={() => setMasquerFakes((v) => !v)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  masquerFakes ? 'bg-gray-900' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                    masquerFakes ? 'translate-x-4' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </label>
+          )}
         </div>
 
         {onglet === 'activite' && (
@@ -55,6 +78,7 @@ export default function DashboardShell({
             enriched={enriched}
             dateLabel={dateLabel}
             activeCount={activeCount}
+            masquerFakes={masquerFakes}
           />
         )}
 
@@ -62,6 +86,7 @@ export default function DashboardShell({
           <RegulariteView
             currentUserId={currentUserId}
             isAdmin={isAdmin}
+            masquerFakes={masquerFakes}
           />
         )}
       </div>
