@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import ActiviteView from './ActiviteView'
 import RegulariteView from './RegulariteView'
+import CommunicationView from './CommunicationView'
 import type { EnrichedProfile } from './types'
 
 interface Props {
@@ -14,7 +15,7 @@ interface Props {
   isAdmin: boolean
 }
 
-type Onglet = 'activite' | 'regularite'
+type Onglet = 'activite' | 'regularite' | 'communication'
 
 export default function DashboardShell({
   enriched,
@@ -50,6 +51,11 @@ export default function DashboardShell({
             <button className={tabClass(onglet === 'regularite')} onClick={() => setOnglet('regularite')}>
               Régularité
             </button>
+            {isAdmin && (
+              <button className={tabClass(onglet === 'communication')} onClick={() => setOnglet('communication')}>
+                Communication
+              </button>
+            )}
           </div>
 
           {isAdmin && (
@@ -87,6 +93,10 @@ export default function DashboardShell({
             isAdmin={isAdmin}
             masquerFakes={masquerFakes}
           />
+        )}
+
+        {onglet === 'communication' && isAdmin && (
+          <CommunicationView enriched={enriched} />
         )}
       </div>
     </div>

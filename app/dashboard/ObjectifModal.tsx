@@ -50,14 +50,14 @@ export default function ObjectifModal({
       if (feuilleIds.length > 0) {
         const { data: feuillesData } = await supabase
           .from('feuille_entrainement')
-          .select('id, volume, noeud:noeud_id(nom)')
+          .select('id, titre, volume')
           .in('id', feuilleIds)
 
         if (feuillesData) {
           setFeuilles(
-            (feuillesData as unknown as { id: string; volume: number; noeud: { nom: string } }[]).map((f) => ({
+            (feuillesData as unknown as { id: string; titre: string; volume: number }[]).map((f) => ({
               feuille_id: f.id,
-              titre: f.noeud?.nom ?? f.id,
+              titre: f.titre ?? f.id,
               volume: f.volume ?? 0,
             }))
           )

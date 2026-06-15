@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import ProfilClient from './ProfilClient'
+import RapportCard from './RapportCard'
+import { getUserStats } from '@/lib/stats/getUserStats'
 
 export default async function ProfilPage() {
   const supabase = createClient()
@@ -12,11 +14,14 @@ export default async function ProfilPage() {
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('user_profile')
-    .select('pseudo, nom, prenom, avatar_url, telephone')
-    .eq('id', user.id)
-    .single()
+  const [{ data: profile }, stats] = await Promise.all([
+    supabase
+      .from('user_profile')
+      .select('pseudo, nom, prenom, avatar_url, telephone')
+      .eq('id', user.id)
+      .single(),
+    getUserStats(user.id),
+  ])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -25,6 +30,7 @@ export default async function ProfilPage() {
           ← Monstro
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">Profil</h1>
+        <RapportCard {...stats} />
         <ProfilClient
           userId={user.id}
           email={user.email ?? ''}
