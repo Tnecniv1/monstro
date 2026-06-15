@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import ObjectifModal from './ObjectifModal'
@@ -144,7 +145,7 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
   }
 
   function handleCellClick(userRow: UserRegularite, jourSemaine: number) {
-    if (userRow.user_id !== userId) return
+    if (userRow.user_id !== userId && !isAdmin) return
     const jour = userRow.jours[jourSemaine]
     setModal({
       userId: userRow.user_id,
@@ -157,7 +158,7 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
   }
 
   function handleGlobalClick(userRow: UserRegularite) {
-    if (userRow.user_id !== userId) return
+    if (userRow.user_id !== userId && !isAdmin) return
     setModalGlobal({
       userId: userRow.user_id,
       obj: userRow.obj_global ?? EMPTY_OBJ_GLOBAL,
@@ -218,9 +219,18 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
                           {userRow.pseudo?.[0]?.toUpperCase() ?? '?'}
                         </div>
                       )}
-                      <span className="font-medium text-gray-900 truncate max-w-[96px]">
-                        {userRow.pseudo}
-                      </span>
+                      {isAdmin && !isOwn ? (
+                        <Link
+                          href={`/admin/eleve/${userRow.user_id}`}
+                          className="font-medium text-gray-900 truncate max-w-[96px] hover:underline"
+                        >
+                          {userRow.pseudo}
+                        </Link>
+                      ) : (
+                        <span className="font-medium text-gray-900 truncate max-w-[96px]">
+                          {userRow.pseudo}
+                        </span>
+                      )}
                     </div>
                   </td>
 
