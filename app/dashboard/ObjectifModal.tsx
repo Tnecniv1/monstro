@@ -45,9 +45,10 @@ export default function ObjectifModal({
         .select('feuille_id, feuille_entrainement(id, titre, volume)')
         .eq('user_id', userId)
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      type Row = { feuille_id: string; feuille_entrainement: { titre: string; volume: number } | null }
+      const rows = (data ?? []) as unknown as Row[]
       setFeuilles(
-        (data ?? []).map((r: any) => ({
+        rows.map((r) => ({
           feuille_id: r.feuille_id,
           titre: r.feuille_entrainement?.titre ?? r.feuille_id,
           volume: r.feuille_entrainement?.volume ?? 0,
