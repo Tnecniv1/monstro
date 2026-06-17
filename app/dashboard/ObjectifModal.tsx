@@ -40,29 +40,19 @@ export default function ObjectifModal({
 
   useEffect(() => {
     async function fetchFeuilles() {
-      const { data: focusData } = await supabase
+      const { data } = await supabase
         .from('feuille_focus')
-        .select('feuille_id')
+        .select('feuille_id, feuille_entrainement(id, titre, volume)')
         .eq('user_id', userId)
 
-      const feuilleIds = focusData?.map((f: { feuille_id: string }) => f.feuille_id) ?? []
-
-      if (feuilleIds.length > 0) {
-        const { data: feuillesData } = await supabase
-          .from('feuille_entrainement')
-          .select('id, titre, volume')
-          .in('id', feuilleIds)
-
-        if (feuillesData) {
-          setFeuilles(
-            (feuillesData as unknown as { id: string; titre: string; volume: number }[]).map((f) => ({
-              feuille_id: f.id,
-              titre: f.titre ?? f.id,
-              volume: f.volume ?? 0,
-            }))
-          )
-        }
-      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setFeuilles(
+        (data ?? []).map((r: any) => ({
+          feuille_id: r.feuille_id,
+          titre: r.feuille_entrainement?.titre ?? r.feuille_id,
+          volume: r.feuille_entrainement?.volume ?? 0,
+        }))
+      )
       setLoadingFeuilles(false)
     }
     fetchFeuilles()

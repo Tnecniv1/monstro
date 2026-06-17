@@ -252,7 +252,7 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
                       <td
                         key={j}
                         onClick={() => handleCellClick(userRow, j)}
-                        className={`px-2 py-2 align-top text-center ${isOwn ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                        className={`px-2 py-2 align-top text-center ${isOwn || isAdmin ? 'cursor-pointer hover:bg-gray-50' : ''}`}
                       >
                         <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${indiceStyle(indice)}`}>
                           {pct}%
@@ -275,7 +275,7 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
                   {/* Objectif global */}
                   <td
                     onClick={() => handleGlobalClick(userRow)}
-                    className={`px-3 py-2 align-top border-l border-gray-200 ${isOwn ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                    className={`px-3 py-2 align-top border-l border-gray-200 ${isOwn || isAdmin ? 'cursor-pointer hover:bg-gray-50' : ''}`}
                   >
                     {hasObj ? (
                       <div className="flex items-start justify-between gap-1">
@@ -303,7 +303,7 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
                         )}
                       </div>
                     ) : (
-                      isOwn && (
+                      (isOwn || isAdmin) && (
                         <span className="text-gray-300 flex justify-center">
                           <PencilIcon />
                         </span>
