@@ -5,6 +5,7 @@ import { useState } from 'react'
 import ActiviteView from './ActiviteView'
 import RegulariteView from './RegulariteView'
 import CommunicationView from './CommunicationView'
+import GlobalView from './GlobalView'
 import type { EnrichedProfile } from './types'
 
 interface Props {
@@ -15,7 +16,7 @@ interface Props {
   isAdmin: boolean
 }
 
-type Onglet = 'activite' | 'regularite' | 'communication'
+type Onglet = 'activite' | 'regularite' | 'communication' | 'global'
 
 export default function DashboardShell({
   enriched,
@@ -54,6 +55,11 @@ export default function DashboardShell({
             {isAdmin && (
               <button className={tabClass(onglet === 'communication')} onClick={() => setOnglet('communication')}>
                 Communication
+              </button>
+            )}
+            {isAdmin && (
+              <button className={tabClass(onglet === 'global')} onClick={() => setOnglet('global')}>
+                Global
               </button>
             )}
           </div>
@@ -97,6 +103,10 @@ export default function DashboardShell({
 
         {onglet === 'communication' && isAdmin && (
           <CommunicationView enriched={enriched} />
+        )}
+
+        {onglet === 'global' && isAdmin && (
+          <GlobalView />
         )}
       </div>
     </div>

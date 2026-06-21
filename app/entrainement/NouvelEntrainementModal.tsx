@@ -62,12 +62,12 @@ export default function NouvelEntrainementModal({
           )
         `)
         .order('ordre'),
-      supabase.from('feuille_focus').select('feuille_id'),
+      supabase.from('feuille_focus').select('feuille_id').eq('user_id', userId),
     ]).then(([{ data: f }, { data: focus }]) => {
       setFeuilles((f as unknown as Feuille[]) ?? [])
       setFocusIds(new Set(focus?.map((x) => x.feuille_id) ?? []))
     })
-  }, [])
+  }, [userId])
 
   const feuillesFiltrees = useMemo(() => {
     const base = showFocusOnly ? feuilles.filter((f) => focusIds.has(f.id)) : feuilles
