@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ErreurModal from './ErreurModal'
+import { getSignedPdfUrl } from '@/lib/getSignedPdfUrl'
 
 type Session = { temps_min: number; date: string }
 type ErreurCounts = {
@@ -291,7 +292,10 @@ export default function CarteEntrainement({
             </button>
             {correction?.pdf_url && (
               <button
-                onClick={() => router.push(`/viewer?url=${encodeURIComponent(correction.pdf_url)}`)}
+                onClick={async () => {
+                  const signed = await getSignedPdfUrl(correction.pdf_url)
+                  if (signed) router.push(`/viewer?url=${encodeURIComponent(signed)}`)
+                }}
                 title="Voir la correction PDF"
                 className="flex items-center gap-1.5 text-sm px-3 py-3 rounded-xl border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 active:bg-gray-50 transition-colors"
               >

@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getSignedPdfUrl } from '@/lib/getSignedPdfUrl'
 
 type NoeudBase = { id: string; nom: string; parent_id: string | null }
 type Noeud = NoeudBase & {
@@ -225,7 +226,11 @@ export default function BibliothequeClient({ feuilles, focusIds: initialFocusIds
             return (
               <div
                 key={f.id}
-                onClick={() => f.pdf_url && router.push(`/viewer?url=${encodeURIComponent(f.pdf_url)}`)}
+                onClick={async () => {
+                  if (!f.pdf_url) return
+                  const signed = await getSignedPdfUrl(f.pdf_url)
+                  if (signed) router.push(`/viewer?url=${encodeURIComponent(signed)}`)
+                }}
                 className={`relative rounded-xl border border-gray-200 bg-white p-5 space-y-3 ${
                   f.pdf_url ? 'cursor-pointer hover:border-gray-400 transition-colors' : 'cursor-default opacity-60'
                 }`}

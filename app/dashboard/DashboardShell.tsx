@@ -6,6 +6,7 @@ import ActiviteView from './ActiviteView'
 import RegulariteView from './RegulariteView'
 import CommunicationView from './CommunicationView'
 import GlobalView from './GlobalView'
+import AbonnementsView from './AbonnementsView'
 import type { EnrichedProfile } from './types'
 
 interface Props {
@@ -16,7 +17,7 @@ interface Props {
   isAdmin: boolean
 }
 
-type Onglet = 'activite' | 'regularite' | 'communication' | 'global'
+type Onglet = 'activite' | 'regularite' | 'communication' | 'global' | 'abonnements'
 
 export default function DashboardShell({
   enriched,
@@ -60,6 +61,11 @@ export default function DashboardShell({
             {isAdmin && (
               <button className={tabClass(onglet === 'global')} onClick={() => setOnglet('global')}>
                 Global
+              </button>
+            )}
+            {isAdmin && (
+              <button className={tabClass(onglet === 'abonnements')} onClick={() => setOnglet('abonnements')}>
+                Abonnements
               </button>
             )}
           </div>
@@ -107,6 +113,10 @@ export default function DashboardShell({
 
         {onglet === 'global' && isAdmin && (
           <GlobalView />
+        )}
+
+        {onglet === 'abonnements' && isAdmin && (
+          <AbonnementsView />
         )}
       </div>
     </div>

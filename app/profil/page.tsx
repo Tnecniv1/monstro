@@ -1,7 +1,9 @@
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import ProfilClient from './ProfilClient'
+import AbonnementCard from './AbonnementCard'
 
 export default async function ProfilPage() {
   const supabase = createClient()
@@ -14,9 +16,12 @@ export default async function ProfilPage() {
 
   const { data: profile } = await supabase
     .from('user_profile')
-    .select('pseudo, nom, prenom, avatar_url, telephone')
+    .select('pseudo, nom, prenom, avatar_url, telephone, plan, role')
     .eq('id', user.id)
     .single()
+
+  const showAccessBanner =
+    profile?.plan === 'gratuit' && profile?.role !== 'admin'
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -25,6 +30,26 @@ export default async function ProfilPage() {
           ← Monstro
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">Profil</h1>
+
+        {showAccessBanner && (
+          <div
+            style={{
+              background: '#EDEAE3',
+              borderRadius: 12,
+              padding: '16px 20px',
+              borderLeft: '3px solid #a78bfa',
+            }}
+          >
+            <p style={{ fontWeight: 700, color: '#1a1a1a', fontSize: 14, margin: 0 }}>
+              Accès limité
+            </p>
+            <p style={{ color: '#57534e', fontSize: 13, margin: '6px 0 0' }}>
+              Ton compte n&apos;a pas encore accès à l&apos;application. Abonne-toi
+              ci-dessous pour débloquer l&apos;accès complet.
+            </p>
+          </div>
+        )}
+
         <ProfilClient
           userId={user.id}
           email={user.email ?? ''}
@@ -34,6 +59,9 @@ export default async function ProfilPage() {
           avatarUrl={profile?.avatar_url ?? null}
           telephone={profile?.telephone ?? ''}
         />
+        <Suspense fallback={null}>
+          <AbonnementCard />
+        </Suspense>
       </div>
     </div>
   )

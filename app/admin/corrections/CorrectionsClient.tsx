@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getSignedPdfUrl } from '@/lib/getSignedPdfUrl'
 
 type NoeudBase = { id: string; nom: string; parent_id: string | null }
 type Noeud = NoeudBase & {
@@ -315,14 +316,17 @@ export default function CorrectionsClient({ feuilles = [] }: { feuilles: Feuille
                   <div className="shrink-0">
                     {hasCorrection(f) && correctionUrl ? (
                       <div className="flex items-center gap-2">
-                        <a
-                          href={correctionUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={async () => {
+                            if (!correctionUrl) return
+                            const signed = await getSignedPdfUrl(correctionUrl)
+                            if (signed) window.open(signed, '_blank', 'noopener,noreferrer')
+                          }}
                           className="text-xs text-gray-600 hover:text-gray-900"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                         >
                           📄 Voir
-                        </a>
+                        </button>
                         {correctionId && (
                           <button
                             onClick={() => handleDeleteCorrection(correctionId)}

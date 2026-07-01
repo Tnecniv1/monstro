@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getSignedPdfUrl } from '@/lib/getSignedPdfUrl'
 
 export type Noeud = {
   id: string
@@ -644,15 +645,18 @@ function NoeudAccordeon({
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-xs text-gray-400">{f.volume} ex.</span>
                       {f.pdf_url && (
-                        <a
-                          href={f.pdf_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={async () => {
+                            if (!f.pdf_url) return
+                            const signed = await getSignedPdfUrl(f.pdf_url)
+                            if (signed) window.open(signed, '_blank', 'noopener,noreferrer')
+                          }}
                           className="text-xs text-gray-400 hover:text-gray-700"
                           title="Voir le PDF"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                         >
                           PDF↗
-                        </a>
+                        </button>
                       )}
                       <div className="flex items-center gap-2">
                         <button
