@@ -109,6 +109,9 @@ export default async function HomePage() {
         <Link href="/entrainement" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 hover:bg-gray-300 transition-colors">
           Entraînement
         </Link>
+        <Link href="/apprendre" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 hover:bg-gray-300 transition-colors">
+          Apprendre
+        </Link>
         <Link href="/parcours" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 hover:bg-gray-300 transition-colors">
           Parcours
         </Link>
