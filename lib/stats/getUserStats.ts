@@ -8,32 +8,22 @@ export async function getUserStats(userId: string): Promise<UserStats> {
 
   const { data: ents } = await supabase
     .from('entrainement')
-    .select('id, feuille_id, statut, date_creation')
+    .select('id, date_creation')
     .eq('user_id', userId)
 
   const entIds = ents?.map((e) => e.id) ?? []
 
-  const [sessionsRes, obsRes, corrsRes, feuillesRes] = await Promise.all([
+  const [sessionsRes, obsRes] = await Promise.all([
     entIds.length > 0
       ? supabase.from('session').select('temps_min, date').in('entrainement_id', entIds)
       : { data: [] as { temps_min: number; date: string }[] | null },
     entIds.length > 0
       ? supabase.from('observation').select('etat, entrainement_id').in('entrainement_id', entIds)
       : { data: [] as { etat: string; entrainement_id: string }[] | null },
-    entIds.length > 0
-      ? supabase
-          .from('correction_tentative')
-          .select('entrainement_id')
-          .eq('statut', 'succes')
-          .in('entrainement_id', entIds)
-      : { data: [] as { entrainement_id: string }[] | null },
-    supabase.from('feuille_entrainement').select('id'),
   ])
 
   const sessions = sessionsRes.data ?? []
   const obs = obsRes.data ?? []
-  const corrs = corrsRes.data ?? []
-  const totalFeuilles = feuillesRes.data?.length ?? 0
 
   // Mois courant et mois précédent (pour les deltas)
   const now = new Date()
@@ -49,62 +39,50 @@ export async function getUserStats(userId: string): Promise<UserStats> {
     .filter((s) => s.date >= firstDayPrev && s.date < firstDayCurrent)
     .reduce((sum, s) => sum + s.temps_min, 0)
 
-  // Problèmes réussis (total)
+  // Problèmes réussis (total, toutes périodes confondues — progression vers l'objectif)
   const problemesReussis = obs.filter(
     (o) => o.etat === 'succes' || o.etat === 'corrige',
   ).length
 
-  // Score total
-  const obsScore = obs.reduce((acc, o) => {
-    if (o.etat === 'succes' || o.etat === 'corrige') return acc + 1
-    if (o.etat === 'echec') return acc - 1
-    return acc
-  }, 0)
-  const corrBonus = new Set(corrs.map((c) => c.entrainement_id)).size * 2
-  const scoreTotal = obsScore + corrBonus
-
-  // Score variation = score sur les entrainements du mois courant
+  // Entraînements du mois courant / précédent
   const entsThisMonth = new Set(
     (ents ?? [])
       .filter((e) => e.date_creation.slice(0, 10) >= firstDayCurrent)
       .map((e) => e.id),
   )
-  const scoreVariation = obs
-    .filter((o) => entsThisMonth.has(o.entrainement_id))
-    .reduce((acc, o) => {
-      if (o.etat === 'succes' || o.etat === 'corrige') return acc + 1
-      if (o.etat === 'echec') return acc - 1
-      return acc
-    }, 0)
-
-  // Feuilles
-  const feuilleTerminees = new Set(
-    (ents ?? [])
-      .filter((e) => e.statut === 'termine' && e.feuille_id)
-      .map((e) => e.feuille_id),
-  )
-  const feuilleEnCours = new Set(
+  const entsPrevMonth = new Set(
     (ents ?? [])
       .filter(
         (e) =>
-          e.statut === 'en_cours' &&
-          e.feuille_id &&
-          !feuilleTerminees.has(e.feuille_id),
+          e.date_creation.slice(0, 10) >= firstDayPrev &&
+          e.date_creation.slice(0, 10) < firstDayCurrent,
       )
-      .map((e) => e.feuille_id),
+      .map((e) => e.id),
   )
-  const feuillesFait = feuilleTerminees.size
-  const feuillesEnCours = feuilleEnCours.size
-  const feuillesNonFait = Math.max(0, totalFeuilles - feuillesFait - feuillesEnCours)
+
+  const obsThisMonth = obs.filter((o) => entsThisMonth.has(o.entrainement_id))
+  const obsPrevMonth = obs.filter((o) => entsPrevMonth.has(o.entrainement_id))
+
+  // Problèmes travaillés = nombre de problèmes rencontrés dans le mois
+  const problemesTravailles = obsThisMonth.length
+  const problemesTravaillesPrev = obsPrevMonth.length
+
+  // Taux de réussite = % de problèmes réussis parmi ceux travaillés dans le mois
+  const tauxReussiteFor = (list: typeof obs) => {
+    if (list.length === 0) return 0
+    const reussis = list.filter((o) => o.etat === 'succes' || o.etat === 'corrige').length
+    return Math.round((reussis / list.length) * 100)
+  }
+  const tauxReussite = tauxReussiteFor(obsThisMonth)
+  const tauxReussitePrev = tauxReussiteFor(obsPrevMonth)
 
   return {
-    problemesReussis,
+    problemesTravailles,
+    problemesTravaillesPrev,
     minutesConcentration,
     minutesConcentrationPrev,
-    scoreTotal,
-    scoreVariation,
-    feuillesFait,
-    feuillesEnCours,
-    feuillesNonFait,
+    tauxReussite,
+    tauxReussitePrev,
+    problemesReussis,
   }
 }

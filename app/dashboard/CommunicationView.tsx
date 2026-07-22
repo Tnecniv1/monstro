@@ -13,7 +13,6 @@ interface ReferentEntry {
   id: string        // referent.id
   prenom: string
   nom: string
-  relation: string
   telephone: string
   mode: 'whatsapp' | 'sms'
 }
@@ -23,14 +22,13 @@ interface RapportRow {
   id: string
   eleve_id: string
   mois: string
-  problemes_reussis: number
+  problemes_travailles: number
+  problemes_travailles_prev: number
   minutes_concentration: number
   minutes_concentration_prev: number
-  score_total: number
-  score_variation: number
-  feuilles_fait: number
-  feuilles_en_cours: number
-  feuilles_non_fait: number
+  taux_reussite: number
+  taux_reussite_prev: number
+  problemes_reussis: number
   note: string | null
   image_path: string | null
   envoye_le: string | null
@@ -99,11 +97,10 @@ export default function CommunicationView({ enriched }: Props) {
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
 
-  // Formulaire ajout référent (inline dans la cellule Parents)
+  // Formulaire ajout référent (inline dans la cellule Agora)
   const [openFormEleveId, setOpenFormEleveId] = useState<string | null>(null)
   const [formPrenom, setFormPrenom] = useState('')
   const [formNom, setFormNom] = useState('')
-  const [formRelation, setFormRelation] = useState<'parent' | 'prof' | 'autre'>('parent')
   const [formTelephone, setFormTelephone] = useState('')
   const [formMode, setFormMode] = useState<'whatsapp' | 'sms'>('whatsapp')
   const [formSaving, setFormSaving] = useState(false)
@@ -118,7 +115,7 @@ export default function CommunicationView({ enriched }: Props) {
     const [{ data: refRows }, { data: rapportRows }] = await Promise.all([
       supabase
         .from('referent_eleve')
-        .select('id, eleve_id, referent(id, prenom, nom, relation, telephone, mode)')
+        .select('id, eleve_id, referent(id, prenom, nom, telephone, mode)')
         .eq('actif', true),
       supabase.from('rapport_mensuel').select('*').eq('mois', mois),
     ])
@@ -133,7 +130,6 @@ export default function CommunicationView({ enriched }: Props) {
         id: r.referent.id,
         prenom: r.referent.prenom ?? '',
         nom: r.referent.nom ?? '',
-        relation: r.referent.relation,
         telephone: r.referent.telephone,
         mode: (r.referent.mode ?? 'whatsapp') as 'whatsapp' | 'sms',
       })
@@ -176,13 +172,12 @@ export default function CommunicationView({ enriched }: Props) {
     setFormError(null)
   }, [mois])
 
-  // ── Gestion référents (colonne Parents) ────────────────────────────────────
+  // ── Gestion référents (colonne Agora) ───────────────────────────────────────
 
   function ouvrirForm(eleveId: string) {
     setOpenFormEleveId(eleveId)
     setFormPrenom('')
     setFormNom('')
-    setFormRelation('parent')
     setFormTelephone('')
     setFormMode('whatsapp')
     setFormError(null)
@@ -192,7 +187,6 @@ export default function CommunicationView({ enriched }: Props) {
     setOpenFormEleveId(null)
     setFormPrenom('')
     setFormNom('')
-    setFormRelation('parent')
     setFormTelephone('')
     setFormMode('whatsapp')
     setFormError(null)
@@ -219,7 +213,6 @@ export default function CommunicationView({ enriched }: Props) {
       .insert({
         prenom: formPrenom.trim() || null,
         nom: formNom.trim(),
-        relation: formRelation,
         telephone: normalizePhone(formTelephone.trim()),
         mode: formMode,
       })
@@ -245,7 +238,7 @@ export default function CommunicationView({ enriched }: Props) {
     // Recharger les référents de cette ligne uniquement
     const { data: rows } = await supabase
       .from('referent_eleve')
-      .select('id, referent(id, prenom, nom, relation, telephone, mode)')
+      .select('id, referent(id, prenom, nom, telephone, mode)')
       .eq('eleve_id', eleveId)
       .eq('actif', true)
 
@@ -257,7 +250,6 @@ export default function CommunicationView({ enriched }: Props) {
         id: r.referent.id,
         prenom: r.referent.prenom ?? '',
         nom: r.referent.nom ?? '',
-        relation: r.referent.relation,
         telephone: r.referent.telephone,
         mode: (r.referent.mode ?? 'whatsapp') as 'whatsapp' | 'sms',
       })),
@@ -286,14 +278,13 @@ export default function CommunicationView({ enriched }: Props) {
       const newRowData = {
         eleve_id: eleveId,
         mois,
-        problemes_reussis: (row as RapportRow)?.problemes_reussis ?? 0,
+        problemes_travailles: (row as RapportRow)?.problemes_travailles ?? 0,
+        problemes_travailles_prev: (row as RapportRow)?.problemes_travailles_prev ?? 0,
         minutes_concentration: (row as RapportRow)?.minutes_concentration ?? 0,
         minutes_concentration_prev: (row as RapportRow)?.minutes_concentration_prev ?? 0,
-        score_total: (row as RapportRow)?.score_total ?? 0,
-        score_variation: (row as RapportRow)?.score_variation ?? 0,
-        feuilles_fait: (row as RapportRow)?.feuilles_fait ?? 0,
-        feuilles_en_cours: (row as RapportRow)?.feuilles_en_cours ?? 0,
-        feuilles_non_fait: (row as RapportRow)?.feuilles_non_fait ?? 0,
+        taux_reussite: (row as RapportRow)?.taux_reussite ?? 0,
+        taux_reussite_prev: (row as RapportRow)?.taux_reussite_prev ?? 0,
+        problemes_reussis: (row as RapportRow)?.problemes_reussis ?? 0,
         note: null,
         image_path: null,
         envoye_le: null,
@@ -341,14 +332,13 @@ export default function CommunicationView({ enriched }: Props) {
 
     try {
       console.log('[genererPng] props =', {
-        problemes_reussis: panneauRapport.problemes_reussis,
+        problemes_travailles: panneauRapport.problemes_travailles,
+        problemes_travailles_prev: panneauRapport.problemes_travailles_prev,
         minutes_concentration: panneauRapport.minutes_concentration,
         minutes_concentration_prev: panneauRapport.minutes_concentration_prev,
-        score_total: panneauRapport.score_total,
-        score_variation: panneauRapport.score_variation,
-        feuilles_fait: panneauRapport.feuilles_fait,
-        feuilles_en_cours: panneauRapport.feuilles_en_cours,
-        feuilles_non_fait: panneauRapport.feuilles_non_fait,
+        taux_reussite: panneauRapport.taux_reussite,
+        taux_reussite_prev: panneauRapport.taux_reussite_prev,
+        problemes_reussis: panneauRapport.problemes_reussis,
         note,
       })
       await document.fonts.ready
@@ -371,7 +361,7 @@ export default function CommunicationView({ enriched }: Props) {
 
       const { error: upErr } = await supabase.storage
         .from('rapports')
-        .upload(path, blob, { upsert: true, contentType: 'image/png' })
+        .upload(path, blob, { upsert: true, contentType: 'image/png', cacheControl: '0' })
 
       if (upErr) throw new Error(upErr.message)
 
@@ -397,7 +387,7 @@ export default function CommunicationView({ enriched }: Props) {
       .from('rapports')
       .getPublicUrl(panneauRapport.image_path)
 
-    const url = publicData.publicUrl
+    const url = `${publicData.publicUrl}?v=${Date.now()}`
     const msg = `Bonjour, voici le rapport mensuel de ${panneau.pseudo} pour ${formatMoisLabel(mois)} sur Monstro : ${url}`
     const tel = ref.telephone
 
@@ -503,7 +493,7 @@ export default function CommunicationView({ enriched }: Props) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                {['Étudiant', 'Parents', `Rapport ${formatMoisCourt(mois)}`, 'Envoyés', ''].map((h, i) => (
+                {['Étudiant', 'Agora', `Rapport ${formatMoisCourt(mois)}`, 'Envoyés', ''].map((h, i) => (
                   <th
                     key={i}
                     style={{
@@ -547,7 +537,7 @@ export default function CommunicationView({ enriched }: Props) {
                       {pseudo}
                     </td>
 
-                    {/* Parents — gestion inline */}
+                    {/* Agora — gestion inline */}
                     <td style={{ padding: '10px 16px', verticalAlign: 'top', minWidth: 220 }}>
                       {/* Liste des référents actifs */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: refs.length > 0 || formOpen ? 6 : 0 }}>
@@ -607,15 +597,6 @@ export default function CommunicationView({ enriched }: Props) {
                             />
                           </div>
                           <div style={{ display: 'flex', gap: 5 }}>
-                            <select
-                              value={formRelation}
-                              onChange={(e) => setFormRelation(e.target.value as 'parent' | 'prof' | 'autre')}
-                              style={{ ...cellInputStyle, flex: '0 0 auto' }}
-                            >
-                              <option value="parent">Parent</option>
-                              <option value="prof">Professeur</option>
-                              <option value="autre">Autre</option>
-                            </select>
                             <input
                               type="tel"
                               placeholder="33698815992 — format international sans +"
@@ -809,14 +790,13 @@ export default function CommunicationView({ enriched }: Props) {
               <>
                 {/* RapportCard */}
                 <RapportCard
-                  problemesReussis={panneauRapport.problemes_reussis}
+                  problemesTravailles={panneauRapport.problemes_travailles}
+                  problemesTravaillesPrev={panneauRapport.problemes_travailles_prev}
                   minutesConcentration={panneauRapport.minutes_concentration}
                   minutesConcentrationPrev={panneauRapport.minutes_concentration_prev}
-                  scoreTotal={panneauRapport.score_total}
-                  scoreVariation={panneauRapport.score_variation}
-                  feuillesFait={panneauRapport.feuilles_fait}
-                  feuillesEnCours={panneauRapport.feuilles_en_cours}
-                  feuillesNonFait={panneauRapport.feuilles_non_fait}
+                  tauxReussite={panneauRapport.taux_reussite}
+                  tauxReussitePrev={panneauRapport.taux_reussite_prev}
+                  problemesReussis={panneauRapport.problemes_reussis}
                   note={note || null}
                 />
 
@@ -986,22 +966,21 @@ export default function CommunicationView({ enriched }: Props) {
         </div>
       )}
 
-      {/* Div hors-écran pour capture PNG (945×858) */}
+      {/* Div hors-écran pour capture PNG (portrait ~1080×2400) */}
       {/* Div hors-écran pour capture PNG : simple conteneur de positionnement, pas de taille imposée */}
       {panneauRapport && (
         <div style={{ position: 'fixed', left: -10000, top: 0 }}>
           <RapportCard
             ref={cardRef}
-            problemesReussis={panneauRapport.problemes_reussis}
+            problemesTravailles={panneauRapport.problemes_travailles}
+            problemesTravaillesPrev={panneauRapport.problemes_travailles_prev}
             minutesConcentration={panneauRapport.minutes_concentration}
             minutesConcentrationPrev={panneauRapport.minutes_concentration_prev}
-            scoreTotal={panneauRapport.score_total}
-            scoreVariation={panneauRapport.score_variation}
-            feuillesFait={panneauRapport.feuilles_fait}
-            feuillesEnCours={panneauRapport.feuilles_en_cours}
-            feuillesNonFait={panneauRapport.feuilles_non_fait}
+            tauxReussite={panneauRapport.taux_reussite}
+            tauxReussitePrev={panneauRapport.taux_reussite_prev}
+            problemesReussis={panneauRapport.problemes_reussis}
             note={note || null}
-            captureWidth={945}
+            captureWidth={1080}
           />
         </div>
       )}

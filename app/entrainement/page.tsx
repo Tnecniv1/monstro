@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import EntrainementClient from './EntrainementClient'
-import CarteEntrainement, { type Entrainement } from './CarteEntrainement'
+import type { Entrainement } from './CarteEntrainement'
 
 export default async function EntrainementPage() {
   const supabase = createClient()
@@ -60,54 +60,14 @@ export default async function EntrainementPage() {
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
 
         <Link href="/" className="inline-block text-sm text-gray-400 hover:text-gray-700 transition-colors py-2 -my-2">← Monstro</Link>
-        <h1 className="text-2xl font-bold text-gray-900">Entraînements</h1>
 
-        {/* Entraînement en cours */}
-        {enCours && (
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
-              En cours
-            </h2>
-            <CarteEntrainement e={enCours} enCours />
-          </section>
-        )}
-
-        {/* Correction en cours */}
-        {correctionEnCours && (
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
-              Correction en cours
-            </h2>
-            <CarteEntrainement e={correctionEnCours} correctionEnCours canStartCorrection={false} />
-          </section>
-        )}
-
-        {/* Bouton + modale nouvel entraînement */}
-        <EntrainementClient userId={user.id} enCours={!!enCours || !!correctionEnCours} />
-
-        {/* Historique */}
-        {termines.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
-              Historique
-            </h2>
-            <div className="space-y-3">
-              {termines.map((e) => (
-                <CarteEntrainement
-                  key={e.id}
-                  e={e}
-                  canStartCorrection={canStartCorrection}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {termines.length === 0 && !enCours && !correctionEnCours && (
-          <p className="text-center text-sm text-gray-400 py-12">
-            Aucun entraînement pour l&apos;instant.
-          </p>
-        )}
+        <EntrainementClient
+          userId={user.id}
+          enCours={enCours}
+          correctionEnCours={correctionEnCours}
+          termines={termines}
+          canStartCorrection={canStartCorrection}
+        />
       </div>
     </div>
   )

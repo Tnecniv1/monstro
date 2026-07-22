@@ -78,7 +78,10 @@
       "Bash(supabase gen *)",
       "Bash(supabase migration *)",
       "Bash(rm -f /c/Users/vince/Desktop/Monstro/supabase/migrations/20260715120000_add_categorie_to_conversation_sujet.sql)",
-      "Bash(rmdir /c/Users/vince/Desktop/Monstro/supabase/migrations)"
+      "Bash(rmdir /c/Users/vince/Desktop/Monstro/supabase/migrations)",
+      "Bash(xargs -I{} sh -c 'echo \"== {} ==\"; wc -l {}')",
+      "Bash(python3 -c ' *)",
+      "Bash(git *)"
     ]
   }
 }
