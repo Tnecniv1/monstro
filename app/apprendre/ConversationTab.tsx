@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import ConversationDetail from './ConversationDetail'
-import GridTile, { GRID_CONTAINER_CLASS } from './GridTile'
+import GridTile, { GRID_CONTAINER_CLASS, type EtatTuile } from './GridTile'
 
 export type ConversationSujet = {
   id: string
@@ -29,20 +29,10 @@ interface Props {
   userId: string
 }
 
-function styleCarte(soumission: ConversationSoumission | undefined) {
-  if (soumission?.resultat === 'succes') {
-    return { bg: '#bbf7d0', border: '#4ade80', opacity: 1, borderWidth: 2 }
-  }
-  if (soumission?.resultat === 'echec') {
-    return { bg: '#F5C77E', border: '#a78bfa', opacity: 1, borderWidth: 3 }
-  }
-  return { bg: '#F5C77E', border: '#a78bfa', opacity: 0.55, borderWidth: 2 }
-}
-
 function statutCarte(soumission: ConversationSoumission | undefined) {
-  if (soumission?.resultat === 'succes') return { label: 'Succès ✓', className: 'text-green-800 font-semibold' }
-  if (soumission?.resultat === 'echec') return { label: 'Échec', className: 'text-gray-700 font-medium' }
-  return { label: 'Pas encore tenté', className: 'text-gray-500' }
+  if (soumission?.resultat === 'succes') return { label: 'Succès ✓', className: 'text-success font-semibold' }
+  if (soumission?.resultat === 'echec') return { label: 'Échec', className: 'text-text-secondary font-medium' }
+  return { label: 'Pas encore tenté', className: 'text-text-secondary' }
 }
 
 export default function ConversationTab({ userId }: Props) {
@@ -138,33 +128,29 @@ export default function ConversationTab({ userId }: Props) {
       </div>
 
       <div className="space-y-8">
-        {categories.map((categorie) => (
-          <div key={categorie} className="space-y-3">
-            <h2 className="text-sm font-semibold text-gray-500">{categorie}</h2>
-            <div className={GRID_CONTAINER_CLASS}>
-              {sujetsNiveau
-                .filter((s) => s.categorie === categorie)
-                .map((s) => {
-                  const { bg, border, opacity, borderWidth } = styleCarte(soumissions[s.id])
+        {categories.map((categorie) => {
+          const sujetsCategorie = sujetsNiveau.filter((s) => s.categorie === categorie)
+          const indexCourant = sujetsCategorie.findIndex((s) => soumissions[s.id]?.resultat !== 'succes')
+          return (
+            <div key={categorie} className="space-y-3">
+              <h2 className="text-sm font-semibold text-gray-500">{categorie}</h2>
+              <div className={GRID_CONTAINER_CLASS}>
+                {sujetsCategorie.map((s, i) => {
+                  const termine = soumissions[s.id]?.resultat === 'succes'
+                  const etat: EtatTuile = termine ? 'terminee' : i === indexCourant ? 'disponible' : 'verrouille'
                   const statut = statutCarte(soumissions[s.id])
                   return (
-                    <GridTile
-                      key={s.id}
-                      onClick={() => setSujetActif(s)}
-                      backgroundColor={bg}
-                      borderColor={border}
-                      opacity={opacity}
-                      borderWidth={borderWidth}
-                    >
-                      <span className="font-bold font-serif text-base">{s.titre}</span>
-                      <span className="italic font-serif text-sm">{s.categorie}</span>
+                    <GridTile key={s.id} onClick={() => setSujetActif(s)} etat={etat}>
+                      <span className="font-bold font-display text-base">{s.titre}</span>
+                      <span className="italic font-display text-sm">{s.categorie}</span>
                       <span className={`mt-1.5 text-xs ${statut.className}`}>{statut.label}</span>
                     </GridTile>
                   )
                 })}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

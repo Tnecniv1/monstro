@@ -34,18 +34,23 @@ function formatDateFR(iso: string): string {
   })
 }
 
-function statutInfo(statut: Statut | null | undefined): { label: string; color: string } {
+function statutInfo(statut: Statut | null | undefined): {
+  label: string
+  dotClass: string
+  textClass: string
+} {
   switch (statut) {
     case 'active':
     case 'trialing':
-      return { label: 'Abonnement actif', color: '#4ade80' }
+      return { label: 'Abonnement actif', dotClass: 'bg-success', textClass: 'text-success' }
     case 'past_due':
+      return { label: 'Paiement en attente', dotClass: 'bg-warning', textClass: 'text-warning' }
     case 'unpaid':
-      return { label: 'Paiement en attente', color: '#f87171' }
+      return { label: 'Paiement en attente', dotClass: 'bg-danger', textClass: 'text-danger' }
     case 'paused':
-      return { label: 'En pause', color: '#a78bfa' }
+      return { label: 'En pause', dotClass: 'bg-warning', textClass: 'text-warning' }
     default:
-      return { label: 'Aucun abonnement actif', color: '#9ca3af' }
+      return { label: 'Aucun abonnement actif', dotClass: 'bg-text-muted', textClass: 'text-text-secondary' }
   }
 }
 
@@ -111,7 +116,7 @@ export default function AbonnementCard() {
   }, [retour])
 
   const hasSub = abonnement ? ACTIVE_STATUTS.includes(abonnement.statut) : false
-  const { label, color } = statutInfo(abonnement?.statut)
+  const { label, dotClass, textClass } = statutInfo(abonnement?.statut)
 
   async function handlePortal() {
     setInvoking(true)
@@ -141,43 +146,25 @@ export default function AbonnementCard() {
   }
 
   return (
-    <div
-      style={{
-        background: '#ffffff',
-        borderRadius: 16,
-        padding: '20px 24px',
-        border: '1px solid #EDEAE3',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 16,
-      }}
-    >
-      <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', letterSpacing: '-0.01em' }}>
+    <div className="bg-surface border border-border rounded-2xl px-6 py-5 flex flex-col gap-4">
+      <div className="text-sm font-bold text-text-primary tracking-tight">
         Abonnement
       </div>
 
       {loading || activating ? (
-        <div style={{ fontSize: 13, color: '#9ca3af' }}>
+        <div className="text-[13px] text-text-muted">
           {activating ? 'Activation en cours…' : 'Chargement…'}
         </div>
       ) : (
         <>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: color,
-                  flexShrink: 0,
-                }}
-              />
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{label}</span>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotClass}`} />
+              <span className={`text-[13px] font-semibold ${textClass}`}>{label}</span>
             </div>
             {hasSub && abonnement?.current_period_end && (
-              <div style={{ fontSize: 12, color: '#6b7280', paddingLeft: 16 }}>
-                Prochain renouvellement : {formatDateFR(abonnement.current_period_end)}
+              <div className="text-xs text-text-muted pl-4">
+                Prochain renouvellement : {formatDateFR(abonnement.current_period_end)}
               </div>
             )}
           </div>
@@ -186,20 +173,8 @@ export default function AbonnementCard() {
             <button
               onClick={handlePortal}
               disabled={invoking}
-              style={{
-                background: '#EDEAE3',
-                border: 'none',
-                borderRadius: 10,
-                padding: '10px 16px',
-                fontSize: 13,
-                fontWeight: 600,
-                color: '#1a1a1a',
-                cursor: invoking ? 'not-allowed' : 'pointer',
-                opacity: invoking ? 0.6 : 1,
-                transition: 'opacity 0.15s',
-                width: '100%',
-                textAlign: 'left',
-              }}
+              className="bg-surface-2 border border-border-strong text-text-primary hover:bg-surface rounded-[10px] px-4 py-2.5 text-[13px] font-semibold w-full text-left transition-opacity"
+              style={{ cursor: invoking ? 'not-allowed' : 'pointer', opacity: invoking ? 0.6 : 1 }}
             >
               {invoking ? 'Redirection…' : 'Gérer mon abonnement'}
             </button>
@@ -207,25 +182,14 @@ export default function AbonnementCard() {
             <button
               onClick={handleCheckout}
               disabled={invoking}
-              style={{
-                background: '#a78bfa',
-                border: 'none',
-                borderRadius: 10,
-                padding: '10px 16px',
-                fontSize: 13,
-                fontWeight: 600,
-                color: '#ffffff',
-                cursor: invoking ? 'not-allowed' : 'pointer',
-                opacity: invoking ? 0.6 : 1,
-                transition: 'opacity 0.15s',
-                width: '100%',
-              }}
+              className="bg-accent text-bg rounded-[10px] px-4 py-2.5 text-[13px] font-semibold w-full transition-opacity"
+              style={{ cursor: invoking ? 'not-allowed' : 'pointer', opacity: invoking ? 0.6 : 1 }}
             >
-              {invoking ? 'Redirection…' : "S’abonner — 50 €/mois"}
+              {invoking ? 'Redirection…' : "S’abonner — 50 €/mois"}
             </button>
           )}
 
-          {error && <p style={{ fontSize: 12, color: '#f87171', margin: 0 }}>{error}</p>}
+          {error && <p className="text-xs text-danger m-0">{error}</p>}
         </>
       )}
     </div>

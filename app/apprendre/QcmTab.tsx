@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Niveau } from './ApprendreClient'
 import QcmSession from './QcmSession'
-import GridTile, { GRID_CONTAINER_CLASS } from './GridTile'
+import GridTile, { GRID_CONTAINER_CLASS, type EtatTuile } from './GridTile'
 
 export type Stats = { total: number; vues: number; vrai: number; faux: number; corrige: number }
 
@@ -74,21 +74,21 @@ export default function QcmTab({ userId, niveaux }: Props) {
     return <p className="text-center text-sm text-gray-400 py-12">Aucun niveau disponible pour l&apos;instant.</p>
   }
 
+  const indexCourant = niveaux.findIndex((n) => {
+    const stats = statsParNiveau[n.niveau] ?? STATS_VIDES
+    return !(validesForce.has(n.niveau) || (stats.total > 0 && stats.vrai + stats.corrige === stats.total))
+  })
+
   return (
     <div className={GRID_CONTAINER_CLASS}>
-      {niveaux.map((n) => {
+      {niveaux.map((n, i) => {
         const stats = statsParNiveau[n.niveau] ?? STATS_VIDES
         const valide = validesForce.has(n.niveau) || (stats.total > 0 && stats.vrai + stats.corrige === stats.total)
+        const etat: EtatTuile = valide ? 'terminee' : i === indexCourant ? 'disponible' : 'verrouille'
         return (
-          <GridTile
-            key={n.niveau}
-            onClick={() => setNiveauActif(n)}
-            backgroundColor="#F5C77E"
-            borderColor="#a78bfa"
-            opacity={valide ? 1 : 0.55}
-          >
-            <span className="font-bold font-serif text-base">Niveau {n.niveau}</span>
-            <span className="italic font-serif text-sm">{n.nom}</span>
+          <GridTile key={n.niveau} onClick={() => setNiveauActif(n)} etat={etat}>
+            <span className="font-bold font-display text-base">Niveau {n.niveau}</span>
+            <span className="italic font-display text-sm">{n.nom}</span>
             <span className="mt-1.5 text-xs">
               {stats.vues}/{stats.total}
             </span>

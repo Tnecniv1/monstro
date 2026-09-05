@@ -56,10 +56,10 @@ export default async function EntrainementPage() {
     })
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-bg">
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
 
-        <Link href="/" className="inline-block text-sm text-gray-400 hover:text-gray-700 transition-colors py-2 -my-2">← Monstro</Link>
+        <Link href="/" className="inline-block text-sm text-text-muted hover:text-text-secondary transition-colors py-2 -my-2">← Monstro</Link>
 
         <EntrainementClient
           userId={user.id}

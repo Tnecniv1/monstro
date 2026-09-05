@@ -17,15 +17,15 @@ interface Props {
 }
 
 function globalColor(n: number): string {
-  if (n <= 30) return 'text-red-600'
-  if (n <= 60) return 'text-orange-600'
-  return 'text-green-700'
+  if (n <= 30) return 'text-danger'
+  if (n <= 60) return 'text-warning'
+  return 'text-success'
 }
 
 function indiceStyle(indice: number): string {
-  if (indice <= 0.30) return 'bg-red-50 text-red-600'
-  if (indice <= 0.60) return 'bg-orange-50 text-orange-600'
-  return 'bg-green-50 text-green-700'
+  if (indice <= 0.30) return 'bg-danger/15 text-danger'
+  if (indice <= 0.60) return 'bg-warning/15 text-warning'
+  return 'bg-success/15 text-success'
 }
 
 const PencilIcon = () => (
@@ -166,27 +166,27 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
   }
 
   if (loading) {
-    return <div className="text-sm text-gray-400 py-12 text-center">Chargement…</div>
+    return <div className="text-sm text-text-muted py-12 text-center">Chargement…</div>
   }
 
   return (
     <>
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+      <div className="overflow-x-auto rounded-xl border border-border bg-surface">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide w-40">
+            <tr className="border-b border-border bg-surface-2">
+              <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wide w-40">
                 Élève
               </th>
-              <th className="text-center px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <th className="text-center px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wide">
                 Global
               </th>
               {JOURS_COURT.map((j) => (
-                <th key={j} className="text-center px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                <th key={j} className="text-center px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wide">
                   {j}
                 </th>
               ))}
-              <th className="text-center px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide border-l border-gray-200">
+              <th className="text-center px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wide border-l border-border">
                 Objectif
               </th>
             </tr>
@@ -198,7 +198,7 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
               const hasObj = !!obj.feuille_titre
 
               return (
-                <tr key={userRow.user_id} className="border-b border-gray-100 last:border-0">
+                <tr key={userRow.user_id} className="border-b border-border last:border-0">
                   {/* Élève */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
@@ -213,7 +213,7 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
                         />
                       ) : (
                         <div
-                          className="rounded-full bg-gray-200 flex items-center justify-center font-semibold text-gray-600 text-xs flex-shrink-0"
+                          className="rounded-full bg-surface-2 flex items-center justify-center font-semibold text-text-secondary text-xs flex-shrink-0"
                           style={{ width: 24, height: 24 }}
                         >
                           {userRow.pseudo?.[0]?.toUpperCase() ?? '?'}
@@ -222,12 +222,12 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
                       {isAdmin && !isOwn ? (
                         <Link
                           href={`/admin/eleve/${userRow.user_id}`}
-                          className="font-medium text-gray-900 truncate max-w-[96px] hover:underline"
+                          className="font-medium text-text-primary truncate max-w-[96px] hover:underline"
                         >
                           {userRow.pseudo}
                         </Link>
                       ) : (
-                        <span className="font-medium text-gray-900 truncate max-w-[96px]">
+                        <span className="font-medium text-text-primary truncate max-w-[96px]">
                           {userRow.pseudo}
                         </span>
                       )}
@@ -239,7 +239,7 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
                     <span className={`text-sm font-bold ${globalColor(userRow.jours_actifs_total)}`}>
                       {userRow.jours_actifs_total}
                     </span>
-                    <span className="text-sm text-gray-400">/90</span>
+                    <span className="text-sm text-text-muted">/90</span>
                   </td>
 
                   {/* Jours */}
@@ -252,19 +252,19 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
                       <td
                         key={j}
                         onClick={() => handleCellClick(userRow, j)}
-                        className={`px-2 py-2 align-top text-center ${isOwn || isAdmin ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                        className={`px-2 py-2 align-top text-center ${isOwn || isAdmin ? 'cursor-pointer hover:bg-surface-2' : ''}`}
                       >
                         <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${indiceStyle(indice)}`}>
                           {pct}%
                         </span>
                         {jour?.feuille_titre && (
-                          <div className="text-xs text-gray-500 mt-0.5 leading-tight">
+                          <div className="text-xs text-text-secondary mt-0.5 leading-tight">
                             {jour.feuille_titre}
                             {jour.ref_exercice != null ? ` · Ex.${jour.ref_exercice}` : ''}
                           </div>
                         )}
                         {jour?.note && (
-                          <div className="text-xs text-gray-400 italic mt-0.5 leading-tight">
+                          <div className="text-xs text-text-muted italic mt-0.5 leading-tight">
                             {jour.note.length > 40 ? jour.note.slice(0, 40) + '…' : jour.note}
                           </div>
                         )}
@@ -275,17 +275,17 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
                   {/* Objectif global */}
                   <td
                     onClick={() => handleGlobalClick(userRow)}
-                    className={`px-3 py-2 align-top border-l border-gray-200 ${isOwn || isAdmin ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                    className={`px-3 py-2 align-top border-l border-border ${isOwn || isAdmin ? 'cursor-pointer hover:bg-surface-2' : ''}`}
                   >
                     {hasObj ? (
                       <div className="flex items-start justify-between gap-1">
                         <div className="flex-1 min-w-0">
-                          <div className="text-xs text-gray-700 font-medium leading-tight">
+                          <div className="text-xs text-text-secondary font-medium leading-tight">
                             {obj.feuille_titre}
                             {obj.ref_exercice != null ? ` · Ex.${obj.ref_exercice}` : ''}
                           </div>
                           {obj.note && (
-                            <div className="text-xs text-gray-400 italic mt-0.5 leading-tight">
+                            <div className="text-xs text-text-muted italic mt-0.5 leading-tight">
                               {obj.note.length > 40 ? obj.note.slice(0, 40) + '…' : obj.note}
                             </div>
                           )}
@@ -304,7 +304,7 @@ export default function RegulariteView({ currentUserId, isAdmin, masquerFakes }:
                       </div>
                     ) : (
                       (isOwn || isAdmin) && (
-                        <span className="text-gray-300 flex justify-center">
+                        <span className="text-text-muted flex justify-center">
                           <PencilIcon />
                         </span>
                       )

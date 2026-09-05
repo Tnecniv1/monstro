@@ -4,9 +4,16 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toPng } from 'html-to-image'
 import { createClient } from '@/lib/supabase/client'
 import RapportCard from '@/app/profil/RapportCard'
-import type { EnrichedProfile } from './types'
 
 // ── Types ────────────────────────────────────────────────────────────────────
+
+export type EleveCommunication = {
+  id: string
+  pseudo: string | null
+  prenom: string | null
+  nom: string | null
+  is_fake: boolean
+}
 
 interface ReferentEntry {
   linkId: string    // referent_eleve.id
@@ -35,7 +42,7 @@ interface RapportRow {
 }
 
 interface Props {
-  enriched: EnrichedProfile[]
+  eleves: EleveCommunication[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -77,7 +84,7 @@ function normalizePhone(raw: string): string {
 
 // ── Composant ─────────────────────────────────────────────────────────────────
 
-export default function CommunicationView({ enriched }: Props) {
+export default function CommunicationView({ eleves }: Props) {
   const supabase = createClient()
 
   const [moisInput, setMoisInput] = useState(prevMonthStr())
@@ -426,7 +433,7 @@ export default function CommunicationView({ enriched }: Props) {
 
   // ── Utils affichage ────────────────────────────────────────────────────────
 
-  const profiles = enriched.filter((p) => !p.is_fake)
+  const profiles = eleves.filter((p) => !p.is_fake)
 
   function statutRapport(r: RapportRow | undefined): { label: string; color: string } {
     if (!r) return { label: 'À générer', color: '#9ca3af' }

@@ -27,8 +27,8 @@ export type Entrainement = {
 }
 
 const ETAT_STYLE: Record<string, string> = {
-  succes: 'bg-green-100 text-green-700',
-  echec: 'bg-red-100 text-red-700',
+  succes: 'bg-success/15 text-success',
+  echec: 'bg-danger/15 text-danger',
 }
 const ETAT_LABEL: Record<string, string> = {
   succes: 'Succès',
@@ -98,10 +98,10 @@ export default function CarteEntrainement({
   const erreurLabel = totalErreurs !== null ? String(totalErreurs) : isOlderThan24h ? '0' : 'E'
   const erreurClassName =
     erreurLabel === 'E'
-      ? 'border-gray-200 text-gray-500'
+      ? 'border-border text-text-muted'
       : totalErreurs && totalErreurs > 0
-        ? 'border-orange-200 text-orange-600'
-        : 'border-gray-200 text-gray-300'
+        ? 'border-warning text-warning'
+        : 'border-border text-text-muted'
 
   const corrections = e.correction_tentative ?? []
   const correctionReussie = corrections.find((c) => c.statut === 'succes') ?? null
@@ -181,12 +181,12 @@ export default function CarteEntrainement({
 
   return (
     <div
-      className={`rounded-xl border bg-white space-y-0 overflow-hidden ${
+      className={`rounded-xl border bg-surface space-y-0 overflow-hidden ${
         enCours
-          ? 'border-black shadow-sm'
+          ? 'border-accent shadow-sm'
           : correctionEnCours
-            ? 'border-purple-400 shadow-sm'
-            : 'border-gray-200'
+            ? 'border-warning shadow-sm'
+            : 'border-border'
       }`}
     >
       {/* Corps principal */}
@@ -194,16 +194,16 @@ export default function CarteEntrainement({
         {/* En-tête */}
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-0.5">
-            <p className="font-semibold text-gray-900">
+            <p className="font-semibold text-text-primary">
               {feuille?.titre ?? 'Sans titre'}
-              <span className="text-gray-400 font-normal ml-1">— Exo {e.ref_exo}</span>
+              <span className="text-text-muted font-normal ml-1">— Exo {e.ref_exo}</span>
             </p>
-            <p className="text-xs text-gray-400">{formatDate(dateAffichee)}</p>
+            <p className="text-xs text-text-muted">{formatDate(dateAffichee)}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setShowErreurs(true)}
-              className={`text-xs px-2 py-1 rounded border hover:border-gray-400 hover:text-gray-700 transition-colors ${erreurClassName}`}
+              className={`text-xs px-2 py-1 rounded border hover:border-border-strong hover:text-text-secondary transition-colors ${erreurClassName}`}
             >
               {erreurLabel}
             </button>

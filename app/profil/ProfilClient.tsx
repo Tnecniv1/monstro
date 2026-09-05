@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -12,6 +12,13 @@ interface Props {
   prenom: string
   avatarUrl: string | null
   telephone: string
+  dateNaissance: string
+  ville: string
+}
+
+interface CommuneSuggestion {
+  nom: string
+  code: string
 }
 
 function Avatar({ url, pseudo, size }: { url: string | null; pseudo: string; size: number }) {
@@ -30,7 +37,7 @@ function Avatar({ url, pseudo, size }: { url: string | null; pseudo: string; siz
   }
   return (
     <div
-      className="rounded-full bg-gray-200 flex items-center justify-center font-semibold text-gray-600"
+      className="rounded-full bg-surface-2 flex items-center justify-center font-semibold text-text-secondary"
       style={{ width: size, height: size, fontSize: size * 0.4 }}
     >
       {initial}
@@ -38,7 +45,11 @@ function Avatar({ url, pseudo, size }: { url: string | null; pseudo: string; siz
   )
 }
 
-export default function ProfilClient({ userId, email, pseudo: initPseudo, nom: initNom, prenom: initPrenom, avatarUrl: initAvatarUrl, telephone: initTelephone }: Props) {
+export default function ProfilClient({
+  userId, email, pseudo: initPseudo, nom: initNom, prenom: initPrenom,
+  avatarUrl: initAvatarUrl, telephone: initTelephone,
+  dateNaissance: initDateNaissance, ville: initVille,
+}: Props) {
   const router = useRouter()
   const supabase = createClient()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -47,12 +58,54 @@ export default function ProfilClient({ userId, email, pseudo: initPseudo, nom: i
   const [nom, setNom] = useState(initNom)
   const [prenom, setPrenom] = useState(initPrenom)
   const [telephone, setTelephone] = useState(initTelephone)
+  const [dateNaissance, setDateNaissance] = useState(initDateNaissance)
+  const [ville, setVille] = useState(initVille)
+  const [suggestionsVille, setSuggestionsVille] = useState<CommuneSuggestion[]>([])
+  const [showSuggestionsVille, setShowSuggestionsVille] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(initAvatarUrl)
   const [newEmail, setNewEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [avatarLoading, setAvatarLoading] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const todayStr = new Date().toISOString().split('T')[0]
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
+
+  function handleVilleChange(value: string) {
+    setVille(value)
+    setShowSuggestionsVille(true)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (!value.trim()) {
+      setSuggestionsVille([])
+      return
+    }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(value)}&fields=nom,code&boost=population&limit=10`
+        )
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = (await res.json()) as CommuneSuggestion[]
+        setSuggestionsVille(data)
+      } catch (err) {
+        console.error('[ProfilClient] erreur autocomplétion ville:', err)
+        setSuggestionsVille([])
+      }
+    }, 300)
+  }
+
+  function selectionnerVille(nom: string) {
+    setVille(nom)
+    setSuggestionsVille([])
+    setShowSuggestionsVille(false)
+  }
 
   function showToast(msg: string) {
     setToast(msg)
@@ -97,12 +150,16 @@ export default function ProfilClient({ userId, email, pseudo: initPseudo, nom: i
 
   async function handleSaveProfile(ev: React.FormEvent) {
     ev.preventDefault()
+    if (!dateNaissance || !ville) {
+      setError('Date de naissance et ville sont obligatoires.')
+      return
+    }
     setLoading(true)
     setError(null)
 
     const { error: err } = await supabase
       .from('user_profile')
-      .update({ pseudo, nom, prenom, telephone: telephone || null })
+      .update({ pseudo, nom, prenom, telephone: telephone || null, date_naissance: dateNaissance, ville })
       .eq('id', userId)
 
     if (err) {
@@ -165,65 +222,104 @@ export default function ProfilClient({ userId, email, pseudo: initPseudo, nom: i
       {/* Infos profil */}
       <form onSubmit={handleSaveProfile} className="space-y-4">
         <div className="space-y-1">
-          <label className="block text-xs font-medium text-gray-600">Pseudo</label>
+          <label className="block text-xs font-medium text-text-muted">Pseudo</label>
           <input
             type="text"
             value={pseudo}
             onChange={(e) => setPseudo(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+            className="w-full rounded-lg bg-surface border border-border px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
           />
         </div>
         <div className="space-y-1">
-          <label className="block text-xs font-medium text-gray-600">Téléphone</label>
+          <label className="block text-xs font-medium text-text-muted">Téléphone</label>
           <input
             type="tel"
             value={telephone}
             onChange={(e) => setTelephone(e.target.value)}
             placeholder="06 12 34 56 78"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+            className="w-full rounded-lg bg-surface border border-border px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
           />
+        </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-text-muted">Date de naissance</label>
+          <input
+            type="date"
+            value={dateNaissance}
+            onChange={(e) => setDateNaissance(e.target.value)}
+            max={todayStr}
+            required
+            className="w-full rounded-lg bg-surface border border-border px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+        </div>
+        <div className="space-y-1 relative">
+          <label className="block text-xs font-medium text-text-muted">Ville</label>
+          <input
+            type="text"
+            value={ville}
+            onChange={(e) => handleVilleChange(e.target.value)}
+            onFocus={() => setShowSuggestionsVille(true)}
+            onBlur={() => setTimeout(() => setShowSuggestionsVille(false), 150)}
+            required
+            autoComplete="off"
+            className="w-full rounded-lg bg-surface border border-border px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+          {showSuggestionsVille && suggestionsVille.length > 0 && (
+            <ul className="absolute z-10 mt-1 w-full rounded-lg border border-border bg-surface shadow-md max-h-48 overflow-y-auto text-sm">
+              {suggestionsVille.map((s) => (
+                <li key={s.code}>
+                  <button
+                    type="button"
+                    onClick={() => selectionnerVille(s.nom)}
+                    className="w-full text-left px-3 py-2 text-text-primary hover:bg-surface-2"
+                  >
+                    {s.nom}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <div className="flex gap-3">
           <div className="flex-1 space-y-1">
-            <label className="block text-xs font-medium text-gray-600">Prénom</label>
+            <label className="block text-xs font-medium text-text-muted">Prénom</label>
             <input
               type="text"
               value={prenom}
               onChange={(e) => setPrenom(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+              className="w-full rounded-lg bg-surface border border-border px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
           <div className="flex-1 space-y-1">
-            <label className="block text-xs font-medium text-gray-600">Nom</label>
+            <label className="block text-xs font-medium text-text-muted">Nom</label>
             <input
               type="text"
               value={nom}
               onChange={(e) => setNom(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+              className="w-full rounded-lg bg-surface border border-border px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
         </div>
         {error && <p className="text-xs text-red-600">{error}</p>}
         <button
           type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-black py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50 transition-colors"
+          disabled={loading || !dateNaissance || !ville}
+          className="w-full rounded-lg bg-accent text-bg py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
         >
           {loading ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       </form>
 
       {/* Changement d'email */}
-      <div className="border-t border-gray-100 pt-6">
+      <div className="border-t border-border pt-6">
         <form onSubmit={handleChangeEmail} className="space-y-4">
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-gray-600">
+            <label className="block text-xs font-medium text-text-muted">
               Email actuel
             </label>
-            <p className="text-sm text-gray-500">{email}</p>
+            <p className="text-sm text-text-secondary">{email}</p>
           </div>
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-gray-600">
+            <label className="block text-xs font-medium text-text-muted">
               Nouvel email
             </label>
             <input
@@ -231,13 +327,17 @@ export default function ProfilClient({ userId, email, pseudo: initPseudo, nom: i
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
               placeholder="nouveau@email.com"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+              className="w-full rounded-lg bg-surface border border-border px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
           <button
             type="submit"
             disabled={loading || !newEmail}
-            className="w-full rounded-lg border border-gray-300 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className={`w-full rounded-lg py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
+              newEmail
+                ? 'bg-surface-2 border border-border-strong text-text-primary hover:bg-surface'
+                : 'bg-surface-2 text-text-muted'
+            }`}
           >
             Changer l&apos;email
           </button>

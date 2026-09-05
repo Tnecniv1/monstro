@@ -4,13 +4,14 @@ import { createClient } from '@/lib/supabase/server'
 import AdminShell from './AdminShell'
 import type { Noeud } from './AdminClient'
 import type { FeuilleRow } from './corrections/CorrectionsClient'
+import type { EleveCommunication } from './CommunicationView'
 
 export default async function AdminPage() {
   await requireAdmin()
 
   const supabase = createClient()
 
-  const [{ data: noeudData }, { data: feuilleData }] = await Promise.all([
+  const [{ data: noeudData }, { data: feuilleData }, { data: profilesData }, { data: fakeData }] = await Promise.all([
     supabase.from('noeud').select('id, parent_id, nom, ordre').order('ordre'),
     supabase
       .from('feuille_entrainement')
@@ -26,10 +27,20 @@ export default async function AdminPage() {
         correction ( id, pdf_url )
       `)
       .order('ordre'),
+    supabase.from('user_profile').select('id, pseudo, prenom, nom'),
+    supabase.rpc('get_fake_user_ids'),
   ])
 
   const noeuds = (noeudData ?? []) as Noeud[]
   const feuilles = (feuilleData ?? []) as unknown as FeuilleRow[]
+
+  const fakeUserIds = new Set(
+    (fakeData ?? []).map((r: { user_id: string }) => r.user_id)
+  )
+  const eleves: EleveCommunication[] = (profilesData ?? []).map((p) => ({
+    ...p,
+    is_fake: fakeUserIds.has(p.id),
+  }))
 
   return (
     <div style={{ minHeight: '100vh', background: '#F5F3EE' }}>
@@ -38,7 +49,7 @@ export default async function AdminPage() {
           ← Retour
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">Administration</h1>
-        <AdminShell noeuds={noeuds} feuilles={feuilles} />
+        <AdminShell noeuds={noeuds} feuilles={feuilles} eleves={eleves} />
       </div>
     </div>
   )

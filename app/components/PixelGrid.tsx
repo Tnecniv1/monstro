@@ -96,7 +96,8 @@ export default function PixelGrid({ count }: Props) {
         <svg
           width={DISPLAY_WIDTH}
           height={svgHeight}
-          style={{ border: '1px solid #E5E7EB', background: '#FFFFFF', display: 'block' }}
+          className="bg-surface-2"
+          style={{ display: 'block' }}
         >
           {litPositions.map(([r, c], i) => (
             <rect
@@ -105,7 +106,7 @@ export default function PixelGrid({ count }: Props) {
               y={r * (cellSize + GAP)}
               width={cellSize}
               height={cellSize}
-              fill={level.color}
+              className="fill-accent"
             />
           ))}
         </svg>
@@ -113,7 +114,7 @@ export default function PixelGrid({ count }: Props) {
 
       {/* Textes de progression */}
       <div className="text-center">
-        <p className="text-sm font-medium text-gray-700">
+        <p className="text-sm font-medium text-text-secondary">
           Niveau {levelIdx + 1} / 12 ({Math.round(totalCount / TOTAL_MAX * 100)}%)
         </p>
       </div>

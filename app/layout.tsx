@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { Cinzel } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 
@@ -13,6 +14,7 @@ const geistMono = localFont({
   variable: "--font-geist-mono",
   weight: "100 900",
 });
+const cinzel = Cinzel({ subsets: ["latin"], weight: ["600"], variable: "--font-cinzel" });
 
 export const metadata: Metadata = {
   title: "Monstro",
@@ -26,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${cinzel.variable} antialiased`}>
         {children}
       </body>
     </html>

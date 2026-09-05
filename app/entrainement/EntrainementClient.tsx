@@ -28,12 +28,12 @@ export default function EntrainementClient({
     <>
       {/* Titre + toggle Liste / Kanban */}
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Entraînements</h1>
-        <div className="inline-flex rounded-lg bg-gray-100 p-1 text-sm font-medium">
+        <h1 className="text-2xl font-bold text-text-primary">Entraînements</h1>
+        <div className="inline-flex rounded-lg bg-surface p-1 text-sm font-medium">
           <button
             onClick={() => setVue('liste')}
             className={`rounded-md px-3 py-1.5 transition-colors ${
-              vue === 'liste' ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-700'
+              vue === 'liste' ? 'bg-surface-2 border border-border-strong text-text-primary' : 'text-text-muted hover:text-text-secondary'
             }`}
           >
             Liste
@@ -41,7 +41,7 @@ export default function EntrainementClient({
           <button
             onClick={() => setVue('kanban')}
             className={`rounded-md px-3 py-1.5 transition-colors ${
-              vue === 'kanban' ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-700'
+              vue === 'kanban' ? 'bg-surface-2 border border-border-strong text-text-primary' : 'text-text-muted hover:text-text-secondary'
             }`}
           >
             Kanban
@@ -65,7 +65,7 @@ export default function EntrainementClient({
           {/* Entraînement en cours */}
           {enCours && (
             <section className="space-y-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
                 En cours
               </h2>
               <CarteEntrainement e={enCours} enCours />
@@ -75,7 +75,7 @@ export default function EntrainementClient({
           {/* Correction en cours */}
           {correctionEnCours && (
             <section className="space-y-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
                 Correction en cours
               </h2>
               <CarteEntrainement e={correctionEnCours} correctionEnCours canStartCorrection={false} />
@@ -85,7 +85,7 @@ export default function EntrainementClient({
           {/* Historique */}
           {termines.length > 0 && (
             <section className="space-y-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
                 Historique
               </h2>
               <div className="space-y-3">
@@ -101,7 +101,7 @@ export default function EntrainementClient({
           )}
 
           {termines.length === 0 && !enCours && !correctionEnCours && (
-            <p className="text-center text-sm text-gray-400 py-12">
+            <p className="text-center text-sm text-text-muted py-12">
               Aucun entraînement pour l&apos;instant.
             </p>
           )}

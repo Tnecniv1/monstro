@@ -44,7 +44,7 @@ function QuestionImage({ url }: { url: string }) {
   return (
     <div className="mx-auto w-full" style={{ maxWidth: 440 }}>
       {statut === 'chargement' && (
-        <div className="w-full rounded-lg bg-gray-100 animate-pulse" style={{ height: 180 }} />
+        <div className="w-full rounded-lg bg-surface-2 animate-pulse" style={{ height: 180 }} />
       )}
       {statut !== 'erreur' && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -57,7 +57,7 @@ function QuestionImage({ url }: { url: string }) {
         />
       )}
       {statut === 'erreur' && (
-        <p className="text-xs text-gray-400 text-center py-4">Image indisponible</p>
+        <p className="text-xs text-text-muted text-center py-4">Image indisponible</p>
       )}
     </div>
   )
@@ -206,37 +206,37 @@ export default function QcmSession({ userId, niveau, statsInitial, onValidated, 
 
   return (
     <div className="space-y-5">
-      <button onClick={onExit} className="text-sm text-gray-400 hover:text-gray-700 transition-colors">
+      <button onClick={onExit} className="text-sm text-text-muted hover:text-text-secondary transition-colors">
         ← Niveaux
       </button>
 
-      <div className="sticky top-0 z-10 flex items-center justify-between rounded-xl bg-gray-900 text-white px-4 py-2.5 text-sm font-medium">
+      <div className="sticky top-0 z-10 flex items-center justify-between rounded-xl bg-text-primary text-bg px-4 py-2.5 text-sm font-medium">
         <span>Niveau {niveau.niveau} - {niveau.nom}</span>
         <span>Vue: {stats.vues}/{stats.total} · Vrai: {stats.vrai} · Faux: {stats.faux} · Corrigé: {stats.corrige}</span>
       </div>
 
       {niveauValideMsg && (
-        <div className="rounded-xl bg-[#4ade80]/20 border border-[#4ade80] px-4 py-3 text-sm font-medium text-gray-900">
+        <div className="rounded-xl bg-success/20 border border-success px-4 py-3 text-sm font-medium text-text-primary">
           🎉 Niveau validé !
         </div>
       )}
 
-      {loading && <p className="text-sm text-gray-400 py-8 text-center">Chargement…</p>}
+      {loading && <p className="text-sm text-text-muted py-8 text-center">Chargement…</p>}
 
       {!loading && !questionActuelle && !niveauValideMsg && (
-        <p className="text-center text-sm text-gray-400 py-12">
+        <p className="text-center text-sm text-text-muted py-12">
           Aucune question disponible pour ce niveau pour le moment.
         </p>
       )}
 
       {!loading && questionActuelle && !niveauValideMsg && (
-        <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
-          <p className="font-medium text-gray-900 leading-relaxed">
+        <div className="rounded-xl border border-border bg-surface p-5 space-y-4">
+          <p className="font-medium text-text-primary leading-relaxed">
             <MathText text={questionActuelle.enonce} />
           </p>
 
           {questionActuelle.source && (
-            <p className="text-xs text-gray-400">Source : {questionActuelle.source}</p>
+            <p className="text-xs text-text-muted">Source : {questionActuelle.source}</p>
           )}
 
           {questionActuelle.image_url && (
@@ -251,13 +251,13 @@ export default function QcmSession({ userId, niveau, statsInitial, onValidated, 
                   key={c.id}
                   onClick={() => toggleChoice(c.id)}
                   disabled={busy}
-                  className={`w-full flex items-center gap-3 text-left rounded-lg border px-4 py-2.5 text-sm transition-colors ${
-                    coche ? 'border-gray-900 bg-gray-100' : 'border-gray-200'
-                  } ${busy ? 'cursor-default opacity-70' : 'cursor-pointer hover:border-gray-400'}`}
+                  className={`w-full flex items-center gap-3 text-left rounded-lg border px-4 py-2.5 text-sm text-text-primary transition-colors ${
+                    coche ? 'border-accent bg-surface-2' : 'border-border'
+                  } ${busy ? 'cursor-default opacity-70' : 'cursor-pointer hover:border-border-strong'}`}
                 >
                   <span
                     className={`flex-shrink-0 flex items-center justify-center w-4 h-4 rounded border text-[10px] leading-none ${
-                      coche ? 'bg-gray-900 border-gray-900 text-white' : 'border-gray-300 text-transparent'
+                      coche ? 'bg-accent border-accent text-bg' : 'border-border text-transparent'
                     }`}
                   >
                     ✓
@@ -274,7 +274,7 @@ export default function QcmSession({ userId, niveau, statsInitial, onValidated, 
             <button
               onClick={valider}
               disabled={busy}
-              className="rounded-lg px-4 py-2 text-sm font-medium bg-gray-900 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+              className="rounded-lg px-4 py-2 text-sm font-medium bg-accent text-bg disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Valider
             </button>
@@ -283,7 +283,7 @@ export default function QcmSession({ userId, niveau, statsInitial, onValidated, 
           {flash && (
             <div
               className={`rounded-lg px-4 py-3 text-sm font-semibold text-center ${
-                flash === 'vrai' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+                flash === 'vrai' ? 'bg-success/15 text-success' : 'bg-danger/15 text-danger'
               }`}
             >
               {flash === 'vrai' ? '✅ Vrai' : '❌ Faux'}

@@ -3,24 +3,30 @@
 import { useState } from 'react'
 import AdminClient, { type Noeud } from './AdminClient'
 import CorrectionsClient, { type FeuilleRow } from './corrections/CorrectionsClient'
-import AbonnementsView from '../dashboard/AbonnementsView'
+import AbonnementsView from './AbonnementsView'
+import CommunicationView, { type EleveCommunication } from './CommunicationView'
+import GlobalView from './GlobalView'
 import UtilisateursView from './UtilisateursView'
 
-type Onglet = 'scope' | 'correction' | 'abonnements' | 'utilisateurs'
+type Onglet = 'scope' | 'correction' | 'abonnements' | 'utilisateurs' | 'communication' | 'global'
 
 const TABS: { id: Onglet; label: string }[] = [
   { id: 'scope', label: 'Scope' },
   { id: 'correction', label: 'Correction' },
   { id: 'abonnements', label: 'Abonnements' },
   { id: 'utilisateurs', label: 'Utilisateurs' },
+  { id: 'communication', label: 'Communication' },
+  { id: 'global', label: 'Global' },
 ]
 
 export default function AdminShell({
   noeuds,
   feuilles,
+  eleves,
 }: {
   noeuds: Noeud[]
   feuilles: FeuilleRow[]
+  eleves: EleveCommunication[]
 }) {
   const [onglet, setOnglet] = useState<Onglet>('scope')
 
@@ -62,6 +68,8 @@ export default function AdminShell({
       {onglet === 'correction' && <CorrectionsClient feuilles={feuilles} />}
       {onglet === 'abonnements' && <AbonnementsView />}
       {onglet === 'utilisateurs' && <UtilisateursView />}
+      {onglet === 'communication' && <CommunicationView eleves={eleves} />}
+      {onglet === 'global' && <GlobalView />}
     </div>
   )
 }

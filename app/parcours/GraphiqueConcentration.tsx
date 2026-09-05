@@ -39,9 +39,9 @@ function CustomTooltip({
 }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow">
-      <p className="text-gray-500">{label}</p>
-      <p className="font-medium text-gray-900">{formatTemps(payload[0].value)}</p>
+    <div className="rounded-lg border border-border bg-surface px-3 py-2 text-xs shadow">
+      <p className="text-text-muted">{label}</p>
+      <p className="font-medium text-text-primary">{formatTemps(payload[0].value)}</p>
     </div>
   )
 }
@@ -99,30 +99,30 @@ export default function GraphiqueConcentration({ sessions }: { sessions: Session
       >
         <XAxis
           dataKey="label"
-          tick={{ fontSize: 11, fill: '#9ca3af' }}
+          tick={{ fontSize: 11, fill: '#69707D' }}
           axisLine={false}
           tickLine={false}
           interval={fullscreen ? Math.floor(dataComplete.length / 10) : 0}
         />
         <YAxis
-          tick={{ fontSize: 11, fill: '#9ca3af' }}
+          tick={{ fontSize: 11, fill: '#69707D' }}
           axisLine={false}
           tickLine={false}
         />
-        <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f3f4f6' }} />
-        <Bar dataKey="minutes" fill="#000000" radius={[3, 3, 0, 0]} />
+        <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F3F4F6' }} />
+        <Bar dataKey="minutes" fill="#4B5563" radius={[3, 3, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   )
 
   if (fullscreen) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-white p-6">
+      <div className="fixed inset-0 z-50 flex flex-col bg-bg p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-medium text-gray-700">Concentration</h2>
+          <h2 className="text-sm font-medium text-text-secondary">Concentration</h2>
           <button
             onClick={() => setFullscreen(false)}
-            className="text-xs text-gray-400 hover:text-gray-700"
+            className="text-xs text-text-muted hover:text-text-secondary"
           >
             ⊠ Réduire
           </button>
@@ -133,11 +133,11 @@ export default function GraphiqueConcentration({ sessions }: { sessions: Session
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5">
+    <div>
       <div className="flex justify-end mb-1">
         <button
           onClick={() => setFullscreen(true)}
-          className="text-xs text-gray-400 hover:text-gray-700"
+          className="text-xs text-text-muted hover:text-text-secondary"
         >
           ⊡ Plein écran
         </button>

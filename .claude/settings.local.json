@@ -81,7 +81,8 @@
       "Bash(rmdir /c/Users/vince/Desktop/Monstro/supabase/migrations)",
       "Bash(xargs -I{} sh -c 'echo \"== {} ==\"; wc -l {}')",
       "Bash(python3 -c ' *)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(xargs -I{} echo {})"
     ]
   }
 }

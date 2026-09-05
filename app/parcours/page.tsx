@@ -20,7 +20,7 @@ export default async function ParcoursPage() {
     .from('entrainement')
     .select(`
       id, date_creation, ref_exo, statut,
-      feuille_entrainement ( titre, volume, noeud:noeud_id ( nom ) ),
+      feuille_entrainement ( id, titre, volume, noeud:noeud_id ( nom ) ),
       observation ( etat ),
       session ( temps_min )
     `)
@@ -29,6 +29,14 @@ export default async function ParcoursPage() {
     .order('date_creation', { ascending: false })
 
   const historique = (historiqueRaw ?? []) as unknown as EntHistorique[]
+
+  // Dataset 1b — feuilles en focus (pour le tri du tableau Historique)
+  const { data: focusData } = await supabase
+    .from('feuille_focus')
+    .select('feuille_id')
+    .eq('user_id', user.id)
+
+  const focusIds = new Set(focusData?.map((f) => f.feuille_id) ?? [])
 
   // Dataset 2 — sessions (via ids des entraînements de l'utilisateur)
   const { data: entIds } = await supabase
@@ -63,39 +71,39 @@ export default async function ParcoursPage() {
   const erreurs = (erreursRaw ?? []) as unknown as ErreurRaw[]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-bg">
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-10">
 
-        <Link href="/" className="text-sm text-gray-400 hover:text-gray-700 transition-colors">← Monstro</Link>
-        <h1 className="text-2xl font-bold text-gray-900">Parcours</h1>
+        <Link href="/" className="text-sm text-text-muted hover:text-text-secondary transition-colors">← Monstro</Link>
+        <h1 className="text-2xl font-bold text-text-primary">Parcours</h1>
 
         {/* Section Historique */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
+        <section className="space-y-3 bg-surface border border-border rounded-2xl p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
             Historique
           </h2>
-          <TableauHistorique historique={historique} />
+          <TableauHistorique historique={historique} focusIds={focusIds} />
         </section>
 
         {/* Section Concentration */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
+        <section className="space-y-3 bg-surface border border-border rounded-2xl p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
             Concentration
           </h2>
           <GraphiqueConcentration sessions={sessions} />
         </section>
 
         {/* Section Taux de réussite */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
+        <section className="space-y-3 bg-surface border border-border rounded-2xl p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
             Taux de réussite
           </h2>
           <GraphiqueTauxReussite historique={historique} />
         </section>
 
         {/* Section Tendance des erreurs */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
+        <section className="space-y-3 bg-surface border border-border rounded-2xl p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
             Tendance des erreurs
           </h2>
           <GraphiqueErreurs erreurs={erreurs} />

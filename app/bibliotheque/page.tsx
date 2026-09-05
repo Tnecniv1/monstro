@@ -53,11 +53,11 @@ export default async function BibliothequePage() {
   const feuilles = (data ?? []) as unknown as Feuille[]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-bg">
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
 
-        <Link href="/" className="text-sm text-gray-400 hover:text-gray-700 transition-colors">← Monstro</Link>
-        <h1 className="text-2xl font-bold text-gray-900">Bibliothèque</h1>
+        <Link href="/" className="text-sm text-text-muted hover:text-text-secondary transition-colors">← Monstro</Link>
+        <h1 className="text-2xl font-bold text-text-primary">Bibliothèque</h1>
 
         <BibliothequeClient
           feuilles={feuilles}

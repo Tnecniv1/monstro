@@ -52,8 +52,8 @@ function PillsRow({
           onClick={() => onSelect(opt.id)}
           className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
             activeId === opt.id
-              ? 'bg-black text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              ? 'bg-surface-2 ring-1 ring-border-strong text-text-primary'
+              : 'bg-surface ring-1 ring-border text-text-secondary hover:bg-surface-2'
           }`}
         >
           {opt.nom}
@@ -172,7 +172,7 @@ export default function BibliothequeClient({ feuilles, focusIds: initialFocusIds
         placeholder="Rechercher par titre ou chemin…"
         value={recherche}
         onChange={(e) => setRecherche(e.target.value)}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+        className="w-full rounded-lg bg-surface border border-border px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
       />
 
       {/* Filtre Focus */}
@@ -180,8 +180,8 @@ export default function BibliothequeClient({ feuilles, focusIds: initialFocusIds
         onClick={() => setShowFocusOnly((v) => !v)}
         className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
           showFocusOnly
-            ? 'bg-yellow-400 text-yellow-900'
-            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            ? 'bg-surface-2 ring-1 ring-border-strong text-text-primary'
+            : 'bg-surface ring-1 ring-border text-text-secondary hover:bg-surface-2'
         }`}
       >
         • Focus
@@ -201,10 +201,10 @@ export default function BibliothequeClient({ feuilles, focusIds: initialFocusIds
       {/* Fil d'Ariane */}
       {chemin.length > 0 && (
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">{filAriane}</span>
+          <span className="text-xs text-text-muted">{filAriane}</span>
           <button
             onClick={() => setChemin([])}
-            className="text-xs text-gray-400 hover:text-gray-700 transition-colors leading-none"
+            className="text-xs text-text-muted hover:text-text-secondary transition-colors leading-none"
             aria-label="Réinitialiser les filtres"
           >
             ×
@@ -214,7 +214,7 @@ export default function BibliothequeClient({ feuilles, focusIds: initialFocusIds
 
       {/* Résultats */}
       {feuillesFiltrees.length === 0 ? (
-        <p className="text-center text-sm text-gray-400 py-12">Aucune feuille trouvée.</p>
+        <p className="text-center text-sm text-text-muted py-12">Aucune feuille trouvée.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
           {feuillesFiltrees.map((f) => {
@@ -231,36 +231,35 @@ export default function BibliothequeClient({ feuilles, focusIds: initialFocusIds
                   const signed = await getSignedPdfUrl(f.pdf_url)
                   if (signed) router.push(`/viewer?url=${encodeURIComponent(signed)}`)
                 }}
-                className={`relative rounded-xl border border-gray-200 bg-white p-5 space-y-3 ${
-                  f.pdf_url ? 'cursor-pointer hover:border-gray-400 transition-colors' : 'cursor-default opacity-60'
+                className={`relative rounded-xl border border-border bg-surface p-5 space-y-3 ${
+                  f.pdf_url ? 'cursor-pointer hover:border-border-strong transition-colors' : 'cursor-default opacity-60'
                 }`}
               >
                 {/* Pastille coin supérieur droit */}
                 <button
                   onClick={(e) => toggleFocus(e, f.id)}
-                  className="absolute top-3 right-3"
+                  className={`absolute top-3 right-3 rounded-full ${
+                    isTermine ? 'bg-success' : isFocus ? 'bg-accent' : 'border border-border'
+                  }`}
                   style={{
                     width: 10,
                     height: 10,
-                    borderRadius: '50%',
-                    backgroundColor: isTermine ? '#6C5CE7' : isFocus ? '#FFD93D' : 'transparent',
-                    border: isTermine || isFocus ? 'none' : '1.5px solid #D1D5DB',
                     cursor: isTermine ? 'default' : 'pointer',
                   }}
                   aria-label={isTermine ? 'Terminée' : isFocus ? 'Retirer du focus' : 'Ajouter au focus'}
                 />
 
                 <div className="space-y-0.5">
-                  <p className="font-semibold text-gray-900 leading-snug">{f.titre}</p>
-                  {chemin && <p className="text-xs text-gray-400">{chemin}</p>}
+                  <p className="font-semibold text-text-primary leading-snug">{f.titre}</p>
+                  {chemin && <p className="text-xs text-text-secondary">{chemin}</p>}
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs">
                   {racine && (
-                    <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-gray-600">
+                    <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-text-secondary">
                       {racine.nom}
                     </span>
                   )}
-                  <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-gray-600">
+                  <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-text-secondary">
                     {f.volume} exercice{f.volume > 1 ? 's' : ''}
                   </span>
                 </div>

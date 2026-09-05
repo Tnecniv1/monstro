@@ -23,7 +23,7 @@ function Avatar({ url, pseudo, size }: { url?: string | null; pseudo: string; si
   }
   return (
     <div
-      className="rounded-full bg-gray-200 flex items-center justify-center font-semibold text-gray-600"
+      className="rounded-full bg-surface-2 flex items-center justify-center font-semibold text-text-secondary"
       style={{ width: size, height: size, fontSize: size * 0.4 }}
     >
       {initial}
@@ -37,9 +37,9 @@ interface Props {
 }
 
 const medals = [
-  { bg: 'bg-yellow-400', label: '1er' },
-  { bg: 'bg-gray-300', label: '2ème' },
-  { bg: 'bg-amber-600', label: '3ème' },
+  { ring: 'ring-accent', label: '1er' },
+  { ring: 'ring-steel', label: '2ème' },
+  { ring: 'ring-warning', label: '3ème' },
 ]
 
 function formatScore(score: number): string {
@@ -68,13 +68,13 @@ export default function ClassementClient({ classement, userId }: Props) {
             if (!user) return <div key={rank} className="flex-1" />
             return (
               <div key={user.id} className="flex flex-col items-center gap-2 flex-1">
-                <div className={`${podiumSize[rank]} rounded-full ${medals[rank].bg} flex items-center justify-center overflow-hidden ring-4 ${medals[rank].bg}`}>
+                <div className={`${podiumSize[rank]} rounded-full flex items-center justify-center overflow-hidden ring-4 ${medals[rank].ring}`}>
                   <Avatar url={user.avatar_url} pseudo={user.pseudo} size={rank === 0 ? 96 : rank === 1 ? 80 : 64} />
                 </div>
-                <p className={`font-semibold text-gray-900 text-center truncate max-w-full ${podiumText[rank]}`}>
+                <p className={`font-semibold text-text-primary text-center truncate max-w-full ${podiumText[rank]}`}>
                   {user.pseudo}
                 </p>
-                <p className="text-xs text-gray-400">{formatScore(user.score)}</p>
+                <p className="text-xs text-text-secondary">{formatScore(user.score)}</p>
               </div>
             )
           })}
@@ -83,23 +83,23 @@ export default function ClassementClient({ classement, userId }: Props) {
 
       {/* Reste du classement */}
       {rest.length > 0 && (
-        <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+        <div className="rounded-2xl border border-border bg-surface overflow-hidden">
           {rest.map((user, i) => {
             const rank = i + 4
             const isMe = user.id === userId
             return (
               <div
                 key={user.id}
-                className={`flex items-center px-4 py-3 gap-4 border-b border-gray-100 last:border-0 ${
-                  isMe ? 'bg-gray-50' : ''
+                className={`flex items-center px-4 py-3 gap-4 border-b border-border last:border-0 ${
+                  isMe ? 'ring-1 ring-inset ring-accent' : ''
                 }`}
               >
-                <span className="w-6 text-sm text-gray-400 text-right shrink-0">{rank}</span>
+                <span className="w-6 text-sm text-text-muted text-right shrink-0">{rank}</span>
                 <Avatar url={user.avatar_url} pseudo={user.pseudo} size={28} />
-                <span className={`flex-1 text-sm font-medium ${isMe ? 'text-gray-900' : 'text-gray-700'}`}>
+                <span className="flex-1 text-sm font-medium text-text-primary">
                   {user.pseudo}
                 </span>
-                <span className="text-sm text-gray-500">{formatScore(user.score)}</span>
+                <span className="text-sm text-text-secondary">{formatScore(user.score)}</span>
               </div>
             )
           })}
@@ -107,7 +107,7 @@ export default function ClassementClient({ classement, userId }: Props) {
       )}
 
       {classement.length === 0 && (
-        <p className="text-center text-sm text-gray-400 py-12">
+        <p className="text-center text-sm text-text-muted py-12">
           Aucun score pour l&apos;instant.
         </p>
       )}

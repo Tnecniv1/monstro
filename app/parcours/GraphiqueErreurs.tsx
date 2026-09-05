@@ -17,20 +17,19 @@ export type ErreurRaw = {
   entrainement: { date_creation: string }
 }
 
-function formatDateCourt(iso: string) {
-  const [, month, day] = iso.split('-')
-  return `${day}/${month}`
-}
-
 export default function GraphiqueErreurs({ erreurs }: { erreurs: ErreurRaw[] }) {
-  const data = erreurs.map(e => ({
-    label: formatDateCourt(e.entrainement.date_creation.split('T')[0]),
-    comprehension: e.c1 + e.c2 + e.c3 + e.c4,
-    savoir: e.s1 + e.s2 + e.s3 + e.s4,
-    redaction: e.r1 + e.r2 + e.r3 + e.r4,
-  }))
+  const blocs = []
+  for (let i = 0; i < erreurs.length; i += 50) {
+    const bloc = erreurs.slice(i, i + 50)
+    blocs.push({
+      label: `#${Math.floor(i / 50) + 1}`,
+      comprehension: bloc.reduce((s, e) => s + e.c1 + e.c2 + e.c3 + e.c4, 0),
+      savoir: bloc.reduce((s, e) => s + e.s1 + e.s2 + e.s3 + e.s4, 0),
+      redaction: bloc.reduce((s, e) => s + e.r1 + e.r2 + e.r3 + e.r4, 0),
+    })
+  }
 
-  if (data.length === 0) {
+  if (blocs.length === 0) {
     return (
       <p className="text-sm text-gray-400 text-center py-8">
         Aucune erreur enregistrée.
@@ -39,27 +38,31 @@ export default function GraphiqueErreurs({ erreurs }: { erreurs: ErreurRaw[] }) 
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5">
+    <div>
       <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+        <LineChart data={blocs} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 11, fill: '#9ca3af' }}
+            tick={{ fontSize: 11, fill: '#69707D' }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
-            tick={{ fontSize: 11, fill: '#9ca3af' }}
+            tick={{ fontSize: 11, fill: '#69707D' }}
             axisLine={false}
             tickLine={false}
           />
-          <Tooltip />
-          <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+          <Tooltip
+            contentStyle={{ background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 12 }}
+            labelStyle={{ color: '#1F2937' }}
+            itemStyle={{ color: '#1F2937' }}
+          />
+          <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8, color: '#69707D' }} />
           <Line
             type="monotone"
             dataKey="comprehension"
             name="Compréhension"
-            stroke="#6C5CE7"
+            stroke="#6D28D9"
             dot={false}
             strokeWidth={2}
           />
@@ -67,7 +70,7 @@ export default function GraphiqueErreurs({ erreurs }: { erreurs: ErreurRaw[] }) 
             type="monotone"
             dataKey="savoir"
             name="Savoir"
-            stroke="#00D084"
+            stroke="#3B6E96"
             dot={false}
             strokeWidth={2}
           />
@@ -75,7 +78,7 @@ export default function GraphiqueErreurs({ erreurs }: { erreurs: ErreurRaw[] }) 
             type="monotone"
             dataKey="redaction"
             name="Rédaction"
-            stroke="#FF6B35"
+            stroke="#B45309"
             dot={false}
             strokeWidth={2}
           />

@@ -9,8 +9,26 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        bg: '#FAFAFA',
+        surface: '#FFFFFF',
+        'surface-2': '#F3F4F6',
+        border: {
+          DEFAULT: '#E5E7EB',
+          strong: '#D1D5DB',
+        },
+        text: {
+          primary: '#1F2937',
+          secondary: '#4B5563',
+          muted: '#69707D',
+        },
+        accent: '#6D28D9',
+        warning: '#B45309',
+        success: '#15803D',
+        danger: '#DC2626',
+        steel: '#3B6E96',
+      },
+      fontFamily: {
+        display: ['var(--font-cinzel)'],
       },
     },
   },

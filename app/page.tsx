@@ -61,7 +61,7 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-8 space-y-8">
+    <div className="min-h-screen bg-bg flex flex-col items-center px-4 py-8 space-y-8">
       <div className="w-full max-w-sm flex items-center justify-between">
         <Link href="/profil" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           {avatarUrl ? (
@@ -75,13 +75,13 @@ export default async function HomePage() {
             />
           ) : (
             <div
-              className="rounded-full bg-gray-200 flex items-center justify-center font-semibold text-gray-600 text-xs"
+              className="rounded-full bg-surface-2 flex items-center justify-center font-semibold text-text-secondary text-xs"
               style={{ width: 28, height: 28 }}
             >
               {pseudo ? pseudo[0].toUpperCase() : '?'}
             </div>
           )}
-          <span className="font-semibold text-gray-900">{pseudo}</span>
+          <span className="font-semibold text-text-primary">{pseudo}</span>
         </Link>
         <div className="flex items-center gap-4">
           <Link href="/dashboard">
@@ -89,13 +89,13 @@ export default async function HomePage() {
               width="20" height="20" viewBox="0 0 24 24"
               fill="none" stroke="currentColor"
               strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-              className="text-gray-400 hover:text-gray-700 transition-colors cursor-pointer">
+              className="text-text-muted hover:text-text-secondary transition-colors cursor-pointer">
               <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
               <circle cx="12" cy="12" r="3"/>
             </svg>
           </Link>
           {isAdmin && (
-            <Link href="/admin" className="text-sm text-gray-400 hover:text-gray-700">
+            <Link href="/admin" className="text-sm text-text-muted hover:text-text-secondary">
               Admin
             </Link>
           )}
@@ -103,27 +103,30 @@ export default async function HomePage() {
         </div>
       </div>
       <StreakBadge streak={streak} pixels={count ?? 0} />
-      <PixelGrid count={count ?? 0} />
+
+      <div className="w-full max-w-sm rounded-2xl p-4">
+        <PixelGrid count={count ?? 0} />
+      </div>
 
       <div className="w-full max-w-sm space-y-3">
-        <Link href="/entrainement" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 hover:bg-gray-300 transition-colors">
+        <Link href="/entrainement" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-accent text-bg hover:opacity-90 transition-opacity">
           Entraînement
         </Link>
-        <Link href="/apprendre" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 hover:bg-gray-300 transition-colors">
-          Apprendre
-        </Link>
-        <Link href="/parcours" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 hover:bg-gray-300 transition-colors">
-          Parcours
-        </Link>
-        <Link href="/classement" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 hover:bg-gray-300 transition-colors">
-          Classement
-        </Link>
-        <Link href="/bibliotheque" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 hover:bg-gray-300 transition-colors">
+        <Link href="/bibliotheque" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
           Bibliothèque
         </Link>
-        <Link href="/mission" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-gray-200 text-gray-900 hover:bg-gray-300 transition-colors">
-          Missions
+        <Link href="/apprendre" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
+          Apprendre
         </Link>
+        <Link href="/parcours" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
+          Parcours
+        </Link>
+        <Link href="/classement" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
+          Classement
+        </Link>
+        {/* Mission désactivée temporairement (refonte visuelle en cours) —
+            code et route conservés intacts sous app/mission/**, entrée
+            masquée ici uniquement. À réactiver en retirant ce commentaire. */}
       </div>
     </div>
   )

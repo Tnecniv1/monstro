@@ -70,9 +70,9 @@ function formatDateCourt(iso: string) {
 }
 
 function couleurTaux(taux: number) {
-  if (taux >= 80) return 'text-green-600'
-  if (taux >= 50) return 'text-yellow-600'
-  return 'text-red-600'
+  if (taux >= 80) return 'text-success'
+  if (taux >= 50) return 'text-warning'
+  return 'text-danger'
 }
 
 function cheminNoeud(noeud: Noeud | null): string {
@@ -175,7 +175,7 @@ function CarteFeuille({
   const widthClass = layout === 'focus' ? 'w-64 flex-shrink-0' : 'w-64 flex-shrink-0 md:w-full'
 
   return (
-    <div className={`${widthClass} rounded-xl border border-gray-200 bg-white overflow-hidden`}>
+    <div className={`${widthClass} rounded-xl border border-border bg-surface overflow-hidden`}>
       <div
         role="button"
         tabIndex={0}
@@ -189,32 +189,31 @@ function CarteFeuille({
         className="p-3 space-y-2 cursor-pointer select-none"
       >
         <div className="flex items-start justify-between gap-2">
-          <p className="font-medium text-gray-900 text-sm leading-snug flex-1">{l.titre}</p>
+          <p className="font-medium text-text-primary text-sm leading-snug flex-1">{l.titre}</p>
           <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
             {l.isFocus && (
               <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: '#FFD93D' }}
+                className="h-2.5 w-2.5 rounded-full bg-accent"
                 aria-label="En focus"
                 title="En focus"
               />
             )}
             <span
-              className={`text-gray-400 text-xs inline-block transition-transform ${isOpen ? 'rotate-90' : ''}`}
+              className={`text-text-muted text-xs inline-block transition-transform ${isOpen ? 'rotate-90' : ''}`}
             >
               ▸
             </span>
           </div>
         </div>
 
-        {l.chemin && <p className="text-xs text-gray-400 truncate">{l.chemin}</p>}
+        {l.chemin && <p className="text-xs text-text-secondary truncate">{l.chemin}</p>}
 
         <div className="space-y-1">
-          <span className="text-gray-700 text-xs">
+          <span className="text-text-secondary text-xs">
             {l.termines} / {l.volume} exercices
           </span>
-          <div className="h-1 w-full rounded-full bg-gray-100 overflow-hidden">
-            <div className="h-full rounded-full bg-black transition-all" style={{ width: `${pct}%` }} />
+          <div className="h-1 w-full rounded-full bg-surface-2 overflow-hidden">
+            <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
           </div>
         </div>
 
@@ -222,9 +221,9 @@ function CarteFeuille({
           {l.termines > 0 ? (
             <span className={`font-semibold ${couleurTaux(l.tauxReussite)}`}>{l.tauxReussite}%</span>
           ) : (
-            <span className="text-gray-300">—</span>
+            <span className="text-text-muted">—</span>
           )}
-          <span className="text-gray-500">{l.tempsTotal > 0 ? formatTemps(l.tempsTotal) : '—'}</span>
+          <span className="text-text-secondary">{l.tempsTotal > 0 ? formatTemps(l.tempsTotal) : '—'}</span>
         </div>
       </div>
 
@@ -317,12 +316,12 @@ export default function KanbanFeuilles({ userId }: { userId: string }) {
   const total = colonnes.nonTerminees.length + colonnes.aRetravailler.length + colonnes.maitrisees.length
 
   if (loading) {
-    return <p className="text-sm text-gray-400 text-center py-8">Chargement…</p>
+    return <p className="text-sm text-text-muted text-center py-8">Chargement…</p>
   }
 
   if (total === 0) {
     return (
-      <p className="text-sm text-gray-400 text-center py-8">
+      <p className="text-sm text-text-muted text-center py-8">
         Aucune feuille commencée pour l&apos;instant.
       </p>
     )
@@ -332,7 +331,7 @@ export default function KanbanFeuilles({ userId }: { userId: string }) {
     <div className="space-y-6">
       {focusLignes.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
             Focus
           </h3>
           <div className="flex flex-row flex-wrap gap-3">
@@ -352,15 +351,15 @@ export default function KanbanFeuilles({ userId }: { userId: string }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {COLONNES.map(({ key, titre }) => (
           <div key={key} className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
               {titre}{' '}
-              <span className="text-gray-400 normal-case font-normal">
+              <span className="text-text-muted normal-case font-normal">
                 ({colonnes[key].length})
               </span>
             </h3>
             <div className="flex flex-row md:flex-col gap-3 overflow-x-auto md:overflow-visible pb-1">
               {colonnes[key].length === 0 ? (
-                <p className="text-xs text-gray-300">Aucune feuille</p>
+                <p className="text-xs text-text-muted">Aucune feuille</p>
               ) : (
                 colonnes[key].map((l) => (
                   <CarteFeuille

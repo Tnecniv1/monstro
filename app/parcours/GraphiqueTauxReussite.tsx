@@ -22,11 +22,11 @@ function CustomTooltip({
 }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow">
-      <p className="text-gray-500">Bloc {label}</p>
-      <p className="font-medium text-gray-900">
+    <div className="rounded-lg border border-border bg-surface px-3 py-2 text-xs shadow">
+      <p className="text-text-muted">Bloc {label}</p>
+      <p className="font-medium text-text-primary">
         {payload[0].value}%{' '}
-        <span className="text-gray-400">({payload[0].payload.total} exercices)</span>
+        <span className="text-text-muted">({payload[0].payload.total} exercices)</span>
       </p>
     </div>
   )
@@ -55,18 +55,18 @@ export default function GraphiqueTauxReussite({ historique }: { historique: EntH
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5">
+    <div>
       <ResponsiveContainer width="100%" height={220}>
         <LineChart data={blocs} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 11, fill: '#9ca3af' }}
+            tick={{ fontSize: 11, fill: '#69707D' }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             domain={[0, 100]}
-            tick={{ fontSize: 11, fill: '#9ca3af' }}
+            tick={{ fontSize: 11, fill: '#69707D' }}
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => `${v}%`}
@@ -75,9 +75,9 @@ export default function GraphiqueTauxReussite({ historique }: { historique: EntH
           <Line
             type="monotone"
             dataKey="taux"
-            stroke="#000000"
+            stroke="#6D28D9"
             strokeWidth={2}
-            dot={{ fill: '#000000', r: 4 }}
+            dot={{ fill: '#6D28D9', r: 4 }}
             activeDot={{ r: 5 }}
           />
         </LineChart>

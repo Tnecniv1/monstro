@@ -16,7 +16,7 @@ export default async function ProfilPage() {
 
   const { data: profile } = await supabase
     .from('user_profile')
-    .select('pseudo, nom, prenom, avatar_url, telephone, plan, role')
+    .select('pseudo, nom, prenom, avatar_url, telephone, date_naissance, ville, plan, role')
     .eq('id', user.id)
     .single()
 
@@ -24,26 +24,19 @@ export default async function ProfilPage() {
     profile?.plan === 'gratuit' && profile?.role !== 'admin'
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-bg">
       <div className="max-w-lg mx-auto px-4 py-8 space-y-8">
-        <Link href="/" className="text-sm text-gray-400 hover:text-gray-700 transition-colors">
+        <Link href="/" className="text-sm text-text-muted hover:text-text-secondary transition-colors">
           ← Monstro
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Profil</h1>
+        <h1 className="text-2xl font-bold text-text-primary">Profil</h1>
 
         {showAccessBanner && (
-          <div
-            style={{
-              background: '#EDEAE3',
-              borderRadius: 12,
-              padding: '16px 20px',
-              borderLeft: '3px solid #a78bfa',
-            }}
-          >
-            <p style={{ fontWeight: 700, color: '#1a1a1a', fontSize: 14, margin: 0 }}>
+          <div className="bg-surface-2 rounded-xl px-5 py-4 border-l-[3px] border-accent">
+            <p className="font-bold text-text-primary text-sm m-0">
               Accès limité
             </p>
-            <p style={{ color: '#57534e', fontSize: 13, margin: '6px 0 0' }}>
+            <p className="text-text-secondary text-[13px] mt-1.5 mb-0">
               Ton compte n&apos;a pas encore accès à l&apos;application. Abonne-toi
               ci-dessous pour débloquer l&apos;accès complet.
             </p>
@@ -58,6 +51,8 @@ export default async function ProfilPage() {
           prenom={profile?.prenom ?? ''}
           avatarUrl={profile?.avatar_url ?? null}
           telephone={profile?.telephone ?? ''}
+          dateNaissance={profile?.date_naissance ?? ''}
+          ville={profile?.ville ?? ''}
         />
         <Suspense fallback={null}>
           <AbonnementCard />

@@ -25,13 +25,13 @@ export default function ActiviteView({ enriched, dateLabel, activeCount, masquer
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          <span className={nbActifs > 0 ? 'text-green-600' : 'text-red-500'}>
+        <h1 className="text-2xl font-bold text-text-primary">
+          <span className={nbActifs > 0 ? 'text-success' : 'text-danger'}>
             {nbActifs}
           </span>
-          <span className="text-gray-400"> / {liste.length} actifs aujourd&apos;hui</span>
+          <span className="text-text-muted"> / {liste.length} actifs aujourd&apos;hui</span>
         </h1>
-        <p className="text-sm text-gray-400 capitalize mt-0.5">{dateLabel}</p>
+        <p className="text-sm text-text-muted capitalize mt-0.5">{dateLabel}</p>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -40,9 +40,9 @@ export default function ActiviteView({ enriched, dateLabel, activeCount, masquer
 
           if (actif) {
             return (
-              <div key={id} className="relative bg-white rounded-xl border-2 border-gray-900 shadow-sm p-4">
+              <div key={id} className="relative bg-surface rounded-xl border-2 border-accent shadow-sm p-4">
                 {tempsTotal > 0 && (
-                  <span className="absolute top-2 right-2 bg-yellow-400 text-black text-xs font-medium rounded-full px-2 py-0.5">
+                  <span className="absolute top-2 right-2 bg-surface-2 text-text-secondary text-xs font-medium rounded-full px-2 py-0.5">
                     {formatTemps(tempsTotal)}
                   </span>
                 )}
@@ -58,20 +58,20 @@ export default function ActiviteView({ enriched, dateLabel, activeCount, masquer
                     />
                   ) : (
                     <div
-                      className="rounded-full bg-gray-200 flex items-center justify-center font-semibold text-gray-600 text-xs flex-shrink-0"
+                      className="rounded-full bg-surface-2 flex items-center justify-center font-semibold text-text-secondary text-xs flex-shrink-0"
                       style={{ width: 28, height: 28 }}
                     >
                       {label ? label[0].toUpperCase() : '?'}
                     </div>
                   )}
-                  <span className="font-medium text-gray-900 text-sm truncate">{label}</span>
+                  <span className="font-medium text-text-primary text-sm truncate">{label}</span>
                 </div>
               </div>
             )
           }
 
           return (
-            <div key={id} className="bg-white rounded-xl border border-gray-200 p-4 opacity-50">
+            <div key={id} className="bg-surface rounded-xl border border-border p-4 opacity-50">
               <div className="flex items-center gap-2">
                 {avatar_url ? (
                   <img
@@ -84,13 +84,13 @@ export default function ActiviteView({ enriched, dateLabel, activeCount, masquer
                   />
                 ) : (
                   <div
-                    className="rounded-full bg-gray-200 flex items-center justify-center font-semibold text-gray-600 text-xs flex-shrink-0"
+                    className="rounded-full bg-surface-2 flex items-center justify-center font-semibold text-text-secondary text-xs flex-shrink-0"
                     style={{ width: 28, height: 28 }}
                   >
                     {label ? label[0].toUpperCase() : '?'}
                   </div>
                 )}
-                <span className="font-medium text-gray-900 text-sm truncate">{label}</span>
+                <span className="font-medium text-text-primary text-sm truncate">{label}</span>
               </div>
             </div>
           )
