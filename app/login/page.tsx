@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { resolveLoginEmail } from '@/lib/auth/resolveLoginEmail'
 
 type Tab = 'connexion' | 'inscription'
 
@@ -34,15 +35,11 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    let loginEmail = email
-    if (!email.includes('@')) {
-      const { data } = await supabase.rpc('get_email_by_pseudo', { p_pseudo: email })
-      if (!data) {
-        setError('Pseudo introuvable')
-        setLoading(false)
-        return
-      }
-      loginEmail = data
+    const { email: loginEmail, error: resolveError } = await resolveLoginEmail(supabase, email)
+    if (resolveError || !loginEmail) {
+      setError(resolveError ?? 'Pseudo introuvable')
+      setLoading(false)
+      return
     }
     const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password })
     if (error) {
