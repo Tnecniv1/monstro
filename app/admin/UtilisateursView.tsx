@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-type Plan = 'classe' | 'abonne' | 'gratuit'
+type Plan = 'classe' | 'abonne' | 'gratuit' | 'essai'
 type PlanFilter = Plan | 'tous'
 
 interface UtilisateurRow {
@@ -20,6 +20,7 @@ interface UtilisateurRow {
 const PLAN_CONFIG: Record<Plan, { bg: string; color: string; label: string }> = {
   classe:  { bg: '#dcfce7', color: '#166534', label: 'Classe' },
   abonne:  { bg: '#ede9fe', color: '#5b21b6', label: 'Abonné' },
+  essai:   { bg: '#fef3c7', color: '#92400e', label: 'Essai' },
   gratuit: { bg: '#f3f4f6', color: '#6b7280', label: 'Aucun accès' },
 }
 
@@ -73,7 +74,7 @@ export default function UtilisateursView() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchRows() }, [])
 
-  async function handlePlanChange(userId: string, newPlan: 'classe' | 'gratuit') {
+  async function handlePlanChange(userId: string, newPlan: 'classe' | 'gratuit' | 'essai') {
     setInvokingId(userId)
     setRowErrors((prev) => { const next = { ...prev }; delete next[userId]; return next })
     const supabase = createClient()
@@ -117,6 +118,7 @@ export default function UtilisateursView() {
             <option value="tous">Tous les plans</option>
             <option value="classe">Classe</option>
             <option value="abonne">Abonné</option>
+            <option value="essai" style={{ color: PLAN_CONFIG.essai.color }}>{PLAN_CONFIG.essai.label}</option>
             <option value="gratuit">Aucun accès</option>
           </select>
           <input
@@ -165,25 +167,23 @@ export default function UtilisateursView() {
                       <span style={{ fontSize: 12, color: '#9ca3af' }}>Géré par Stripe</span>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <button
-                          onClick={() => handlePlanChange(row.id, row.plan === 'classe' ? 'gratuit' : 'classe')}
+                        <select
+                          value={row.plan}
+                          onChange={(e) =>
+                            handlePlanChange(row.id, e.target.value as 'gratuit' | 'classe' | 'essai')
+                          }
                           disabled={invokingId === row.id}
                           style={{
-                            border: 'none',
-                            borderRadius: 6,
-                            padding: '4px 10px',
-                            fontSize: 12,
-                            fontWeight: 600,
-                            cursor: invokingId === row.id ? 'not-allowed' : 'pointer',
+                            ...INPUT_STYLE,
+                            width: 160,
                             opacity: invokingId === row.id ? 0.6 : 1,
-                            background: row.plan === 'classe' ? '#fee2e2' : '#dcfce7',
-                            color: row.plan === 'classe' ? '#991b1b' : '#166534',
-                            transition: 'opacity 0.15s',
-                            whiteSpace: 'nowrap',
+                            cursor: invokingId === row.id ? 'not-allowed' : 'pointer',
                           }}
                         >
-                          {invokingId === row.id ? '…' : row.plan === 'classe' ? "Retirer l'accès" : 'Donner accès classe'}
-                        </button>
+                          <option value="gratuit">Aucun accès</option>
+                          <option value="classe">Accès classe</option>
+                          <option value="essai">Accès essai</option>
+                        </select>
                         {rowErrors[row.id] && (
                           <span style={{ fontSize: 11, color: '#f87171' }}>{rowErrors[row.id]}</span>
                         )}

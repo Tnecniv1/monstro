@@ -62,7 +62,7 @@ export async function middleware(request: NextRequest) {
     // Admin → accès complet toujours
     // plan 'classe' ou 'abonne' → accès complet
     // sinon → redirection vers /profil
-    if (role !== 'admin' && plan !== 'classe' && plan !== 'abonne') {
+    if (role !== 'admin' && plan !== 'classe' && plan !== 'abonne' && plan !== 'essai') {
       const url = request.nextUrl.clone()
       url.pathname = '/profil'
       return NextResponse.redirect(url)
