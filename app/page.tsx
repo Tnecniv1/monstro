@@ -121,9 +121,14 @@ export default async function HomePage() {
         <Link href="/parcours" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
           Parcours
         </Link>
-        <Link href="/classement" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
-          Classement
-        </Link>
+        {/* Classement désactivé temporairement — route et code conservés
+            intacts sous app/classement/**, entrée masquée ici uniquement.
+            Réactiver en repassant la condition à true. */}
+        {false && (
+          <Link href="/classement" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
+            Classement
+          </Link>
+        )}
         {/* Mission désactivée temporairement (refonte visuelle en cours) —
             code et route conservés intacts sous app/mission/**, entrée
             masquée ici uniquement. À réactiver en retirant ce commentaire. */}
