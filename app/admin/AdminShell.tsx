@@ -7,8 +7,9 @@ import AbonnementsView from './AbonnementsView'
 import CommunicationView, { type EleveCommunication } from './CommunicationView'
 import GlobalView from './GlobalView'
 import UtilisateursView from './UtilisateursView'
+import ForumScriptsView from './ForumScriptsView'
 
-type Onglet = 'scope' | 'correction' | 'abonnements' | 'utilisateurs' | 'communication' | 'global'
+type Onglet = 'scope' | 'correction' | 'abonnements' | 'utilisateurs' | 'communication' | 'global' | 'forum'
 
 const TABS: { id: Onglet; label: string }[] = [
   { id: 'scope', label: 'Scope' },
@@ -17,6 +18,7 @@ const TABS: { id: Onglet; label: string }[] = [
   { id: 'utilisateurs', label: 'Utilisateurs' },
   { id: 'communication', label: 'Communication' },
   { id: 'global', label: 'Global' },
+  { id: 'forum', label: 'Forum' },
 ]
 
 export default function AdminShell({
@@ -70,6 +72,7 @@ export default function AdminShell({
       {onglet === 'utilisateurs' && <UtilisateursView />}
       {onglet === 'communication' && <CommunicationView eleves={eleves} />}
       {onglet === 'global' && <GlobalView />}
+      {onglet === 'forum' && <ForumScriptsView />}
     </div>
   )
 }

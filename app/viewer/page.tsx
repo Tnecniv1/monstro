@@ -2,17 +2,14 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import { googleDocsViewerUrl } from '@/lib/googleDocsViewerUrl'
 
 function ViewerContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const pdfUrl = searchParams.get('url') ?? ''
 
-  // Google Docs Viewer renders the PDF as paginated HTML — fully scrollable on iOS Safari.
-  // Direct iframe PDFs are blocked by iOS's native PDF plugin (no touch scroll support).
-  const iframeSrc = pdfUrl
-    ? `https://docs.google.com/viewer?url=${encodeURIComponent(pdfUrl)}&embedded=true`
-    : ''
+  const iframeSrc = pdfUrl ? googleDocsViewerUrl(pdfUrl) : ''
 
   return (
     <div className="fixed inset-0 flex flex-col bg-white">
