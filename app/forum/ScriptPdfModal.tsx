@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { getSignedPdfUrl } from '@/lib/getSignedPdfUrl'
 import { googleDocsViewerUrl } from '@/lib/googleDocsViewerUrl'
-import type { ForumScript } from './types'
+import type { PdfPreviewItem } from './types'
 
 interface Props {
-  script: ForumScript
+  script: PdfPreviewItem
   onClose: () => void
 }
 

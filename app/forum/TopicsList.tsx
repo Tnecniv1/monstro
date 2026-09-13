@@ -115,7 +115,7 @@ export default function TopicsList({
           key={t.id}
           label={t.nom}
           active={selected?.kind === 'sens' && selected.id === t.id}
-          onClick={() => onSelect({ kind: 'sens', id: t.id, nom: t.nom })}
+          onClick={() => onSelect({ kind: 'sens', id: t.id, nom: t.nom, displayMode: t.display_mode })}
         />
       ))}
 

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUser } from '@/lib/supabase/getUser'
 import ForumClient from './ForumClient'
 import { isForumAdmin } from './adminGate'
-import type { FeuilleTopic, ForumScript, ForumTopic } from './types'
+import type { FeuilleTopic, ForumResource, ForumScript, ForumTopic } from './types'
 
 export default async function ForumPage() {
   const { user, profile } = await getUser()
@@ -11,6 +11,7 @@ export default async function ForumPage() {
 
   const [
     { data: scriptsData },
+    { data: resourcesData },
     { data: topicsData },
     { data: feuillesData },
     { data: focusData },
@@ -19,11 +20,17 @@ export default async function ForumPage() {
   ] = await Promise.all([
     supabase
       .from('forum_scripts')
-      .select('id, titre, description, contenu, pdf_url, ordre')
+      .select('id, titre, description, contenu, pdf_url, cover_url, ordre')
+      .order('ordre'),
+    // Ressources — affichées à la place des tickets pour tout topic "de sens"
+    // avec display_mode === 'resources' (aujourd'hui : le topic Ressources).
+    supabase
+      .from('forum_resources')
+      .select('id, titre, description, cover_url, pdf_url, ordre')
       .order('ordre'),
     supabase
       .from('forum_topics')
-      .select('id, nom, ordre')
+      .select('id, nom, ordre, display_mode')
       .order('ordre'),
     // Topics "de travail" — mêmes feuilles que la Bibliothèque (app/bibliotheque/page.tsx),
     // affichées ici à plat (un topic par feuille), sans la hiérarchie de nœuds.
@@ -50,6 +57,7 @@ export default async function ForumPage() {
   ])
 
   const scripts = (scriptsData ?? []) as ForumScript[]
+  const resources = (resourcesData ?? []) as ForumResource[]
   const topicsSens = (topicsData ?? []) as ForumTopic[]
   const allFeuilles = ((feuillesData ?? []) as FeuilleTopic[])
     .slice()
@@ -67,6 +75,7 @@ export default async function ForumPage() {
 
         <ForumClient
           scripts={scripts}
+          resources={resources}
           topicsSens={topicsSens}
           allFeuilles={allFeuilles}
           focusIds={focusIds}

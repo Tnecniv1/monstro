@@ -1,6 +1,6 @@
 'use client'
 
-import type { ForumScript } from './types'
+import type { ForumCardItem } from './types'
 
 function DocIcon() {
   return (
@@ -14,30 +14,55 @@ function DocIcon() {
 }
 
 interface Props {
-  scripts: ForumScript[]
-  onSelect: (script: ForumScript) => void
+  items: ForumCardItem[]
+  onSelect: (item: ForumCardItem) => void
+  // 'row' : bande horizontale scrollable (fiches, en haut de page).
+  // 'grid' : grille qui wrap (ressources, dans le panneau principal).
+  variant?: 'row' | 'grid'
+  emptyMessage?: string
 }
 
-export default function ScriptsRow({ scripts, onSelect }: Props) {
-  if (scripts.length === 0) {
-    return <p className="text-sm text-text-muted">Aucune fiche disponible pour l&apos;instant.</p>
+export default function ScriptsRow({
+  items,
+  onSelect,
+  variant = 'row',
+  emptyMessage = 'Aucune fiche disponible pour l’instant.',
+}: Props) {
+  if (items.length === 0) {
+    return <p className="text-sm text-text-muted">{emptyMessage}</p>
   }
 
+  const containerClass =
+    variant === 'grid'
+      ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'
+      : 'flex gap-3 overflow-x-auto pb-1 -mx-1 px-1'
+
+  const cardClass =
+    variant === 'grid'
+      ? 'w-full text-left rounded-xl border border-border bg-surface overflow-hidden hover:border-border-strong transition-colors'
+      : 'shrink-0 w-56 text-left rounded-xl border border-border bg-surface overflow-hidden hover:border-border-strong transition-colors'
+
   return (
-    <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
-      {scripts.map((s) => (
-        <button
-          key={s.id}
-          onClick={() => onSelect(s)}
-          className="shrink-0 w-56 text-left rounded-xl border border-border bg-surface p-4 space-y-2 hover:border-border-strong transition-colors"
-        >
-          <div className="w-9 h-9 rounded-lg bg-surface-2 flex items-center justify-center text-text-secondary">
-            <DocIcon />
-          </div>
-          <p className="font-semibold text-text-primary text-sm leading-snug line-clamp-2">{s.titre}</p>
-          {s.description && (
-            <p className="text-xs text-text-secondary line-clamp-2">{s.description}</p>
+    <div className={containerClass}>
+      {items.map((item) => (
+        <button key={item.id} onClick={() => onSelect(item)} className={cardClass}>
+          {item.cover_url && (
+            <div className="aspect-[16/9] w-full bg-surface-2 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={item.cover_url} alt="" className="w-full h-full object-cover" />
+            </div>
           )}
+          <div className="p-4 space-y-2">
+            {!item.cover_url && (
+              <div className="w-9 h-9 rounded-lg bg-surface-2 flex items-center justify-center text-text-secondary">
+                <DocIcon />
+              </div>
+            )}
+            <p className="font-semibold text-text-primary text-sm leading-snug line-clamp-2">{item.titre}</p>
+            {item.description && (
+              <p className="text-xs text-text-secondary line-clamp-2">{item.description}</p>
+            )}
+          </div>
         </button>
       ))}
     </div>
