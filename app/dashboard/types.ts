@@ -29,6 +29,23 @@ export interface RegulariteRow {
   is_fake: boolean
 }
 
+export interface WeekDay {
+  date: string       // 'YYYY-MM-DD'
+  label: string      // 'Lun' .. 'Dim'
+  dateLabel: string  // 'jj/mm'
+}
+
+export interface WeekActivityProfile {
+  id: string
+  pseudo: string | null
+  prenom: string | null
+  nom: string | null
+  avatar_url: string | null
+  is_fake: boolean
+  activite: boolean[]   // longueur 7, aligné sur WeekDay[] (lundi -> dimanche)
+  nbJoursActifs: number
+}
+
 export interface ObjGlobal {
   feuille_id: string | null
   feuille_titre: string | null

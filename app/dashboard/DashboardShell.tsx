@@ -2,35 +2,17 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import ActiviteView from './ActiviteView'
-import RegulariteView from './RegulariteView'
-import type { EnrichedProfile } from './types'
+import MatriceActiviteView from './MatriceActiviteView'
+import type { WeekActivityProfile, WeekDay } from './types'
 
 interface Props {
-  enriched: EnrichedProfile[]
-  dateLabel: string
-  activeCount: number
-  currentUserId: string
+  matrice: WeekActivityProfile[]
+  jours: WeekDay[]
   isAdmin: boolean
 }
 
-type Onglet = 'activite' | 'regularite'
-
-export default function DashboardShell({
-  enriched,
-  dateLabel,
-  activeCount,
-  currentUserId,
-  isAdmin,
-}: Props) {
-  const [onglet, setOnglet] = useState<Onglet>('activite')
+export default function DashboardShell({ matrice, jours, isAdmin }: Props) {
   const [masquerFakes, setMasquerFakes] = useState(false)
-
-  function tabClass(active: boolean) {
-    return active
-      ? 'px-4 py-2 rounded-lg text-sm font-medium bg-surface-2 border border-border-strong text-text-primary'
-      : 'px-4 py-2 rounded-lg text-sm font-medium bg-surface border border-border text-text-muted hover:text-text-secondary transition-colors'
-  }
 
   return (
     <div className="min-h-screen bg-bg px-4 py-8">
@@ -43,14 +25,7 @@ export default function DashboardShell({
         </Link>
 
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button className={tabClass(onglet === 'activite')} onClick={() => setOnglet('activite')}>
-              Activité
-            </button>
-            <button className={tabClass(onglet === 'regularite')} onClick={() => setOnglet('regularite')}>
-              Régularité
-            </button>
-          </div>
+          <h1 className="text-2xl font-bold text-text-primary">Activité de la semaine</h1>
 
           {isAdmin && (
             <div className="flex items-center gap-2 cursor-pointer select-none" onClick={() => setMasquerFakes((v) => !v)}>
@@ -72,22 +47,12 @@ export default function DashboardShell({
           )}
         </div>
 
-        {onglet === 'activite' && (
-          <ActiviteView
-            enriched={enriched}
-            dateLabel={dateLabel}
-            activeCount={activeCount}
-            masquerFakes={masquerFakes}
-          />
-        )}
-
-        {onglet === 'regularite' && (
-          <RegulariteView
-            currentUserId={currentUserId}
-            isAdmin={isAdmin}
-            masquerFakes={masquerFakes}
-          />
-        )}
+        <MatriceActiviteView
+          matrice={matrice}
+          jours={jours}
+          isAdmin={isAdmin}
+          masquerFakes={masquerFakes}
+        />
       </div>
     </div>
   )
