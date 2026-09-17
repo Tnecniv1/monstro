@@ -85,7 +85,13 @@ export default function TopicsList({
         next.delete(feuille.id)
         return next
       })
+      return
     }
+    // Sélectionne directement le topic épinglé — sinon un clic dans le
+    // picker n'a l'air de rien faire d'utile (juste "épingler"), notamment
+    // pour une feuille qu'on retrouve là après qu'elle a disparu de la
+    // liste (cf. bug ticketFeuilleIds/focusIds figés).
+    onSelect({ kind: 'feuille', id: feuille.id, nom: feuille.titre })
   }
 
   async function unpin(feuilleId: string) {

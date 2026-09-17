@@ -26,6 +26,7 @@ interface Props {
   selectedTicketId: string | null
   onSelectTicket: (id: string | null) => void
   onTicketsChanged?: () => void
+  onTicketCreated?: (ticket: ForumTicket) => void
 }
 
 export default function TicketsPanel({
@@ -36,6 +37,7 @@ export default function TicketsPanel({
   selectedTicketId,
   onSelectTicket,
   onTicketsChanged,
+  onTicketCreated,
 }: Props) {
   const supabase = createClient()
 
@@ -80,6 +82,7 @@ export default function TicketsPanel({
     setShowModal(false)
     onSelectTicket(ticket.id)
     onTicketsChanged?.()
+    onTicketCreated?.(ticket)
   }
 
   function handleResolved(ticketId: string) {

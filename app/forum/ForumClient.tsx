@@ -26,9 +26,9 @@ export default function ForumClient({
   resources,
   topicsSens,
   allFeuilles,
-  focusIds,
+  focusIds: initialFocusIds,
   initialPinnedIds,
-  ticketFeuilleIds,
+  ticketFeuilleIds: initialTicketFeuilleIds,
   userId,
   isAdmin,
 }: Props) {
@@ -38,6 +38,24 @@ export default function ForumClient({
   const [openResource, setOpenResource] = useState<ForumResource | null>(null)
   const [activeTopic, setActiveTopic] = useState<ActiveTopic | null>(null)
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
+
+  // ticketFeuilleIds/focusIds arrivent en props figées (fetch serveur au
+  // chargement de la page) puis vivent en state ici, pour pouvoir les
+  // corriger en session sans recharger la page — bug observé : une feuille
+  // ayant un ticket tout juste créé n'était pas encore dans ticketFeuilleIds
+  // (snapshot pré-création), donc disparaissait de TopicsList dès que son
+  // seul autre "laissez-passer" (Focus/épingle) était retiré en session, et
+  // réapparaissait comme épinglable dans PickerFeuilleModal.
+  const [ticketFeuilleIds, setTicketFeuilleIds] = useState(initialTicketFeuilleIds)
+  // focusIds : même traitement en théorie, mais rien dans le forum lui-même
+  // ne modifie le Focus (ça se fait sur /bibliotheque ou /entrainement, des
+  // pages séparées) — un retour sur /forum re-fetch cette prop de toute
+  // façon (page dynamique via cookies dans getUser()). Le cas ne peut donc
+  // se manifester qu'en gardant l'onglet forum ouvert pendant qu'un focus
+  // est modifié ailleurs (autre onglet) — resté théorique pour l'instant,
+  // pas de setter appelé nulle part.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [focusIds, setFocusIds] = useState(initialFocusIds)
 
   // "Mon ticket en cours" — accès rapide toujours visible, indépendant du
   // topic actif. Un non-admin ne peut en avoir qu'un (trigger DB), mais on
@@ -65,6 +83,15 @@ export default function ForumClient({
 
   function refreshMonTicket() {
     setMonTicketVersion((v) => v + 1)
+  }
+
+  // Rend immédiatement visible dans TopicsList la feuille du ticket qu'on
+  // vient de créer, sans attendre un rechargement de page.
+  function handleTicketCreated(ticket: ForumTicket) {
+    if (ticket.feuille_id) {
+      const feuilleId = ticket.feuille_id
+      setTicketFeuilleIds((prev) => (prev.includes(feuilleId) ? prev : [...prev, feuilleId]))
+    }
   }
 
   function selectTopic(topic: ActiveTopic) {
@@ -136,6 +163,7 @@ export default function ForumClient({
             selectedTicketId={selectedTicketId}
             onSelectTicket={setSelectedTicketId}
             onTicketsChanged={refreshMonTicket}
+            onTicketCreated={handleTicketCreated}
           />
         )}
       </div>
