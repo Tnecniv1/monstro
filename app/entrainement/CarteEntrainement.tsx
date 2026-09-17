@@ -50,8 +50,14 @@ function formatDate(iso: string) {
   })
 }
 
+// Date locale (pas toISOString(), qui formate en UTC) — même logique que
+// toDateStr() dans app/dashboard/page.tsx. Sinon, une session enregistrée
+// entre minuit et 1h-2h du matin (heure locale) atterrit sur la date de la
+// veille en UTC, silencieusement décalée d'un jour dans les vues filtrées
+// par plage de dates.
 function todayISO() {
-  return new Date().toISOString().slice(0, 10)
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 type ActiveAction = 'session' | 'terminer' | null
@@ -109,13 +115,37 @@ export default function CarteEntrainement({
 
   const isActive = enCours || correctionEnCours
 
+  // Règle produit : un entraînement ne peut pas passer à "termine" sans au
+  // moins une session (déjà imposé côté DB par le trigger
+  // trg_require_session_before_termine — ce contrôle en amont n'est qu'un
+  // confort d'UX). Ne s'applique pas au flux "correction" : celui-ci met à
+  // jour correction_tentative, pas entrainement.statut, le trigger ne le
+  // concerne pas.
+  const hasSession = e.session.length > 0
+  const terminerBloque = !correctionEnCours && !hasSession
+
   function toggleAction(action: ActiveAction) {
+    if (action === 'terminer' && terminerBloque) return
     setActiveAction((prev) => (prev === action ? null : action))
     setError(null)
   }
 
+  const sessionFormInvalide = !(tempsMin > 0) || !date
+
+  // Reformule le message du trigger DB (déjà propre en soi) pour matcher le
+  // texte affiché en amont dans l'UI ("Ajoute au moins une session…") —
+  // sert de filet si l'utilisateur déclenche quand même l'update malgré le
+  // bouton désactivé (double-clic, état obsolète).
+  function friendlyTerminerError(message: string): string {
+    if (message.toLowerCase().includes('sans au moins une session')) {
+      return 'Impossible de terminer : ajoute au moins une session avant.'
+    }
+    return message
+  }
+
   async function handleAjouterSession(ev: React.FormEvent) {
     ev.preventDefault()
+    if (sessionFormInvalide) return
     setLoading(true)
     setError(null)
     const { error } = await supabase
@@ -133,6 +163,7 @@ export default function CarteEntrainement({
   }
 
   async function handleTerminer(etatChoisi: 'succes' | 'echec') {
+    if (terminerBloque) return
     setLoading(true)
     setError(null)
     const { error: e1 } = await supabase
@@ -144,7 +175,7 @@ export default function CarteEntrainement({
       .from('entrainement')
       .update({ statut: 'termine' })
       .eq('id', e.id)
-    if (e2) { setError(e2.message); setLoading(false); return }
+    if (e2) { setError(friendlyTerminerError(e2.message)); setLoading(false); return }
     router.refresh()
   }
 
@@ -282,10 +313,14 @@ export default function CarteEntrainement({
             </button>
             <button
               onClick={() => toggleAction('terminer')}
+              disabled={terminerBloque}
+              title={terminerBloque ? 'Ajoute au moins une session avant de terminer.' : undefined}
               className={`rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
-                activeAction === 'terminer'
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300'
+                terminerBloque
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : activeAction === 'terminer'
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300'
               }`}
             >
               Terminer
@@ -309,6 +344,10 @@ export default function CarteEntrainement({
               </button>
             )}
           </div>
+        )}
+
+        {terminerBloque && (
+          <p className="text-xs text-amber-600">Ajoute au moins une session avant de terminer.</p>
         )}
       </div>
 
@@ -345,10 +384,15 @@ export default function CarteEntrainement({
               />
             </div>
           </div>
+          {/* Message applicatif — ne dépend pas de la bulle de validation native
+              du navigateur (peu visible, notamment sur mobile Safari). */}
+          {!error && sessionFormInvalide && (
+            <p className="text-xs text-amber-600">Indique une durée supérieure à 0 minute et une date.</p>
+          )}
           {error && <p className="text-xs text-red-600">{error}</p>}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || sessionFormInvalide}
             className="w-full sm:w-auto rounded-xl bg-black px-5 py-3 text-sm font-medium text-white hover:bg-gray-800 active:bg-gray-700 disabled:opacity-50 transition-colors"
           >
             {loading ? 'Ajout…' : 'Ajouter'}

@@ -33,6 +33,7 @@ export default function LoginPage() {
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault()
+    if (!email.trim() || !password) return
     setLoading(true)
     setError(null)
     const { email: loginEmail, error: resolveError } = await resolveLoginEmail(supabase, email)
@@ -53,6 +54,7 @@ export default function LoginPage() {
 
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault()
+    if (!prenom.trim() || !nom.trim() || !pseudo.trim() || !signUpEmail.trim() || !signUpPassword) return
     setLoading(true)
     setError(null)
     const { error } = await supabase.auth.signUp({
@@ -105,8 +107,13 @@ export default function LoginPage() {
           <form onSubmit={handleSignIn} className="space-y-4">
             <Field label="Pseudo ou Email" type="text" value={email} onChange={setEmail} placeholder="pseudo ou toi@exemple.com" />
             <Field label="Mot de passe" type="password" value={password} onChange={setPassword} placeholder="••••••••" />
+            {/* Message applicatif — ne dépend pas de la bulle de validation
+                native du navigateur (peu visible, notamment sur mobile Safari). */}
+            {!error && (!email.trim() || !password) && (
+              <p className="text-sm text-amber-600">Renseigne ton pseudo/email et ton mot de passe.</p>
+            )}
             {error && <p className="text-sm text-red-600">{error}</p>}
-            <SubmitButton loading={loading} label="Se connecter" />
+            <SubmitButton loading={loading} label="Se connecter" disabled={!email.trim() || !password} />
           </form>
         )}
 
@@ -120,8 +127,15 @@ export default function LoginPage() {
             <Field label="Pseudo" type="text" value={pseudo} onChange={setPseudo} placeholder="@jdupont" />
             <Field label="Email" type="email" value={signUpEmail} onChange={setSignUpEmail} placeholder="toi@exemple.com" />
             <Field label="Mot de passe" type="password" value={signUpPassword} onChange={setSignUpPassword} placeholder="••••••••" />
+            {!error && (!prenom.trim() || !nom.trim() || !pseudo.trim() || !signUpEmail.trim() || !signUpPassword) && (
+              <p className="text-sm text-amber-600">Remplis tous les champs pour créer ton compte.</p>
+            )}
             {error && <p className="text-sm text-red-600">{error}</p>}
-            <SubmitButton loading={loading} label="Créer mon compte" />
+            <SubmitButton
+              loading={loading}
+              label="Créer mon compte"
+              disabled={!prenom.trim() || !nom.trim() || !pseudo.trim() || !signUpEmail.trim() || !signUpPassword}
+            />
           </form>
         )}
       </div>
@@ -157,11 +171,19 @@ function Field({
   )
 }
 
-function SubmitButton({ loading, label }: { loading: boolean; label: string }) {
+function SubmitButton({
+  loading,
+  label,
+  disabled = false,
+}: {
+  loading: boolean
+  label: string
+  disabled?: boolean
+}) {
   return (
     <button
       type="submit"
-      disabled={loading}
+      disabled={loading || disabled}
       className="w-full bg-black text-white rounded-lg py-2 text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
     >
       {loading ? 'Chargement…' : label}
