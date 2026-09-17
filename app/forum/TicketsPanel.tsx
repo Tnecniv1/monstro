@@ -22,11 +22,21 @@ interface Props {
   activeTopic: ActiveTopic | null
   userId: string
   isAdmin: boolean
+  hasOpenTicket: boolean
   selectedTicketId: string | null
   onSelectTicket: (id: string | null) => void
+  onTicketsChanged?: () => void
 }
 
-export default function TicketsPanel({ activeTopic, userId, isAdmin, selectedTicketId, onSelectTicket }: Props) {
+export default function TicketsPanel({
+  activeTopic,
+  userId,
+  isAdmin,
+  hasOpenTicket,
+  selectedTicketId,
+  onSelectTicket,
+  onTicketsChanged,
+}: Props) {
   const supabase = createClient()
 
   const [tickets, setTickets] = useState<ForumTicket[]>([])
@@ -69,6 +79,18 @@ export default function TicketsPanel({ activeTopic, userId, isAdmin, selectedTic
     setPseudos((prev) => new Map(prev).set(ticket.user_id, prev.get(ticket.user_id) ?? '—'))
     setShowModal(false)
     onSelectTicket(ticket.id)
+    onTicketsChanged?.()
+  }
+
+  function handleResolved(ticketId: string) {
+    setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, statut: 'ferme' } : t)))
+    onTicketsChanged?.()
+  }
+
+  function handleTicketDeleted(ticketId: string) {
+    setTickets((prev) => prev.filter((t) => t.id !== ticketId))
+    onSelectTicket(null)
+    onTicketsChanged?.()
   }
 
   const selectedTicket = tickets.find((t) => t.id === selectedTicketId) ?? null
@@ -87,7 +109,10 @@ export default function TicketsPanel({ activeTopic, userId, isAdmin, selectedTic
         ticket={selectedTicket}
         authorPseudo={pseudos.get(selectedTicket.user_id) ?? '—'}
         userId={userId}
+        isAdmin={isAdmin}
         onBack={() => onSelectTicket(null)}
+        onResolved={() => handleResolved(selectedTicket.id)}
+        onDeleted={() => handleTicketDeleted(selectedTicket.id)}
       />
     )
   }
@@ -97,7 +122,11 @@ export default function TicketsPanel({ activeTopic, userId, isAdmin, selectedTic
   // désactivé) pour tout le monde sauf role='admin' (cf. adminGate.ts :
   // seule notion d'admin dans l'app, en supposant que ce rôle correspond
   // bien au compte visé par la RLS).
-  const canCreateTicket = activeTopic.kind === 'feuille' || isAdmin
+  // Sur les topics de travail : un non-admin avec déjà un ticket ouvert
+  // (tous topics confondus, cf. trigger forum_enforce_one_open_ticket) ne
+  // peut pas en ouvrir un second — évite le clic pour rien, le trigger
+  // bloquerait de toute façon l'insertion côté DB.
+  const canCreateTicket = isAdmin || (activeTopic.kind === 'feuille' && !hasOpenTicket)
 
   return (
     <div className="space-y-3">

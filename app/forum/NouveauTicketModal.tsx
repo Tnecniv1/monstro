@@ -11,6 +11,18 @@ interface Props {
   onCreated: (ticket: ForumTicket) => void
 }
 
+// Le trigger forum_enforce_one_open_ticket lève une exception (code P0001)
+// au vouvoiement quand l'utilisateur a déjà un ticket ouvert — reformulée
+// ici au tutoiement pour matcher le reste du forum, plutôt que de laisser
+// passer une erreur générique.
+function friendlyTicketError(message: string | undefined): string {
+  if (!message) return 'Erreur lors de la création du ticket.'
+  if (message.toLowerCase().includes('ticket ouvert')) {
+    return 'Tu as déjà un ticket ouvert. Ferme-le avant d’en ouvrir un nouveau.'
+  }
+  return message
+}
+
 export default function NouveauTicketModal({ activeTopic, userId, onClose, onCreated }: Props) {
   const supabase = createClient()
 
@@ -40,7 +52,7 @@ export default function NouveauTicketModal({ activeTopic, userId, onClose, onCre
       .single()
 
     if (ticketError || !ticket) {
-      setError(ticketError?.message ?? 'Erreur lors de la création du ticket.')
+      setError(friendlyTicketError(ticketError?.message))
       setLoading(false)
       return
     }
