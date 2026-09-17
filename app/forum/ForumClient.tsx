@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import ScriptsRow from './ScriptsRow'
+import ScriptTextModal from './ScriptTextModal'
 import ScriptPdfModal from './ScriptPdfModal'
 import TopicsList from './TopicsList'
 import TicketsPanel from './TicketsPanel'
-import type { ActiveTopic, FeuilleTopic, ForumCardItem, ForumResource, ForumScript, ForumTopic } from './types'
+import type { ActiveTopic, FeuilleTopic, ForumResource, ForumScript, ForumTopic } from './types'
 
 interface Props {
   scripts: ForumScript[]
@@ -30,11 +31,10 @@ export default function ForumClient({
   userId,
   isAdmin,
 }: Props) {
-  // Un seul état de modal PDF, partagé entre la bande de fiches (en haut)
-  // et le panneau Ressources (à la place des tickets) — ScriptPdfModal ne
-  // dépend que de { titre, pdf_url }, donc ForumScript et ForumResource
-  // conviennent tous les deux sans cast (cf. ForumCardItem/PdfPreviewItem).
-  const [openPdfItem, setOpenPdfItem] = useState<ForumCardItem | null>(null)
+  // Scripts (citation + étapes) et ressources (PDF) ouvrent deux modals
+  // différents — ScriptPdfModal reste inchangé, dédié aux ressources.
+  const [openScript, setOpenScript] = useState<ForumScript | null>(null)
+  const [openResource, setOpenResource] = useState<ForumResource | null>(null)
   const [activeTopic, setActiveTopic] = useState<ActiveTopic | null>(null)
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
 
@@ -49,7 +49,7 @@ export default function ForumClient({
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-text-primary">Forum</h1>
 
-      <ScriptsRow items={scripts} onSelect={setOpenPdfItem} />
+      <ScriptsRow items={scripts} onSelect={setOpenScript} />
 
       <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4 items-start">
         <TopicsList
@@ -68,7 +68,7 @@ export default function ForumClient({
             <h2 className="font-semibold text-text-primary">{activeTopic.nom}</h2>
             <ScriptsRow
               items={resources}
-              onSelect={setOpenPdfItem}
+              onSelect={setOpenResource}
               variant="grid"
               emptyMessage="Aucune ressource pour l'instant."
             />
@@ -85,7 +85,8 @@ export default function ForumClient({
         )}
       </div>
 
-      {openPdfItem && <ScriptPdfModal script={openPdfItem} onClose={() => setOpenPdfItem(null)} />}
+      {openScript && <ScriptTextModal script={openScript} onClose={() => setOpenScript(null)} />}
+      {openResource && <ScriptPdfModal script={openResource} onClose={() => setOpenResource(null)} />}
     </div>
   )
 }

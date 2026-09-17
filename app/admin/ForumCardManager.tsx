@@ -15,38 +15,76 @@ function sanitizeFileName(name: string): string {
     .replace(/[^a-zA-Z0-9._-]/g, '_')
 }
 
+type CardEtape = { titre: string; description: string }
+
 // Forme commune à forum_scripts et forum_resources (colonnes partagées).
-// `contenu` n'existe que sur forum_scripts — undefined pour forum_resources.
+// citation/etapes n'existent que sur forum_scripts, pdf_url que sur
+// forum_resources (côté formulaire — la colonne pdf_url existe toujours en
+// base sur forum_scripts mais n'est plus lue/écrite depuis cet écran).
 type CardItem = {
   id: string
   titre: string
   description: string | null
-  contenu?: string
-  pdf_url: string | null
+  citation?: string | null
+  etapes?: CardEtape[]
+  pdf_url?: string | null
   cover_url: string | null
   ordre: number
 }
 
 type CardTable = 'forum_scripts' | 'forum_resources'
 
+function EtapePreview({ citation, etapes }: { citation: string; etapes: CardEtape[] }) {
+  if (!citation.trim() && etapes.length === 0) return null
+
+  return (
+    <details open className="rounded-lg border border-border">
+      <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-text-secondary">
+        Aperçu
+      </summary>
+      <div className="p-4 space-y-4">
+        {citation.trim() && (
+          <>
+            <blockquote className="border-l-2 border-border-strong pl-4 italic text-text-secondary text-sm">
+              <MathText text={citation} />
+            </blockquote>
+            {etapes.length > 0 && <hr className="border-border" />}
+          </>
+        )}
+        {etapes.map((etape, i) => (
+          <div key={i}>
+            <p className="text-sm font-bold text-text-primary">
+              <span className="text-accent">{`E_${i + 1} `}</span>
+              <MathText text={etape.titre || '…'} />
+            </p>
+            <div className="text-sm text-text-primary mt-1 leading-relaxed">
+              <MathText text={etape.description || '…'} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </details>
+  )
+}
+
 function CardForm({
   table,
-  showContenu,
   initial,
   onCancel,
   onSaved,
 }: {
   table: CardTable
-  showContenu: boolean
   initial?: CardItem
   onCancel: () => void
   onSaved: () => void
 }) {
   const supabase = createClient()
+  const isScript = table === 'forum_scripts'
 
   const [titre, setTitre] = useState(initial?.titre ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
-  const [contenu, setContenu] = useState(initial?.contenu ?? '')
+  const [citation, setCitation] = useState(initial?.citation ?? '')
+  const [etapes, setEtapes] = useState<CardEtape[]>(initial?.etapes ?? [])
   const [pdfUrl, setPdfUrl] = useState(initial?.pdf_url ?? '')
   const [coverUrl, setCoverUrl] = useState(initial?.cover_url ?? '')
   const [ordre, setOrdre] = useState(initial?.ordre ?? 1)
@@ -129,6 +167,28 @@ function CardForm({
     if (file) uploadCover(file)
   }
 
+  function addEtape() {
+    setEtapes((prev) => [...prev, { titre: '', description: '' }])
+  }
+
+  function removeEtape(i: number) {
+    setEtapes((prev) => prev.filter((_, idx) => idx !== i))
+  }
+
+  function moveEtape(i: number, dir: -1 | 1) {
+    setEtapes((prev) => {
+      const j = i + dir
+      if (j < 0 || j >= prev.length) return prev
+      const next = [...prev]
+      ;[next[i], next[j]] = [next[j], next[i]]
+      return next
+    })
+  }
+
+  function updateEtape(i: number, field: keyof CardEtape, value: string) {
+    setEtapes((prev) => prev.map((e, idx) => (idx === i ? { ...e, [field]: value } : e)))
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
@@ -137,11 +197,17 @@ function CardForm({
     const payload: Record<string, unknown> = {
       titre: titre.trim(),
       description: description.trim(),
-      pdf_url: pdfUrl.trim() || null,
       cover_url: coverUrl.trim() || null,
       ordre,
     }
-    if (showContenu) payload.contenu = contenu
+    if (isScript) {
+      payload.citation = citation.trim() || null
+      payload.etapes = etapes
+        .map((et) => ({ titre: et.titre.trim(), description: et.description.trim() }))
+        .filter((et) => et.titre || et.description)
+    } else {
+      payload.pdf_url = pdfUrl.trim() || null
+    }
 
     const { error } = initial
       ? await supabase.from(table).update(payload).eq('id', initial.id)
@@ -224,66 +290,127 @@ function CardForm({
         </label>
       </div>
 
-      {/* PDF — champ principal : la fiche s'affiche comme un PDF direct (ScriptPdfModal). */}
-      <div className="space-y-1.5">
-        <label className="block text-xs font-medium text-text-secondary">PDF</label>
+      {isScript ? (
+        <>
+          {/* Citation — affichée en haut de ScriptTextModal. */}
+          <div className="space-y-1">
+            <label className="block text-xs font-medium text-text-secondary">Citation (optionnel)</label>
+            <textarea
+              value={citation}
+              onChange={(e) => setCitation(e.target.value)}
+              rows={2}
+              placeholder="Citation affichée en haut de la fiche ($...$ pour les maths)"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+            />
+          </div>
 
-        <label
-          onDragOver={(e) => { e.preventDefault(); setDragOverPdf(true) }}
-          onDragLeave={() => setDragOverPdf(false)}
-          onDrop={handleDropPdf}
-          className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-5 text-center cursor-pointer transition-colors ${
-            dragOverPdf ? 'border-accent bg-accent/5' : 'border-border hover:border-border-strong hover:bg-surface'
-          }`}
-        >
-          <input type="file" accept=".pdf" onChange={handleFileInputPdf} className="sr-only" />
-          {uploadingPdf ? (
-            <p className="text-xs text-text-muted">Upload en cours…</p>
-          ) : fichierNom ? (
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-success">✓ {fichierNom}</p>
-              <p className="text-xs text-text-muted">Cliquer pour changer</p>
+          {/* Étapes — ajouter/supprimer/réordonner, chaque étape = titre + description. */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-medium text-text-secondary">Étapes</label>
+              <button
+                type="button"
+                onClick={addEtape}
+                className="text-xs font-medium text-accent hover:opacity-80 transition-opacity"
+              >
+                + Ajouter une étape
+              </button>
             </div>
-          ) : (
-            <p className="text-sm text-text-muted">
-              Glissez un PDF ici ou <span className="underline">cliquez pour sélectionner</span>
-            </p>
-          )}
-        </label>
 
-        <input
-          type="text"
-          value={pdfUrl}
-          onChange={(e) => setPdfUrl(e.target.value)}
-          required
-          placeholder="https://… (rempli automatiquement après upload)"
-          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
-        />
-      </div>
+            {etapes.length === 0 && (
+              <p className="text-xs text-text-muted">Aucune étape pour l&apos;instant.</p>
+            )}
 
-      {showContenu && (
-        <details className="rounded-lg border border-border">
-          <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-text-secondary">
-            Contenu texte (optionnel, non affiché pour l&apos;instant)
-          </summary>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 pt-1">
-            <div className="space-y-1">
-              <label className="block text-xs font-medium text-text-secondary">Contenu ($...$ pour les maths)</label>
-              <textarea
-                value={contenu}
-                onChange={(e) => setContenu(e.target.value)}
-                rows={8}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary font-mono focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="block text-xs font-medium text-text-secondary">Aperçu</label>
-              <div className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary whitespace-pre-wrap leading-relaxed h-full min-h-[180px] overflow-y-auto">
-                {contenu ? <MathText text={contenu} /> : <span className="text-text-muted">…</span>}
-              </div>
+            <div className="space-y-3">
+              {etapes.map((etape, i) => (
+                <div key={i} className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-accent">{`E_${i + 1}`}</span>
+                    <div className="flex items-center gap-1 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => moveEtape(i, -1)}
+                        disabled={i === 0}
+                        aria-label="Monter"
+                        className="px-1.5 text-text-muted hover:text-text-secondary disabled:opacity-30 transition-colors"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveEtape(i, 1)}
+                        disabled={i === etapes.length - 1}
+                        aria-label="Descendre"
+                        className="px-1.5 text-text-muted hover:text-text-secondary disabled:opacity-30 transition-colors"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeEtape(i)}
+                        className="px-1.5 text-danger hover:opacity-70 transition-opacity"
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    type="text"
+                    value={etape.titre}
+                    onChange={(e) => updateEtape(i, 'titre', e.target.value)}
+                    placeholder="Titre de l'étape"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                  <textarea
+                    value={etape.description}
+                    onChange={(e) => updateEtape(i, 'description', e.target.value)}
+                    rows={2}
+                    placeholder="Description ($...$ pour les maths)"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                  />
+                </div>
+              ))}
             </div>
           </div>
-        </details>
+
+          <EtapePreview citation={citation} etapes={etapes} />
+        </>
+      ) : (
+        <div className="space-y-1.5">
+          <label className="block text-xs font-medium text-text-secondary">PDF</label>
+
+          <label
+            onDragOver={(e) => { e.preventDefault(); setDragOverPdf(true) }}
+            onDragLeave={() => setDragOverPdf(false)}
+            onDrop={handleDropPdf}
+            className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-5 text-center cursor-pointer transition-colors ${
+              dragOverPdf ? 'border-accent bg-accent/5' : 'border-border hover:border-border-strong hover:bg-surface'
+            }`}
+          >
+            <input type="file" accept=".pdf" onChange={handleFileInputPdf} className="sr-only" />
+            {uploadingPdf ? (
+              <p className="text-xs text-text-muted">Upload en cours…</p>
+            ) : fichierNom ? (
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-success">✓ {fichierNom}</p>
+                <p className="text-xs text-text-muted">Cliquer pour changer</p>
+              </div>
+            ) : (
+              <p className="text-sm text-text-muted">
+                Glissez un PDF ici ou <span className="underline">cliquez pour sélectionner</span>
+              </p>
+            )}
+          </label>
+
+          <input
+            type="text"
+            value={pdfUrl}
+            onChange={(e) => setPdfUrl(e.target.value)}
+            required
+            placeholder="https://… (rempli automatiquement après upload)"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+        </div>
       )}
 
       {error && <p className="text-sm text-danger">{error}</p>}
@@ -312,11 +439,11 @@ interface Props {
   table: CardTable
   createLabel: string
   itemLabelSingular: string
-  showContenu: boolean
 }
 
-export default function ForumCardManager({ table, createLabel, itemLabelSingular, showContenu }: Props) {
+export default function ForumCardManager({ table, createLabel, itemLabelSingular }: Props) {
   const supabase = createClient()
+  const isScript = table === 'forum_scripts'
 
   const [items, setItems] = useState<CardItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -325,8 +452,8 @@ export default function ForumCardManager({ table, createLabel, itemLabelSingular
 
   async function charger() {
     setLoading(true)
-    const columns = showContenu
-      ? 'id, titre, description, contenu, pdf_url, cover_url, ordre'
+    const columns = isScript
+      ? 'id, titre, description, citation, etapes, cover_url, ordre'
       : 'id, titre, description, pdf_url, cover_url, ordre'
     const { data } = await supabase.from(table).select(columns).order('ordre')
     setItems((data as unknown as CardItem[]) ?? [])
@@ -362,7 +489,6 @@ export default function ForumCardManager({ table, createLabel, itemLabelSingular
       {showCreate && (
         <CardForm
           table={table}
-          showContenu={showContenu}
           onCancel={() => setShowCreate(false)}
           onSaved={() => { setShowCreate(false); charger() }}
         />
@@ -404,7 +530,6 @@ export default function ForumCardManager({ table, createLabel, itemLabelSingular
               <div className="border-t border-border p-4">
                 <CardForm
                   table={table}
-                  showContenu={showContenu}
                   initial={item}
                   onCancel={() => setEditingId(null)}
                   onSaved={() => { setEditingId(null); charger() }}

@@ -20,7 +20,7 @@ export default async function ForumPage() {
   ] = await Promise.all([
     supabase
       .from('forum_scripts')
-      .select('id, titre, description, contenu, pdf_url, cover_url, ordre')
+      .select('id, titre, description, citation, etapes, cover_url, ordre')
       .order('ordre'),
     // Ressources — affichées à la place des tickets pour tout topic "de sens"
     // avec display_mode === 'resources' (aujourd'hui : le topic Ressources).

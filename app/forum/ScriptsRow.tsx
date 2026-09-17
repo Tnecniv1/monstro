@@ -1,7 +1,5 @@
 'use client'
 
-import type { ForumCardItem } from './types'
-
 function DocIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -13,21 +11,31 @@ function DocIcon() {
   )
 }
 
-interface Props {
-  items: ForumCardItem[]
-  onSelect: (item: ForumCardItem) => void
+// Forme minimale nécessaire à l'affichage de la carte — le type concret
+// (ForumScript ou ForumResource) est préservé via le générique T, pour que
+// onSelect rende l'objet complet (ForumClient sait alors quel modal ouvrir).
+interface CardVisual {
+  id: string
+  titre: string
+  description: string | null
+  cover_url: string | null
+}
+
+interface Props<T extends CardVisual> {
+  items: T[]
+  onSelect: (item: T) => void
   // 'row' : bande horizontale scrollable (fiches, en haut de page).
   // 'grid' : grille qui wrap (ressources, dans le panneau principal).
   variant?: 'row' | 'grid'
   emptyMessage?: string
 }
 
-export default function ScriptsRow({
+export default function ScriptsRow<T extends CardVisual>({
   items,
   onSelect,
   variant = 'row',
   emptyMessage = 'Aucune fiche disponible pour l’instant.',
-}: Props) {
+}: Props<T>) {
   if (items.length === 0) {
     return <p className="text-sm text-text-muted">{emptyMessage}</p>
   }

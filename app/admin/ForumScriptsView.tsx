@@ -29,21 +29,11 @@ export default function ForumScriptsView() {
       </div>
 
       {sousOnglet === 'fiches' && (
-        <ForumCardManager
-          table="forum_scripts"
-          createLabel="+ Nouvelle fiche"
-          itemLabelSingular="fiche"
-          showContenu
-        />
+        <ForumCardManager table="forum_scripts" createLabel="+ Nouvelle fiche" itemLabelSingular="fiche" />
       )}
 
       {sousOnglet === 'ressources' && (
-        <ForumCardManager
-          table="forum_resources"
-          createLabel="+ Nouvelle ressource"
-          itemLabelSingular="ressource"
-          showContenu={false}
-        />
+        <ForumCardManager table="forum_resources" createLabel="+ Nouvelle ressource" itemLabelSingular="ressource" />
       )}
     </div>
   )

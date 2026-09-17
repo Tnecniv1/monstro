@@ -1,17 +1,23 @@
+export type ForumScriptEtape = {
+  titre: string
+  description: string
+}
+
+// pdf_url/contenu existent toujours en base mais ne sont plus lus/affichés
+// pour les scripts — remplacés par citation + etapes (ScriptTextModal).
 export type ForumScript = {
   id: string
   titre: string
   description: string
-  contenu: string
-  pdf_url: string | null
+  citation: string | null
+  etapes: ForumScriptEtape[]
   cover_url: string | null
   ordre: number
 }
 
 // Fiche "Ressources" — table forum_resources, affichée dans le topic
 // "Ressources" (forum_topics.display_mode === 'resources') à la place des
-// tickets. Même forme que ForumScript côté carte/PDF, pdf_url obligatoire
-// en base (contrairement aux scripts).
+// tickets. Inchangée : reste un PDF (ScriptPdfModal), pas de citation/etapes.
 export type ForumResource = {
   id: string
   titre: string
@@ -21,18 +27,11 @@ export type ForumResource = {
   ordre: number
 }
 
-// Forme minimale partagée par ScriptsRow (cartes) — ForumScript et
-// ForumResource la satisfont toutes les deux structurellement, sans cast.
-export type ForumCardItem = {
-  id: string
+// Forme minimale attendue par ScriptPdfModal — un ForumResource la satisfait.
+export type PdfPreviewItem = {
   titre: string
-  description: string | null
-  cover_url: string | null
   pdf_url: string | null
 }
-
-// Forme minimale attendue par ScriptPdfModal — un ForumCardItem la satisfait.
-export type PdfPreviewItem = Pick<ForumCardItem, 'titre' | 'pdf_url'>
 
 // Topic "de sens" — table forum_topics (Philosophie, Ressources, …).
 // display_mode pilote l'affichage du panneau principal pour ce topic :
@@ -58,6 +57,7 @@ export type ActiveTopic =
   | { kind: 'sens'; id: string; nom: string; displayMode: 'tickets' | 'resources' }
   | { kind: 'feuille'; id: string; nom: string }
 
+// statut : 'ouvert' | 'repondu' | 'ferme' (CHECK forum_tickets_statut_check).
 export type ForumTicket = {
   id: string
   topic_id: string | null
