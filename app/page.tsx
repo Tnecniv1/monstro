@@ -115,14 +115,14 @@ export default async function HomePage() {
         <Link href="/bibliotheque" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
           Bibliothèque
         </Link>
-        <Link href="/apprendre" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
-          Défi
-        </Link>
         <Link href="/parcours" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
           Parcours
         </Link>
         <Link href="/forum" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
           Forum
+        </Link>
+        <Link href="/apprendre" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
+          Défi
         </Link>
         {/* Classement désactivé temporairement — route et code conservés
             intacts sous app/classement/**, entrée masquée ici uniquement.
