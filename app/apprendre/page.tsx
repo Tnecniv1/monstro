@@ -20,7 +20,7 @@ export default async function ApprendrePage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         <Link href="/" className="text-sm text-gray-400 hover:text-gray-700 transition-colors">← Monstro</Link>
-        <h1 className="text-2xl font-bold text-gray-900">Apprendre</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Défi</h1>
 
         <ApprendreClient userId={user.id} niveaux={niveaux} />
       </div>
