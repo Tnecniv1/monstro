@@ -3,7 +3,11 @@ import type { RapportCardProps } from '@/app/profil/RapportCard'
 
 export type UserStats = Omit<RapportCardProps, 'note'>
 
-export async function getUserStats(userId: string): Promise<UserStats> {
+type Entrainement = { id: string; date_creation: string }
+type Session = { temps_min: number; date: string }
+type Observation = { etat: string; entrainement_id: string }
+
+async function fetchRawData(userId: string) {
   const supabase = createClient()
 
   const { data: ents } = await supabase
@@ -16,27 +20,39 @@ export async function getUserStats(userId: string): Promise<UserStats> {
   const [sessionsRes, obsRes] = await Promise.all([
     entIds.length > 0
       ? supabase.from('session').select('temps_min, date').in('entrainement_id', entIds)
-      : { data: [] as { temps_min: number; date: string }[] | null },
+      : { data: [] as Session[] | null },
     entIds.length > 0
       ? supabase.from('observation').select('etat, entrainement_id').in('entrainement_id', entIds)
-      : { data: [] as { etat: string; entrainement_id: string }[] | null },
+      : { data: [] as Observation[] | null },
   ])
 
-  const sessions = sessionsRes.data ?? []
-  const obs = obsRes.data ?? []
+  return {
+    ents: (ents ?? []) as Entrainement[],
+    sessions: (sessionsRes.data ?? []) as Session[],
+    obs: (obsRes.data ?? []) as Observation[],
+  }
+}
 
-  // Mois courant et mois précédent (pour les deltas)
-  const now = new Date()
-  const firstDayCurrent = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
-  const prevM = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-  const firstDayPrev = `${prevM.getFullYear()}-${String(prevM.getMonth() + 1).padStart(2, '0')}-01`
-
+/**
+ * Calcule les stats sur [dateDebut, dateFin) pour la période courante et
+ * [dateDebutPrev, dateFinPrev) pour la période de comparaison. Les bornes
+ * sont des chaînes YYYY-MM-DD comparées lexicographiquement.
+ */
+function computeStats(
+  ents: Entrainement[],
+  sessions: Session[],
+  obs: Observation[],
+  dateDebut: string,
+  dateFin: string,
+  dateDebutPrev: string,
+  dateFinPrev: string,
+): UserStats {
   const minutesConcentration = sessions
-    .filter((s) => s.date >= firstDayCurrent)
+    .filter((s) => s.date >= dateDebut && s.date < dateFin)
     .reduce((sum, s) => sum + s.temps_min, 0)
 
   const minutesConcentrationPrev = sessions
-    .filter((s) => s.date >= firstDayPrev && s.date < firstDayCurrent)
+    .filter((s) => s.date >= dateDebutPrev && s.date < dateFinPrev)
     .reduce((sum, s) => sum + s.temps_min, 0)
 
   // Problèmes réussis (total, toutes périodes confondues — progression vers l'objectif)
@@ -44,45 +60,68 @@ export async function getUserStats(userId: string): Promise<UserStats> {
     (o) => o.etat === 'succes' || o.etat === 'corrige',
   ).length
 
-  // Entraînements du mois courant / précédent
-  const entsThisMonth = new Set(
-    (ents ?? [])
-      .filter((e) => e.date_creation.slice(0, 10) >= firstDayCurrent)
+  const entsCourant = new Set(
+    ents
+      .filter((e) => {
+        const d = e.date_creation.slice(0, 10)
+        return d >= dateDebut && d < dateFin
+      })
       .map((e) => e.id),
   )
-  const entsPrevMonth = new Set(
-    (ents ?? [])
-      .filter(
-        (e) =>
-          e.date_creation.slice(0, 10) >= firstDayPrev &&
-          e.date_creation.slice(0, 10) < firstDayCurrent,
-      )
+  const entsPrecedent = new Set(
+    ents
+      .filter((e) => {
+        const d = e.date_creation.slice(0, 10)
+        return d >= dateDebutPrev && d < dateFinPrev
+      })
       .map((e) => e.id),
   )
 
-  const obsThisMonth = obs.filter((o) => entsThisMonth.has(o.entrainement_id))
-  const obsPrevMonth = obs.filter((o) => entsPrevMonth.has(o.entrainement_id))
+  const obsCourant = obs.filter((o) => entsCourant.has(o.entrainement_id))
+  const obsPrecedent = obs.filter((o) => entsPrecedent.has(o.entrainement_id))
 
-  // Problèmes travaillés = nombre de problèmes rencontrés dans le mois
-  const problemesTravailles = obsThisMonth.length
-  const problemesTravaillesPrev = obsPrevMonth.length
-
-  // Taux de réussite = % de problèmes réussis parmi ceux travaillés dans le mois
-  const tauxReussiteFor = (list: typeof obs) => {
+  const tauxReussiteFor = (list: Observation[]) => {
     if (list.length === 0) return 0
     const reussis = list.filter((o) => o.etat === 'succes' || o.etat === 'corrige').length
     return Math.round((reussis / list.length) * 100)
   }
-  const tauxReussite = tauxReussiteFor(obsThisMonth)
-  const tauxReussitePrev = tauxReussiteFor(obsPrevMonth)
 
   return {
-    problemesTravailles,
-    problemesTravaillesPrev,
+    problemesTravailles: obsCourant.length,
+    problemesTravaillesPrev: obsPrecedent.length,
     minutesConcentration,
     minutesConcentrationPrev,
-    tauxReussite,
-    tauxReussitePrev,
+    tauxReussite: tauxReussiteFor(obsCourant),
+    tauxReussitePrev: tauxReussiteFor(obsPrecedent),
     problemesReussis,
   }
+}
+
+function addDays(iso: string, days: number): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const date = new Date(y, m - 1, d + days)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+/** Stats du mois courant (glissant, jusqu'à aujourd'hui) vs mois précédent. */
+export async function getUserStats(userId: string): Promise<UserStats> {
+  const { ents, sessions, obs } = await fetchRawData(userId)
+
+  const now = new Date()
+  const firstDayCurrent = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  const prevM = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const firstDayPrev = `${prevM.getFullYear()}-${String(prevM.getMonth() + 1).padStart(2, '0')}-01`
+
+  // Pas de borne haute pour le mois courant : il est toujours "en cours".
+  return computeStats(ents, sessions, obs, firstDayCurrent, '9999-12-31', firstDayPrev, firstDayCurrent)
+}
+
+/** Stats de la semaine [lundi, lundi+7) vs la semaine précédente. */
+export async function getUserStatsForWeek(userId: string, lundi: string): Promise<UserStats> {
+  const { ents, sessions, obs } = await fetchRawData(userId)
+
+  const dateFin = addDays(lundi, 7)
+  const dateDebutPrev = addDays(lundi, -7)
+
+  return computeStats(ents, sessions, obs, lundi, dateFin, dateDebutPrev, lundi)
 }

@@ -4,19 +4,19 @@ import { useState } from 'react'
 import AdminClient, { type Noeud } from './AdminClient'
 import CorrectionsClient, { type FeuilleRow } from './corrections/CorrectionsClient'
 import AbonnementsView from './AbonnementsView'
-import CommunicationView, { type EleveCommunication } from './CommunicationView'
+import AgoraAdminView, { type EleveAgora } from './AgoraAdminView'
 import GlobalView from './GlobalView'
 import UtilisateursView from './UtilisateursView'
 import ForumScriptsView from './ForumScriptsView'
 
-type Onglet = 'scope' | 'correction' | 'abonnements' | 'utilisateurs' | 'communication' | 'global' | 'forum'
+type Onglet = 'scope' | 'correction' | 'abonnements' | 'utilisateurs' | 'agora' | 'global' | 'forum'
 
 const TABS: { id: Onglet; label: string }[] = [
   { id: 'scope', label: 'Scope' },
   { id: 'correction', label: 'Correction' },
   { id: 'abonnements', label: 'Abonnements' },
   { id: 'utilisateurs', label: 'Utilisateurs' },
-  { id: 'communication', label: 'Communication' },
+  { id: 'agora', label: 'Agora' },
   { id: 'global', label: 'Global' },
   { id: 'forum', label: 'Forum' },
 ]
@@ -28,7 +28,7 @@ export default function AdminShell({
 }: {
   noeuds: Noeud[]
   feuilles: FeuilleRow[]
-  eleves: EleveCommunication[]
+  eleves: EleveAgora[]
 }) {
   const [onglet, setOnglet] = useState<Onglet>('scope')
 
@@ -70,7 +70,7 @@ export default function AdminShell({
       {onglet === 'correction' && <CorrectionsClient feuilles={feuilles} />}
       {onglet === 'abonnements' && <AbonnementsView />}
       {onglet === 'utilisateurs' && <UtilisateursView />}
-      {onglet === 'communication' && <CommunicationView eleves={eleves} />}
+      {onglet === 'agora' && <AgoraAdminView eleves={eleves} />}
       {onglet === 'global' && <GlobalView />}
       {onglet === 'forum' && <ForumScriptsView />}
     </div>

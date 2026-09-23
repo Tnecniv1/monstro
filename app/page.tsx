@@ -1,16 +1,30 @@
 import Link from 'next/link'
-import { getUser } from '@/lib/supabase/getUser'
 import { createClient } from '@/lib/supabase/server'
+import type { UserProfile } from '@/lib/supabase/getUser'
 import PixelGrid from './components/PixelGrid'
 import StreakBadge from './components/StreakBadge'
 import LogoutButton from './components/LogoutButton'
+import LandingPage from './components/LandingPage'
 
 export default async function HomePage() {
-  const { user, profile } = await getUser()
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  // Visiteur non connecté → page d'accueil avec formulaire de connexion
+  if (!user) return <LandingPage />
+
+  const { data } = await supabase
+    .from('user_profile')
+    .select('pseudo, role, avatar_url')
+    .eq('id', user.id)
+    .single()
+  const profile = data as UserProfile | null
+
   const pseudo = profile?.pseudo ?? user.email ?? ''
   const isAdmin = profile?.role === 'admin'
   const avatarUrl = profile?.avatar_url ?? null
-  const supabase = createClient()
 
   const { data: entIds } = await supabase
     .from('entrainement')
@@ -92,6 +106,18 @@ export default async function HomePage() {
               className="text-text-muted hover:text-text-secondary transition-colors cursor-pointer">
               <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
               <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </Link>
+          <Link href="/agora">
+            <svg xmlns="http://www.w3.org/2000/svg"
+              width="20" height="20" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor"
+              strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+              className="text-text-muted hover:text-text-secondary transition-colors cursor-pointer">
+              <path d="M6 3h12" />
+              <path d="M6 21h12" />
+              <path d="M6 3c0 5 4 7 6 9-2 2-6 4-6 9" />
+              <path d="M18 3c0 5-4 7-6 9 2 2 6 4 6 9" />
             </svg>
           </Link>
           {isAdmin && (

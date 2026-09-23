@@ -4,10 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toPng } from 'html-to-image'
 import { createClient } from '@/lib/supabase/client'
 import RapportCard from '@/app/profil/RapportCard'
+import { getRapportHebdoAction } from './agoraActions'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export type EleveCommunication = {
+export type EleveAgora = {
   id: string
   pseudo: string | null
   prenom: string | null
@@ -28,7 +29,7 @@ type ReferentsMap = Record<string, ReferentEntry[]>
 interface RapportRow {
   id: string
   eleve_id: string
-  mois: string
+  mois: string // date du lundi de la semaine du rapport (colonne conservée telle quelle, dette technique)
   problemes_travailles: number
   problemes_travailles_prev: number
   minutes_concentration: number
@@ -42,33 +43,37 @@ interface RapportRow {
 }
 
 interface Props {
-  eleves: EleveCommunication[]
+  eleves: EleveAgora[]
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers semaine ─────────────────────────────────────────────────────────
 
-function prevMonthStr(): string {
-  const d = new Date()
-  d.setDate(1)
-  d.setMonth(d.getMonth() - 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+/** Lundi ISO (YYYY-MM-DD) de la semaine précédant la semaine en cours. */
+function defaultLundi(): string {
+  const now = new Date()
+  const jour = now.getDay() // 0=dim..6=sam
+  const diffAuLundi = jour === 0 ? -6 : 1 - jour
+  const lundiCourant = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffAuLundi)
+  const lundiPrecedent = new Date(lundiCourant.getFullYear(), lundiCourant.getMonth(), lundiCourant.getDate() - 7)
+  return toISODate(lundiPrecedent)
 }
 
-function inputToMois(m: string): string {
-  return `${m}-01`
+function toISODate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function formatMoisLabel(mois: string): string {
-  const [y, mo] = mois.split('-').map(Number)
-  return new Date(y, mo - 1, 1).toLocaleDateString('fr-FR', {
-    month: 'long',
-    year: 'numeric',
-  })
+function shiftSemaine(lundi: string, deltaSemaines: number): string {
+  const [y, m, d] = lundi.split('-').map(Number)
+  return toISODate(new Date(y, m - 1, d + deltaSemaines * 7))
 }
 
-function formatMoisCourt(mois: string): string {
-  const [y, mo] = mois.split('-').map(Number)
-  return `${String(mo).padStart(2, '0')}/${y}`
+function formatSemaineCourt(lundi: string): string {
+  const [, m, d] = lundi.split('-').map(Number)
+  return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`
+}
+
+function formatSemaineLabel(lundi: string): string {
+  return `Semaine du ${formatSemaineCourt(lundi)}`
 }
 
 function referentLabel(r: ReferentEntry): string {
@@ -84,11 +89,10 @@ function normalizePhone(raw: string): string {
 
 // ── Composant ─────────────────────────────────────────────────────────────────
 
-export default function CommunicationView({ eleves }: Props) {
+export default function AgoraAdminView({ eleves }: Props) {
   const supabase = createClient()
 
-  const [moisInput, setMoisInput] = useState(prevMonthStr())
-  const mois = inputToMois(moisInput)
+  const [lundi, setLundi] = useState(defaultLundi())
 
   const [referentsMap, setReferentsMap] = useState<ReferentsMap>({})
   const [rapports, setRapports] = useState<Record<string, RapportRow>>({})
@@ -104,7 +108,7 @@ export default function CommunicationView({ eleves }: Props) {
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
 
-  // Formulaire ajout référent (inline dans la cellule Agora)
+  // Formulaire ajout suiveur (inline dans la cellule Agora)
   const [openFormEleveId, setOpenFormEleveId] = useState<string | null>(null)
   const [formPrenom, setFormPrenom] = useState('')
   const [formNom, setFormNom] = useState('')
@@ -124,7 +128,7 @@ export default function CommunicationView({ eleves }: Props) {
         .from('referent_eleve')
         .select('id, eleve_id, referent(id, prenom, nom, telephone, mode)')
         .eq('actif', true),
-      supabase.from('rapport_mensuel').select('*').eq('mois', mois),
+      supabase.from('rapport_mensuel').select('*').eq('mois', lundi),
     ])
 
     const map: ReferentsMap = {}
@@ -164,22 +168,22 @@ export default function CommunicationView({ eleves }: Props) {
       setEnvoisMap({})
     }
     setLoadingTable(false)
-  }, [mois])
+  }, [lundi])
 
   useEffect(() => {
     charger()
   }, [charger])
 
-  // Fermer le panneau et le formulaire si on change de mois
+  // Fermer le panneau et le formulaire si on change de semaine
   useEffect(() => {
     setPanneau(null)
     setPanneauRapport(null)
     setNote('')
     setOpenFormEleveId(null)
     setFormError(null)
-  }, [mois])
+  }, [lundi])
 
-  // ── Gestion référents (colonne Agora) ───────────────────────────────────────
+  // ── Gestion suiveurs (colonne Agora) ────────────────────────────────────────
 
   function ouvrirForm(eleveId: string) {
     setOpenFormEleveId(eleveId)
@@ -227,7 +231,7 @@ export default function CommunicationView({ eleves }: Props) {
       .single()
 
     if (e1 || !ref) {
-      setFormError(e1?.message ?? 'Erreur lors de la création du référent.')
+      setFormError(e1?.message ?? 'Erreur lors de la création du suiveur.')
       setFormSaving(false)
       return
     }
@@ -242,7 +246,7 @@ export default function CommunicationView({ eleves }: Props) {
       return
     }
 
-    // Recharger les référents de cette ligne uniquement
+    // Recharger les suiveurs de cette ligne uniquement
     const { data: rows } = await supabase
       .from('referent_eleve')
       .select('id, referent(id, prenom, nom, telephone, mode)')
@@ -276,22 +280,18 @@ export default function CommunicationView({ eleves }: Props) {
     let rapport = rapports[eleveId] ?? null
 
     if (!rapport) {
-      const { data: rpcData } = await supabase.rpc('get_rapport_data', {
-        p_eleve: eleveId,
-        p_mois: mois,
-      })
-      const row = Array.isArray(rpcData) ? rpcData[0] : (rpcData ?? {})
+      const stats = await getRapportHebdoAction(eleveId, lundi)
 
       const newRowData = {
         eleve_id: eleveId,
-        mois,
-        problemes_travailles: (row as RapportRow)?.problemes_travailles ?? 0,
-        problemes_travailles_prev: (row as RapportRow)?.problemes_travailles_prev ?? 0,
-        minutes_concentration: (row as RapportRow)?.minutes_concentration ?? 0,
-        minutes_concentration_prev: (row as RapportRow)?.minutes_concentration_prev ?? 0,
-        taux_reussite: (row as RapportRow)?.taux_reussite ?? 0,
-        taux_reussite_prev: (row as RapportRow)?.taux_reussite_prev ?? 0,
-        problemes_reussis: (row as RapportRow)?.problemes_reussis ?? 0,
+        mois: lundi,
+        problemes_travailles: stats.problemesTravailles,
+        problemes_travailles_prev: stats.problemesTravaillesPrev,
+        minutes_concentration: stats.minutesConcentration,
+        minutes_concentration_prev: stats.minutesConcentrationPrev,
+        taux_reussite: stats.tauxReussite,
+        taux_reussite_prev: stats.tauxReussitePrev,
+        problemes_reussis: stats.problemesReussis,
         note: null,
         image_path: null,
         envoye_le: null,
@@ -325,7 +325,7 @@ export default function CommunicationView({ eleves }: Props) {
       .from('rapport_mensuel')
       .update({ note: note || null })
       .eq('eleve_id', panneau.eleveId)
-      .eq('mois', mois)
+      .eq('mois', lundi)
     const updated = { ...panneauRapport, note: note || null }
     setPanneauRapport(updated)
     setRapports((prev) => ({ ...prev, [panneau.eleveId]: updated }))
@@ -338,16 +338,6 @@ export default function CommunicationView({ eleves }: Props) {
     setGenerateError(null)
 
     try {
-      console.log('[genererPng] props =', {
-        problemes_travailles: panneauRapport.problemes_travailles,
-        problemes_travailles_prev: panneauRapport.problemes_travailles_prev,
-        minutes_concentration: panneauRapport.minutes_concentration,
-        minutes_concentration_prev: panneauRapport.minutes_concentration_prev,
-        taux_reussite: panneauRapport.taux_reussite,
-        taux_reussite_prev: panneauRapport.taux_reussite_prev,
-        problemes_reussis: panneauRapport.problemes_reussis,
-        note,
-      })
       await document.fonts.ready
       await new Promise<void>((r) => setTimeout(r, 300))
       const opts = {
@@ -359,7 +349,6 @@ export default function CommunicationView({ eleves }: Props) {
       await toPng(cardRef.current, opts)
       // 2ème passe — résultat final
       const png = await toPng(cardRef.current, opts)
-      console.log('[genererPng] dataUrl.length =', png.length)
 
       const blob = await (await fetch(png)).blob()
       // Réutiliser le nom existant pour éviter les fichiers orphelins
@@ -376,7 +365,7 @@ export default function CommunicationView({ eleves }: Props) {
         .from('rapport_mensuel')
         .update({ image_path: path })
         .eq('eleve_id', panneau.eleveId)
-        .eq('mois', mois)
+        .eq('mois', lundi)
 
       const updated = { ...panneauRapport, image_path: path }
       setPanneauRapport(updated)
@@ -395,7 +384,7 @@ export default function CommunicationView({ eleves }: Props) {
       .getPublicUrl(panneauRapport.image_path)
 
     const url = `${publicData.publicUrl}?v=${Date.now()}`
-    const msg = `Bonjour, voici le rapport mensuel de ${panneau.pseudo} pour ${formatMoisLabel(mois)} sur Monstro : ${url}`
+    const msg = `Bonjour, voici le rapport hebdomadaire de ${panneau.pseudo} pour la ${formatSemaineLabel(lundi).toLowerCase()} sur Monstro : ${url}`
     const tel = ref.telephone
 
     if (ref.mode === 'sms') {
@@ -409,9 +398,9 @@ export default function CommunicationView({ eleves }: Props) {
       .from('rapport_mensuel')
       .update({ envoye_le })
       .eq('eleve_id', panneau.eleveId)
-      .eq('mois', mois)
+      .eq('mois', lundi)
 
-    // Suivi par référent
+    // Suivi par suiveur
     await supabase
       .from('rapport_envoi')
       .upsert(
@@ -461,26 +450,36 @@ export default function CommunicationView({ eleves }: Props) {
     flex: 1,
   }
 
+  const navBtnStyle: React.CSSProperties = {
+    width: 28,
+    height: 28,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 16,
+    fontWeight: 600,
+    borderRadius: 8,
+    border: '1px solid #e5e7eb',
+    background: '#fff',
+    color: '#374151',
+    cursor: 'pointer',
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div>
-      {/* Sélecteur de mois */}
+      {/* Sélecteur de semaine */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Mois :</span>
-        <input
-          type="month"
-          value={moisInput}
-          onChange={(e) => setMoisInput(e.target.value)}
-          style={{
-            fontSize: 14,
-            borderRadius: 8,
-            border: '1px solid #d1d5db',
-            padding: '6px 10px',
-            color: '#111827',
-            outline: 'none',
-          }}
-        />
+        <button onClick={() => setLundi((l) => shiftSemaine(l, -1))} style={navBtnStyle} aria-label="Semaine précédente">
+          ‹
+        </button>
+        <span style={{ fontSize: 14, fontWeight: 600, color: '#111827', minWidth: 150, textAlign: 'center' }}>
+          {formatSemaineLabel(lundi)}
+        </span>
+        <button onClick={() => setLundi((l) => shiftSemaine(l, 1))} style={navBtnStyle} aria-label="Semaine suivante">
+          ›
+        </button>
       </div>
 
       {/* Tableau */}
@@ -500,7 +499,7 @@ export default function CommunicationView({ eleves }: Props) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                {['Étudiant', 'Agora', `Rapport ${formatMoisCourt(mois)}`, 'Envoyés', ''].map((h, i) => (
+                {['Étudiant', 'Agora', `Rapport ${formatSemaineCourt(lundi)}`, 'Envoyés', ''].map((h, i) => (
                   <th
                     key={i}
                     style={{
@@ -544,9 +543,9 @@ export default function CommunicationView({ eleves }: Props) {
                       {pseudo}
                     </td>
 
-                    {/* Agora — gestion inline */}
+                    {/* Agora — gestion inline des suiveurs */}
                     <td style={{ padding: '10px 16px', verticalAlign: 'top', minWidth: 220 }}>
-                      {/* Liste des référents actifs */}
+                      {/* Liste des suiveurs actifs */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: refs.length > 0 || formOpen ? 6 : 0 }}>
                         {refs.map((r) => (
                           <div key={r.linkId} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -566,7 +565,7 @@ export default function CommunicationView({ eleves }: Props) {
                             </span>
                             <button
                               onClick={() => handleRetirer(profile.id, r.linkId)}
-                              title="Retirer ce référent"
+                              title="Retirer ce suiveur"
                               style={{
                                 fontSize: 15,
                                 lineHeight: 1,
@@ -693,7 +692,7 @@ export default function CommunicationView({ eleves }: Props) {
                       )}
                     </td>
 
-                    {/* Ouvrir/Fermer */}
+                    {/* Ouvrir/Fermer/Envoyer à tous */}
                     <td style={{ padding: '10px 16px', textAlign: 'right', verticalAlign: 'top' }}>
                       <button
                         onClick={() => (isOpen ? fermerPanneau() : ouvrirPanneau(profile.id, pseudo))}
@@ -708,7 +707,7 @@ export default function CommunicationView({ eleves }: Props) {
                           cursor: 'pointer',
                         }}
                       >
-                        {isOpen ? 'Fermer' : 'Ouvrir'}
+                        {isOpen ? 'Fermer' : nReferents > 0 ? 'Envoyer à tous' : 'Ouvrir'}
                       </button>
                     </td>
                   </tr>
@@ -770,7 +769,7 @@ export default function CommunicationView({ eleves }: Props) {
                   {panneau.pseudo}
                 </h2>
                 <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>
-                  Rapport {formatMoisLabel(mois)}
+                  Rapport {formatSemaineLabel(lundi)}
                 </p>
               </div>
               <button
@@ -887,7 +886,7 @@ export default function CommunicationView({ eleves }: Props) {
                   )}
                 </div>
 
-                {/* Envoi par référent (WhatsApp + SMS) */}
+                {/* Envoi par suiveur (WhatsApp + SMS) — boutons individuels regroupés */}
                 {panRefs.length > 0 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <div
@@ -899,7 +898,7 @@ export default function CommunicationView({ eleves }: Props) {
                         letterSpacing: '0.05em',
                       }}
                     >
-                      Envoyer le rapport
+                      Envoyer le rapport ({panRefs.length} suiveur{panRefs.length > 1 ? 's' : ''})
                     </div>
 
                     {panRefs.map((ref) => {
@@ -973,7 +972,6 @@ export default function CommunicationView({ eleves }: Props) {
         </div>
       )}
 
-      {/* Div hors-écran pour capture PNG (portrait ~1080×2400) */}
       {/* Div hors-écran pour capture PNG : simple conteneur de positionnement, pas de taille imposée */}
       {panneauRapport && (
         <div style={{ position: 'fixed', left: -10000, top: 0 }}>

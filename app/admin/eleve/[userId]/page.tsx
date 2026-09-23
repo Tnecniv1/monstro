@@ -3,7 +3,6 @@ import { notFound } from 'next/navigation'
 import { requireAdmin } from '@/lib/admin/requireAdmin'
 import { createClient } from '@/lib/supabase/server'
 import RapportCard from '@/app/profil/RapportCard'
-import ReferantSection, { type Referant } from './ReferantSection'
 import { getUserStats } from '@/lib/stats/getUserStats'
 
 interface Props {
@@ -16,33 +15,19 @@ export default async function EleveProfilPage({ params }: Props) {
   const { userId } = params
   const supabase = createClient()
 
-  const [{ data: profile }, stats, { data: referantRows }] = await Promise.all([
+  const [{ data: profile }, stats] = await Promise.all([
     supabase
       .from('user_profile')
       .select('pseudo, nom, prenom, avatar_url, telephone')
       .eq('id', userId)
       .single(),
     getUserStats(userId),
-    supabase
-      .from('referent_eleve')
-      .select('id, referent_id, referent(nom, relation, telephone)')
-      .eq('eleve_id', userId)
-      .eq('actif', true),
   ])
 
   if (!profile) notFound()
 
   const fullName = `${profile.prenom ?? ''} ${profile.nom ?? ''}`.trim()
   const pseudo = profile.pseudo ?? (fullName || '—')
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const referants: Referant[] = (referantRows ?? []).map((r: any) => ({
-    id: r.id,
-    referent_id: r.referent_id,
-    nom: r.referent.nom,
-    relation: r.referent.relation,
-    telephone: r.referent.telephone,
-  }))
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -86,9 +71,6 @@ export default async function EleveProfilPage({ params }: Props) {
 
         {/* Stats */}
         <RapportCard {...stats} />
-
-        {/* Référants */}
-        <ReferantSection eleveId={userId} initial={referants} />
       </div>
     </div>
   )

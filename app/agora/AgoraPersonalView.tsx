@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-export interface Referant {
-  id: string
-  referent_id: string
+export interface PersonalReferent {
+  linkId: string   // referent_eleve.id
+  referentId: string
+  prenom: string
   nom: string
   relation: string
   telephone: string
@@ -13,40 +14,85 @@ export interface Referant {
 
 interface Props {
   eleveId: string
-  initial: Referant[]
+  initial: PersonalReferent[]
 }
 
-const RELATION_LABELS: Record<string, string> = {
+type Relation =
+  | 'pere'
+  | 'mere'
+  | 'frere'
+  | 'soeur'
+  | 'parrain'
+  | 'marraine'
+  | 'ami'
+  | 'oncle'
+  | 'tante'
+  | 'coach_sport'
+
+const RELATION_OPTIONS: { value: Relation; label: string }[] = [
+  { value: 'pere', label: 'Père' },
+  { value: 'mere', label: 'Mère' },
+  { value: 'frere', label: 'Frère' },
+  { value: 'soeur', label: 'Sœur' },
+  { value: 'parrain', label: 'Parrain' },
+  { value: 'marraine', label: 'Marraine' },
+  { value: 'ami', label: 'Ami' },
+  { value: 'oncle', label: 'Oncle' },
+  { value: 'tante', label: 'Tante' },
+  { value: 'coach_sport', label: 'Coach de sport' },
+]
+
+// Anciennes valeurs encore présentes en base (formulaire pré-refonte) — gardées
+// uniquement pour l'affichage, retirées du <select> pour les nouveaux ajouts.
+const RELATION_LABELS_LEGACY: Record<string, string> = {
   parent: 'Parent',
   prof: 'Professeur',
   autre: 'Autre',
 }
 
-export default function ReferantSection({ eleveId, initial }: Props) {
+const RELATION_LABELS: Record<string, string> = {
+  ...RELATION_LABELS_LEGACY,
+  ...Object.fromEntries(RELATION_OPTIONS.map((o) => [o.value, o.label])),
+}
+
+function referentLabel(r: PersonalReferent): string {
+  return [r.prenom, r.nom].filter(Boolean).join(' ') || '—'
+}
+
+export default function AgoraPersonalView({ eleveId, initial }: Props) {
   const supabase = createClient()
-  const [referants, setReferants] = useState<Referant[]>(initial)
+  const [referents, setReferents] = useState<PersonalReferent[]>(initial)
   const [showForm, setShowForm] = useState(false)
+  const [prenom, setPrenom] = useState('')
   const [nom, setNom] = useState('')
-  const [relation, setRelation] = useState<'parent' | 'prof' | 'autre'>('parent')
+  const [relation, setRelation] = useState<Relation>('pere')
   const [telephone, setTelephone] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  function normalizePhone(raw: string): string {
+    const digits = raw.replace(/[^\d+]/g, '')
+    if (digits.startsWith('+')) return digits.slice(1)
+    if (digits.startsWith('0')) return '33' + digits.slice(1)
+    return digits
+  }
+
   async function recharger() {
     const { data } = await supabase
       .from('referent_eleve')
-      .select('id, referent_id, referent(nom, relation, telephone)')
+      .select('id, referent_id, referent(prenom, nom, relation, telephone)')
       .eq('eleve_id', eleveId)
       .eq('actif', true)
     if (data) {
-      setReferants(
+      setReferents(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data.map((r: any) => ({
-          id: r.id,
-          referent_id: r.referent_id,
-          nom: r.referent.nom,
-          relation: r.referent.relation,
-          telephone: r.referent.telephone,
+          linkId: r.id,
+          referentId: r.referent_id,
+          prenom: r.referent?.prenom ?? '',
+          nom: r.referent?.nom ?? '',
+          relation: r.referent?.relation ?? 'autre',
+          telephone: r.referent?.telephone ?? '',
         })),
       )
     }
@@ -62,12 +108,18 @@ export default function ReferantSection({ eleveId, initial }: Props) {
 
     const { data: ref, error: e1 } = await supabase
       .from('referent')
-      .insert({ nom: nom.trim(), relation, telephone: telephone.trim() })
+      .insert({
+        prenom: prenom.trim() || null,
+        nom: nom.trim(),
+        relation,
+        telephone: normalizePhone(telephone.trim()),
+        mode: 'whatsapp',
+      })
       .select('id')
       .single()
 
     if (e1 || !ref) {
-      setError(e1?.message ?? 'Erreur création référant')
+      setError(e1?.message ?? 'Erreur lors de la création du suiveur.')
       setLoading(false)
       return
     }
@@ -82,18 +134,19 @@ export default function ReferantSection({ eleveId, initial }: Props) {
       return
     }
 
+    setPrenom('')
     setNom('')
-    setRelation('parent')
+    setRelation('pere')
     setTelephone('')
     setShowForm(false)
     setLoading(false)
     await recharger()
   }
 
-  async function handleRetirer(referantEleveId: string) {
+  async function handleRetirer(linkId: string) {
     setLoading(true)
-    await supabase.from('referent_eleve').update({ actif: false }).eq('id', referantEleveId)
-    setReferants((prev) => prev.filter((r) => r.id !== referantEleveId))
+    await supabase.from('referent_eleve').update({ actif: false }).eq('id', linkId)
+    setReferents((prev) => prev.filter((r) => r.linkId !== linkId))
     setLoading(false)
   }
 
@@ -111,7 +164,7 @@ export default function ReferantSection({ eleveId, initial }: Props) {
     >
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', margin: 0 }}>Référants</h3>
+        <h2 style={{ fontSize: 14, fontWeight: 600, color: '#111827', margin: 0 }}>Mes suiveurs</h2>
         <button
           onClick={() => { setShowForm((v) => !v); setError(null) }}
           style={{
@@ -125,17 +178,21 @@ export default function ReferantSection({ eleveId, initial }: Props) {
             cursor: 'pointer',
           }}
         >
-          {showForm ? 'Annuler' : 'Ajouter un référant'}
+          {showForm ? 'Annuler' : 'Ajouter un suiveur'}
         </button>
       </div>
 
+      <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>
+        Les suiveurs reçoivent ton rapport de progression hebdomadaire par WhatsApp ou SMS.
+      </p>
+
       {/* Liste */}
-      {referants.length === 0 && !showForm && (
-        <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>Aucun référant lié.</p>
+      {referents.length === 0 && !showForm && (
+        <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>Aucun suiveur pour le moment.</p>
       )}
-      {referants.map((r) => (
+      {referents.map((r) => (
         <div
-          key={r.id}
+          key={r.linkId}
           style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -147,13 +204,13 @@ export default function ReferantSection({ eleveId, initial }: Props) {
           }}
         >
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{r.nom}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{referentLabel(r)}</div>
             <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
               {RELATION_LABELS[r.relation] ?? r.relation} · {r.telephone}
             </div>
           </div>
           <button
-            onClick={() => handleRetirer(r.id)}
+            onClick={() => handleRetirer(r.linkId)}
             disabled={loading}
             style={{
               fontSize: 12,
@@ -184,25 +241,47 @@ export default function ReferantSection({ eleveId, initial }: Props) {
             borderRadius: 12,
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Nom
-            </label>
-            <input
-              type="text"
-              value={nom}
-              onChange={(e) => setNom(e.target.value)}
-              placeholder="Jean Dupont"
-              style={{
-                fontSize: 14,
-                color: '#111827',
-                background: '#fff',
-                border: '1px solid #d1d5db',
-                borderRadius: 8,
-                padding: '8px 12px',
-                outline: 'none',
-              }}
-            />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Prénom
+              </label>
+              <input
+                type="text"
+                value={prenom}
+                onChange={(e) => setPrenom(e.target.value)}
+                placeholder="Jean"
+                style={{
+                  fontSize: 14,
+                  color: '#111827',
+                  background: '#fff',
+                  border: '1px solid #d1d5db',
+                  borderRadius: 8,
+                  padding: '8px 12px',
+                  outline: 'none',
+                }}
+              />
+            </div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Nom
+              </label>
+              <input
+                type="text"
+                value={nom}
+                onChange={(e) => setNom(e.target.value)}
+                placeholder="Dupont"
+                style={{
+                  fontSize: 14,
+                  color: '#111827',
+                  background: '#fff',
+                  border: '1px solid #d1d5db',
+                  borderRadius: 8,
+                  padding: '8px 12px',
+                  outline: 'none',
+                }}
+              />
+            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -211,7 +290,7 @@ export default function ReferantSection({ eleveId, initial }: Props) {
             </label>
             <select
               value={relation}
-              onChange={(e) => setRelation(e.target.value as 'parent' | 'prof' | 'autre')}
+              onChange={(e) => setRelation(e.target.value as Relation)}
               style={{
                 fontSize: 14,
                 color: '#111827',
@@ -222,9 +301,9 @@ export default function ReferantSection({ eleveId, initial }: Props) {
                 outline: 'none',
               }}
             >
-              <option value="parent">Parent</option>
-              <option value="prof">Professeur</option>
-              <option value="autre">Autre</option>
+              {RELATION_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
             </select>
           </div>
 

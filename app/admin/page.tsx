@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import AdminShell from './AdminShell'
 import type { Noeud } from './AdminClient'
 import type { FeuilleRow } from './corrections/CorrectionsClient'
-import type { EleveCommunication } from './CommunicationView'
+import type { EleveAgora } from './AgoraAdminView'
 
 export default async function AdminPage() {
   await requireAdmin()
@@ -37,7 +37,7 @@ export default async function AdminPage() {
   const fakeUserIds = new Set(
     (fakeData ?? []).map((r: { user_id: string }) => r.user_id)
   )
-  const eleves: EleveCommunication[] = (profilesData ?? []).map((p) => ({
+  const eleves: EleveAgora[] = (profilesData ?? []).map((p) => ({
     ...p,
     is_fake: fakeUserIds.has(p.id),
   }))

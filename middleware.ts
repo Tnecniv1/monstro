@@ -1,8 +1,11 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Routes accessibles sans authentification
+const PUBLIC_PATHS = new Set(['/', '/mentions-legales', '/privacy'])
+
 // Routes accessibles sans plan payant (+ /login déjà géré en-dessous)
-const WHITELIST = new Set(['/', '/profil', '/login'])
+const WHITELIST = new Set(['/', '/profil', '/login', '/mentions-legales', '/privacy'])
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -34,10 +37,10 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  // Non authentifié → /login
-  if (!user && pathname !== '/login') {
+  // Non authentifié hors routes publiques → / (page d'accueil avec formulaire de connexion)
+  if (!user && !PUBLIC_PATHS.has(pathname)) {
     const url = request.nextUrl.clone()
-    url.pathname = '/login'
+    url.pathname = '/'
     return NextResponse.redirect(url)
   }
 
