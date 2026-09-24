@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import ScriptsRow from './ScriptsRow'
 import ScriptTextModal from './ScriptTextModal'
@@ -115,7 +116,17 @@ export default function ForumClient({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-text-primary">Forum</h1>
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-bold text-text-primary">Forum</h1>
+        {isAdmin && (
+          <Link
+            href="/forum/suivi"
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-2 transition-colors"
+          >
+            Suivi
+          </Link>
+        )}
+      </div>
 
       <ScriptsRow items={scripts} onSelect={setOpenScript} />
 
