@@ -1,11 +1,18 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Routes accessibles sans authentification
-const PUBLIC_PATHS = new Set(['/', '/mentions-legales', '/privacy'])
+// Routes accessibles sans authentification (correspondance exacte)
+const PUBLIC_PATHS = new Set(['/', '/mentions-legales', '/privacy', '/robots.txt', '/sitemap.xml'])
 
 // Routes accessibles sans plan payant (+ /login déjà géré en-dessous)
 const WHITELIST = new Set(['/', '/profil', '/login', '/mentions-legales', '/privacy'])
+
+// Sections vitrine publiques pour tous, sous-pages comprises (ex. futur /philosophie/[slug])
+const VITRINE_SECTIONS = ['/voyage', '/problemes', '/philosophie']
+
+function isVitrine(pathname: string): boolean {
+  return VITRINE_SECTIONS.some((s) => pathname === s || pathname.startsWith(`${s}/`))
+}
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -38,7 +45,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Non authentifié hors routes publiques → / (page d'accueil avec formulaire de connexion)
-  if (!user && !PUBLIC_PATHS.has(pathname)) {
+  if (!user && !PUBLIC_PATHS.has(pathname) && !isVitrine(pathname)) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)
@@ -52,7 +59,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Contrôle de plan : seulement sur les routes hors liste blanche
-  if (user && !WHITELIST.has(pathname)) {
+  if (user && !WHITELIST.has(pathname) && !isVitrine(pathname)) {
     const { data: profile } = await supabase
       .from('user_profile')
       .select('plan, role')

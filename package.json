@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/copy-article-images.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/copy-article-images.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -11,6 +13,7 @@
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.104.0",
+    "gray-matter": "^4.0.3",
     "html-to-image": "^1.11.13",
     "katex": "^0.17.0",
     "next": "14.2.35",
@@ -18,9 +21,18 @@
     "react-dom": "^18",
     "react-katex": "^3.1.0",
     "recharts": "^3.8.1",
-    "sharp": "^0.35.4"
+    "rehype-katex": "^7.0.1",
+    "rehype-stringify": "^10.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "sharp": "^0.35.4",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.1.0"
   },
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.20",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
@@ -29,5 +41,10 @@
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
+  },
+  "overrides": {
+    "rehype-katex": {
+      "katex": "$katex"
+    }
   }
 }

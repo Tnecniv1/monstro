@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import type { UserProfile } from '@/lib/supabase/getUser'
@@ -5,6 +6,20 @@ import PixelGrid from './components/PixelGrid'
 import StreakBadge from './components/StreakBadge'
 import LogoutButton from './components/LogoutButton'
 import LandingPage from './components/LandingPage'
+
+export const metadata: Metadata = {
+  title: 'Monstro — Apprendre à raisonner.',
+  description: 'Monstro, la promesse de réussite. Apprendre à raisonner.',
+  alternates: { canonical: '/' },
+  openGraph: {
+    title: 'Monstro — Apprendre à raisonner.',
+    description: 'Monstro, la promesse de réussite. Apprendre à raisonner.',
+    url: '/',
+    locale: 'fr_FR',
+    type: 'website',
+    siteName: 'Monstro',
+  },
+}
 
 export default async function HomePage() {
   const supabase = createClient()

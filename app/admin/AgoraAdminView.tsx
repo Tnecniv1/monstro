@@ -343,7 +343,7 @@ export default function AgoraAdminView({ eleves }: Props) {
       const opts = {
         pixelRatio: 2,
         cacheBust: true,
-        backgroundColor: '#F5F3EE',
+        backgroundColor: '#FAFAFA',
       }
       // 1ère passe ignorée — force le navigateur à terminer le layout/paint
       await toPng(cardRef.current, opts)
@@ -803,7 +803,7 @@ export default function AgoraAdminView({ eleves }: Props) {
                   tauxReussite={panneauRapport.taux_reussite}
                   tauxReussitePrev={panneauRapport.taux_reussite_prev}
                   problemesReussis={panneauRapport.problemes_reussis}
-                  note={note || null}
+                  lundi={lundi}
                 />
 
                 {/* Note */}
@@ -984,7 +984,7 @@ export default function AgoraAdminView({ eleves }: Props) {
             tauxReussite={panneauRapport.taux_reussite}
             tauxReussitePrev={panneauRapport.taux_reussite_prev}
             problemesReussis={panneauRapport.problemes_reussis}
-            note={note || null}
+            lundi={lundi}
             captureWidth={1080}
           />
         </div>

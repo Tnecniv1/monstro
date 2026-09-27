@@ -34,3 +34,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# articles : images copiées depuis content/ au build (scripts/copy-article-images.mjs)
+/public/articles/
+
+# coffre Obsidian : seuls les réglages de liens/pièces jointes sont versionnés
+/content/.obsidian/*
+!/content/.obsidian/app.json

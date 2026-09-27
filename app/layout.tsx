@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import { Cinzel } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
+import { SITE_URL } from "@/lib/site";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -17,6 +18,7 @@ const geistMono = localFont({
 const cinzel = Cinzel({ subsets: ["latin"], weight: ["600"], variable: "--font-cinzel" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "Monstro",
   description: "Application d'entraînement Monstro",
 };
