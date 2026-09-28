@@ -128,7 +128,7 @@ export default function ForumClient({
         )}
       </div>
 
-      <ScriptsRow items={scripts} onSelect={setOpenScript} />
+      <ScriptsRow items={scripts} onSelect={setOpenScript} showNumber />
 
       {monTicket && (
         <button

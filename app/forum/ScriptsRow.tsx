@@ -19,6 +19,7 @@ interface CardVisual {
   titre: string
   description: string | null
   cover_url: string | null
+  ordre: number
 }
 
 interface Props<T extends CardVisual> {
@@ -28,6 +29,8 @@ interface Props<T extends CardVisual> {
   // 'grid' : grille qui wrap (ressources, dans le panneau principal).
   variant?: 'row' | 'grid'
   emptyMessage?: string
+  // Préfixe le titre par "#{ordre}" — scripts uniquement, pas les ressources.
+  showNumber?: boolean
 }
 
 export default function ScriptsRow<T extends CardVisual>({
@@ -35,6 +38,7 @@ export default function ScriptsRow<T extends CardVisual>({
   onSelect,
   variant = 'row',
   emptyMessage = 'Aucune fiche disponible pour l’instant.',
+  showNumber = false,
 }: Props<T>) {
   if (items.length === 0) {
     return <p className="text-sm text-text-muted">{emptyMessage}</p>
@@ -66,7 +70,9 @@ export default function ScriptsRow<T extends CardVisual>({
                 <DocIcon />
               </div>
             )}
-            <p className="font-semibold text-text-primary text-sm leading-snug line-clamp-2">{item.titre}</p>
+            <p className="font-semibold text-text-primary text-sm leading-snug line-clamp-2">
+              {showNumber ? `#${item.ordre} ${item.titre}` : item.titre}
+            </p>
             {item.description && (
               <p className="text-xs text-text-secondary line-clamp-2">{item.description}</p>
             )}

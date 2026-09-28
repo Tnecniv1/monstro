@@ -19,7 +19,7 @@ export default function ScriptTextModal({ script, onClose }: Props) {
 
       <div className="relative z-10 w-full max-w-2xl max-h-[85vh] bg-surface rounded-2xl shadow-xl flex flex-col overflow-hidden">
         <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-border shrink-0 bg-surface">
-          <h2 className="font-semibold text-text-primary truncate">{script.titre}</h2>
+          <h2 className="font-semibold text-text-primary truncate">{`#${script.ordre} ${script.titre}`}</h2>
           <button
             onClick={onClose}
             aria-label="Fermer"
