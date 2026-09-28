@@ -1,6 +1,7 @@
 // Tous les textes de l'onboarding élève.
 
-// Espace insécable, à placer avant ? : ; (évite qu'un signe passe seul à la ligne).
+// Espace insécable, à placer avant ? : ; et dans les nombres (évite qu'un
+// signe ou un morceau de nombre passe seul à la ligne).
 const NBSP = String.fromCharCode(0xa0)
 
 // Modal 1 — chaque section : un intitulé en gras, puis un texte ou une liste.
@@ -11,7 +12,7 @@ export const CHARTE: { titre: string; sections: CharteSection[]; case: string; b
   sections: [
     {
       intitule: `Le but du jeu${NBSP}?`,
-      texte: 'Résoudre 1 000 problèmes.',
+      texte: `Résoudre 1${NBSP}000 problèmes.`,
     },
     {
       intitule: `Les règles du jeu${NBSP}?`,
