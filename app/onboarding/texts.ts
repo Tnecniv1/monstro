@@ -1,28 +1,46 @@
-// Tous les textes de l'onboarding élève — à remplacer.
-// Les paragraphes sont séparés par une ligne vide dans `texte` ; $...$ pour les maths.
+// Tous les textes de l'onboarding élève.
 
-export const CHARTE = {
-  titre: '[TEXTE PROVISOIRE] Bienvenue dans Monstro',
-  texte: `[TEXTE PROVISOIRE] Le but du jeu : …
+// Espace insécable, à placer avant ? : ; (évite qu'un signe passe seul à la ligne).
+const NBSP = String.fromCharCode(0xa0)
 
-[TEXTE PROVISOIRE] Les règles : …
+// Modal 1 — chaque section : un intitulé en gras, puis un texte ou une liste.
+export type CharteSection = { intitule: string; texte?: string; liste?: string[] }
 
-[TEXTE PROVISOIRE] La philosophie : …`,
-  case: "J'ai lu et j'approuve",
+export const CHARTE: { titre: string; sections: CharteSection[]; case: string; bouton: string } = {
+  titre: `Comment gagner la partie${NBSP}?`,
+  sections: [
+    {
+      intitule: `Le but du jeu${NBSP}?`,
+      texte: 'Résoudre 1 000 problèmes.',
+    },
+    {
+      intitule: `Les règles du jeu${NBSP}?`,
+      liste: [
+        `Règle 1${NBSP}: Respecter le parcours d'apprentissage.`,
+        `Règle 2${NBSP}: Poser une question par blocage.`,
+        `Règle 3${NBSP}: Prouver chaque session de travail.`,
+      ],
+    },
+    {
+      intitule: `La philosophie du voyage${NBSP}?`,
+      texte: `Le chemin sera long et difficile, mais vous apprendrez à fabriquer des ponts qui résistent au temps. Mais durant ce voyage, vous rencontrerez beaucoup de joie${NBSP}; et un fort sentiment de confiance en votre capacité à résoudre des problèmes.`,
+    },
+  ],
+  case: 'Lu et approuvé',
   bouton: 'Continuer',
 }
 
 export const INVITATION_SCRIPT1 = {
-  titre: '[TEXTE PROVISOIRE] Par où commencer ?',
-  texte: '[TEXTE PROVISOIRE] Avant de te lancer, lis le Script 1 : il explique comment se déroule un entraînement.',
-  boutonVoir: 'Voir le Script 1',
-  boutonPlusTard: 'Plus tard',
+  titre: `Comment résoudre votre premier problème${NBSP}?`,
+  texte: 'Cliquez sur la page Forum, puis ouvrez le script #1.',
+  bouton: 'Continuer',
 }
 
 export const AVANT_SCRIPT1 = {
-  texte: '[TEXTE PROVISOIRE] Ce script est la base de tout le reste. Prends le temps de le lire en entier.',
+  texte:
+    "Si vous ne comprenez pas une des étapes du script, posez simplement votre question sur le forum, dans la rubrique adaptée 'Méthode'.",
   bouton: 'Ok',
 }
 
 export const ERREUR_ENREGISTREMENT =
-  "Impossible d'enregistrer ta réponse. Réessaie, et préviens-nous si le problème continue."
+  "Impossible d'enregistrer votre réponse. Réessayez, et prévenez-nous si le problème continue."

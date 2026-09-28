@@ -1,16 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { PUBLIC_PATHS, hasAppAccess, isVitrine } from '@/lib/access'
-import MathText from '../components/MathText'
 import { SCRIPT1_OUVERT_EVENT, markCharteAcceptee } from './profileWrites'
 import { CHARTE, ERREUR_ENREGISTREMENT, INVITATION_SCRIPT1 } from './texts'
 
-// "Plus tard" sur l'invitation au Script 1 : masqué pour la session (onglet)
-// en cours, revient à la prochaine ouverture de l'app.
-const PLUS_TARD_KEY = 'onboarding:script1-plus-tard'
+// "Continuer" sur l'invitation au Script 1 : masquée pour la session (onglet)
+// en cours, revient à la prochaine ouverture de l'app tant que le Script 1
+// n'a pas été ouvert.
+const INVITATION_VUE_KEY = 'onboarding:script1-invitation-vue'
 
 type OnboardingState = {
   userId: string
@@ -26,17 +26,17 @@ function isPublicPage(pathname: string): boolean {
   return pathname === '/login' || PUBLIC_PATHS.has(pathname) || isVitrine(pathname)
 }
 
-function readPlusTard(): boolean {
+function readInvitationVue(): boolean {
   try {
-    return sessionStorage.getItem(PLUS_TARD_KEY) === '1'
+    return sessionStorage.getItem(INVITATION_VUE_KEY) === '1'
   } catch {
     return false
   }
 }
 
-function writePlusTard() {
+function writeInvitationVue() {
   try {
-    sessionStorage.setItem(PLUS_TARD_KEY, '1')
+    sessionStorage.setItem(INVITATION_VUE_KEY, '1')
   } catch {
     // Stockage indisponible (navigation privée…) : le modal se ferme quand même.
   }
@@ -46,15 +46,14 @@ function writePlusTard() {
 // dynamiques les pages statiques (mentions légales, vitrine…).
 export default function OnboardingGate() {
   const pathname = usePathname() ?? '/'
-  const router = useRouter()
   const publicPage = isPublicPage(pathname)
 
   const [state, setState] = useState<OnboardingState | null>(null)
   const [authVersion, setAuthVersion] = useState(0)
-  const [plusTard, setPlusTard] = useState(false)
+  const [invitationVue, setInvitationVue] = useState(false)
 
   useEffect(() => {
-    setPlusTard(readPlusTard())
+    setInvitationVue(readInvitationVue())
   }, [])
 
   // Connexion / déconnexion sans rechargement (formulaire de la landing).
@@ -123,13 +122,12 @@ export default function OnboardingGate() {
     )
   }
 
-  if (!state.script1Ouvert && !plusTard && pathname !== '/forum') {
+  if (!state.script1Ouvert && !invitationVue && pathname !== '/forum') {
     return (
       <InvitationScript1Modal
-        onVoir={() => router.push('/forum?script=1')}
-        onPlusTard={() => {
-          writePlusTard()
-          setPlusTard(true)
+        onContinuer={() => {
+          writeInvitationVue()
+          setInvitationVue(true)
         }}
       />
     )
@@ -179,11 +177,19 @@ function CharteModal({ userId, onAccepted }: { userId: string; onAccepted: () =>
           <h2 id="charte-titre" className="font-semibold text-text-primary">{CHARTE.titre}</h2>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3 text-sm text-text-primary leading-relaxed">
-          {CHARTE.texte.split(/\n\s*\n/).map((paragraphe, i) => (
-            <p key={i} className="whitespace-pre-wrap">
-              <MathText text={paragraphe} />
-            </p>
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 text-sm text-text-primary leading-relaxed">
+          {CHARTE.sections.map((section) => (
+            <section key={section.intitule} className="space-y-1.5">
+              <h3 className="font-bold">{section.intitule}</h3>
+              {section.texte && <p>{section.texte}</p>}
+              {section.liste && (
+                <ul className="list-disc pl-5 space-y-1">
+                  {section.liste.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              )}
+            </section>
           ))}
         </div>
 
@@ -211,8 +217,9 @@ function CharteModal({ userId, onAccepted }: { userId: string; onAccepted: () =>
   )
 }
 
-// Modal 2 — invitation au Script 1.
-function InvitationScript1Modal({ onVoir, onPlusTard }: { onVoir: () => void; onPlusTard: () => void }) {
+// Modal 2 — invitation au Script 1. Seul "Continuer" le ferme (ni croix, ni
+// clic extérieur, ni Échap).
+function InvitationScript1Modal({ onContinuer }: { onContinuer: () => void }) {
   return (
     <Overlay>
       <div
@@ -224,21 +231,13 @@ function InvitationScript1Modal({ onVoir, onPlusTard }: { onVoir: () => void; on
         <div className="px-6 pt-5 pb-2">
           <h2 id="invitation-titre" className="font-semibold text-text-primary">{INVITATION_SCRIPT1.titre}</h2>
         </div>
-        <div className="px-6 pb-5 text-sm text-text-primary leading-relaxed">
-          <MathText text={INVITATION_SCRIPT1.texte} />
-        </div>
-        <div className="flex gap-3 px-6 py-4 border-t border-border">
+        <p className="px-6 pb-5 text-sm text-text-primary leading-relaxed">{INVITATION_SCRIPT1.texte}</p>
+        <div className="px-6 py-4 border-t border-border">
           <button
-            onClick={onPlusTard}
-            className="flex-1 rounded-xl border border-border py-3 text-sm font-medium text-text-secondary hover:bg-surface-2 transition-colors"
+            onClick={onContinuer}
+            className="w-full rounded-xl bg-accent py-3 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
           >
-            {INVITATION_SCRIPT1.boutonPlusTard}
-          </button>
-          <button
-            onClick={onVoir}
-            className="flex-1 rounded-xl bg-accent py-3 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
-          >
-            {INVITATION_SCRIPT1.boutonVoir}
+            {INVITATION_SCRIPT1.bouton}
           </button>
         </div>
       </div>
