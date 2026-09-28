@@ -7,11 +7,6 @@ import { PUBLIC_PATHS, hasAppAccess, isVitrine } from '@/lib/access'
 import { SCRIPT1_OUVERT_EVENT, markCharteAcceptee } from './profileWrites'
 import { CHARTE, ERREUR_ENREGISTREMENT, INVITATION_SCRIPT1 } from './texts'
 
-// "Continuer" sur l'invitation au Script 1 : masquée pour la session (onglet)
-// en cours, revient à la prochaine ouverture de l'app tant que le Script 1
-// n'a pas été ouvert.
-const INVITATION_VUE_KEY = 'onboarding:script1-invitation-vue'
-
 type OnboardingState = {
   userId: string
   charteAcceptee: boolean
@@ -26,22 +21,6 @@ function isPublicPage(pathname: string): boolean {
   return pathname === '/login' || PUBLIC_PATHS.has(pathname) || isVitrine(pathname)
 }
 
-function readInvitationVue(): boolean {
-  try {
-    return sessionStorage.getItem(INVITATION_VUE_KEY) === '1'
-  } catch {
-    return false
-  }
-}
-
-function writeInvitationVue() {
-  try {
-    sessionStorage.setItem(INVITATION_VUE_KEY, '1')
-  } catch {
-    // Stockage indisponible (navigation privée…) : le modal se ferme quand même.
-  }
-}
-
 // Monté dans app/layout.tsx. Chargement côté client pour ne pas rendre
 // dynamiques les pages statiques (mentions légales, vitrine…).
 export default function OnboardingGate() {
@@ -50,11 +29,16 @@ export default function OnboardingGate() {
 
   const [state, setState] = useState<OnboardingState | null>(null)
   const [authVersion, setAuthVersion] = useState(0)
-  const [invitationVue, setInvitationVue] = useState(false)
-
-  useEffect(() => {
-    setInvitationVue(readInvitationVue())
-  }, [])
+  // "Continuer" sur l'invitation au Script 1 ne la ferme que pour la page en
+  // cours : l'état est remis à zéro à chaque changement de pathname (pendant
+  // le rendu, pour ne pas afficher une frame sans modal), et n'est pas
+  // persisté, donc elle revient aussi à chaque chargement.
+  const [invitationFermee, setInvitationFermee] = useState(false)
+  const [invitationPath, setInvitationPath] = useState(pathname)
+  if (invitationPath !== pathname) {
+    setInvitationPath(pathname)
+    setInvitationFermee(false)
+  }
 
   // Connexion / déconnexion sans rechargement (formulaire de la landing).
   useEffect(() => {
@@ -122,15 +106,8 @@ export default function OnboardingGate() {
     )
   }
 
-  if (!state.script1Ouvert && !invitationVue && pathname !== '/forum') {
-    return (
-      <InvitationScript1Modal
-        onContinuer={() => {
-          writeInvitationVue()
-          setInvitationVue(true)
-        }}
-      />
-    )
+  if (!state.script1Ouvert && !invitationFermee && pathname !== '/forum') {
+    return <InvitationScript1Modal onContinuer={() => setInvitationFermee(true)} />
   }
 
   return null

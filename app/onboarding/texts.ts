@@ -18,13 +18,13 @@ export const CHARTE: { titre: string; sections: CharteSection[]; case: string; b
       intitule: `Les règles du jeu${NBSP}?`,
       liste: [
         `Règle 1${NBSP}: Respecter le parcours d'apprentissage.`,
-        `Règle 2${NBSP}: Poser une question par blocage.`,
-        `Règle 3${NBSP}: Prouver chaque session de travail.`,
+        `Règle 2${NBSP}: Prouver chaque session de travail.`,
+        `Règle 3${NBSP}: Poser une question par blocage.`,
       ],
     },
     {
       intitule: `La philosophie du voyage${NBSP}?`,
-      texte: `Le chemin sera long et difficile, mais vous apprendrez à fabriquer des ponts qui résistent au temps. Mais durant ce voyage, vous rencontrerez beaucoup de joie${NBSP}; et un fort sentiment de confiance en votre capacité à résoudre des problèmes.`,
+      texte: `Le chemin sera long et difficile, et vous apprendrez à fabriquer des ponts qui résistent au temps. Mais ne doutez pas que durant ce voyage vous rencontrerez beaucoup de joie${NBSP}; et un fort sentiment de confiance en votre capacité à résoudre des problèmes.`,
     },
   ],
   case: 'Lu et approuvé',
