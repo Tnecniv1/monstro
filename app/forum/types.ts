@@ -43,30 +43,55 @@ export type ForumTopic = {
   display_mode: 'tickets' | 'resources'
 }
 
-// Topic "de travail" — une feuille_entrainement affichée comme topic de forum.
-export type FeuilleTopic = {
+// Feuille d'entraînement — sert au formulaire de question (Problème) et à
+// afficher la référence d'une question dans la liste.
+export type Feuille = {
   id: string
   titre: string
 }
 
-// Le topic actif dans l'UI, quelle que soit sa table d'origine — le `kind`
-// dit quelle colonne (topic_id / feuille_id) utiliser pour lire/écrire les
-// tickets, cf. la contrainte CHECK d'exclusivité sur forum_tickets.
+// Le panneau actif dans l'UI : un topic de sens (tickets topic_id renseigné)
+// ou la liste unique des questions (topic_id null, sujet renseigné).
 // displayMode n'existe que pour 'sens' (seule table qui porte la colonne).
 export type ActiveTopic =
   | { kind: 'sens'; id: string; nom: string; displayMode: 'tickets' | 'resources' }
-  | { kind: 'feuille'; id: string; nom: string }
+  | { kind: 'questions' }
 
-// statut : 'ouvert' | 'repondu' | 'ferme' (CHECK forum_tickets_statut_check).
+// Sujet d'une question — null pour un ticket de topic de sens.
+// probleme : feuille_id obligatoire (+ numero_exercice à la création).
+// methode : script_id optionnel. application : ni feuille ni script.
+export type QuestionSujet = 'probleme' | 'methode' | 'application'
+
+export const SUJET_LABEL: Record<QuestionSujet, string> = {
+  probleme: 'Problème',
+  methode: 'Méthode',
+  application: 'Application',
+}
+
+export type TicketStatut = 'ouvert' | 'ferme'
+
+export const STATUT_LABEL: Record<TicketStatut, string> = {
+  ouvert: 'Ouvert',
+  ferme: 'Résolue',
+}
+
 export type ForumTicket = {
   id: string
   topic_id: string | null
   feuille_id: string | null
+  script_id: string | null
+  sujet: QuestionSujet | null
+  numero_exercice: number | null
+  epingle: boolean
   user_id: string
   titre: string
-  statut: string | null
+  statut: TicketStatut | null
   created_at: string
 }
+
+// Colonnes lues partout où l'on charge un ForumTicket.
+export const TICKET_COLUMNS =
+  'id, topic_id, feuille_id, script_id, sujet, numero_exercice, epingle, user_id, titre, statut, created_at'
 
 export type ForumMessage = {
   id: string

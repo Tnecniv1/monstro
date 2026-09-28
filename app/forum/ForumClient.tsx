@@ -8,16 +8,15 @@ import ScriptTextModal from './ScriptTextModal'
 import ScriptPdfModal from './ScriptPdfModal'
 import TopicsList from './TopicsList'
 import TicketsPanel from './TicketsPanel'
-import type { ActiveTopic, FeuilleTopic, ForumResource, ForumScript, ForumTicket, ForumTopic } from './types'
+import { TICKET_COLUMNS } from './types'
+import type { ActiveTopic, Feuille, ForumResource, ForumScript, ForumTicket, ForumTopic } from './types'
 
 interface Props {
   scripts: ForumScript[]
   resources: ForumResource[]
   topicsSens: ForumTopic[]
-  allFeuilles: FeuilleTopic[]
+  feuilles: Feuille[]
   focusIds: string[]
-  initialPinnedIds: string[]
-  ticketFeuilleIds: string[]
   userId: string
   isAdmin: boolean
 }
@@ -26,10 +25,8 @@ export default function ForumClient({
   scripts,
   resources,
   topicsSens,
-  allFeuilles,
-  focusIds: initialFocusIds,
-  initialPinnedIds,
-  ticketFeuilleIds: initialTicketFeuilleIds,
+  feuilles,
+  focusIds,
   userId,
   isAdmin,
 }: Props) {
@@ -37,26 +34,9 @@ export default function ForumClient({
   // différents — ScriptPdfModal reste inchangé, dédié aux ressources.
   const [openScript, setOpenScript] = useState<ForumScript | null>(null)
   const [openResource, setOpenResource] = useState<ForumResource | null>(null)
-  const [activeTopic, setActiveTopic] = useState<ActiveTopic | null>(null)
+  // Le panneau Questions est actif par défaut à l'ouverture de la page.
+  const [activeTopic, setActiveTopic] = useState<ActiveTopic>({ kind: 'questions' })
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
-
-  // ticketFeuilleIds/focusIds arrivent en props figées (fetch serveur au
-  // chargement de la page) puis vivent en state ici, pour pouvoir les
-  // corriger en session sans recharger la page — bug observé : une feuille
-  // ayant un ticket tout juste créé n'était pas encore dans ticketFeuilleIds
-  // (snapshot pré-création), donc disparaissait de TopicsList dès que son
-  // seul autre "laissez-passer" (Focus/épingle) était retiré en session, et
-  // réapparaissait comme épinglable dans PickerFeuilleModal.
-  const [ticketFeuilleIds, setTicketFeuilleIds] = useState(initialTicketFeuilleIds)
-  // focusIds : même traitement en théorie, mais rien dans le forum lui-même
-  // ne modifie le Focus (ça se fait sur /bibliotheque ou /entrainement, des
-  // pages séparées) — un retour sur /forum re-fetch cette prop de toute
-  // façon (page dynamique via cookies dans getUser()). Le cas ne peut donc
-  // se manifester qu'en gardant l'onglet forum ouvert pendant qu'un focus
-  // est modifié ailleurs (autre onglet) — resté théorique pour l'instant,
-  // pas de setter appelé nulle part.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [focusIds, setFocusIds] = useState(initialFocusIds)
 
   // "Mon ticket en cours" — accès rapide toujours visible, indépendant du
   // topic actif. Un non-admin ne peut en avoir qu'un (trigger DB), mais on
@@ -69,7 +49,7 @@ export default function ForumClient({
     const supabase = createClient()
     supabase
       .from('forum_tickets')
-      .select('id, topic_id, feuille_id, user_id, titre, statut, created_at')
+      .select(TICKET_COLUMNS)
       .eq('user_id', userId)
       .neq('statut', 'ferme')
       .order('created_at', { ascending: false })
@@ -86,17 +66,8 @@ export default function ForumClient({
     setMonTicketVersion((v) => v + 1)
   }
 
-  // Rend immédiatement visible dans TopicsList la feuille du ticket qu'on
-  // vient de créer, sans attendre un rechargement de page.
-  function handleTicketCreated(ticket: ForumTicket) {
-    if (ticket.feuille_id) {
-      const feuilleId = ticket.feuille_id
-      setTicketFeuilleIds((prev) => (prev.includes(feuilleId) ? prev : [...prev, feuilleId]))
-    }
-  }
-
   function selectTopic(topic: ActiveTopic) {
-    setActiveTopic((prev) => (prev?.kind === topic.kind && prev.id === topic.id ? prev : topic))
+    setActiveTopic((prev) => (sameTopic(prev, topic) ? prev : topic))
     setSelectedTicketId(null)
   }
 
@@ -105,14 +76,13 @@ export default function ForumClient({
     if (monTicket.topic_id) {
       const t = topicsSens.find((x) => x.id === monTicket.topic_id)
       if (t) setActiveTopic({ kind: 'sens', id: t.id, nom: t.nom, displayMode: t.display_mode })
-    } else if (monTicket.feuille_id) {
-      const f = allFeuilles.find((x) => x.id === monTicket.feuille_id)
-      if (f) setActiveTopic({ kind: 'feuille', id: f.id, nom: f.titre })
+    } else {
+      setActiveTopic((prev) => (prev.kind === 'questions' ? prev : { kind: 'questions' }))
     }
     setSelectedTicketId(monTicket.id)
   }
 
-  const showResources = activeTopic?.kind === 'sens' && activeTopic.displayMode === 'resources'
+  const showResources = activeTopic.kind === 'sens' && activeTopic.displayMode === 'resources'
 
   return (
     <div className="space-y-6">
@@ -143,16 +113,7 @@ export default function ForumClient({
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4 items-start">
-        <TopicsList
-          topicsSens={topicsSens}
-          allFeuilles={allFeuilles}
-          focusIds={focusIds}
-          initialPinnedIds={initialPinnedIds}
-          ticketFeuilleIds={ticketFeuilleIds}
-          userId={userId}
-          selected={activeTopic}
-          onSelect={selectTopic}
-        />
+        <TopicsList topicsSens={topicsSens} selected={activeTopic} onSelect={selectTopic} />
 
         {showResources ? (
           <div className="space-y-3">
@@ -166,15 +127,17 @@ export default function ForumClient({
           </div>
         ) : (
           <TicketsPanel
-            key={activeTopic ? `${activeTopic.kind}:${activeTopic.id}` : 'none'}
+            key={activeTopic.kind === 'sens' ? `sens:${activeTopic.id}` : 'questions'}
             activeTopic={activeTopic}
             userId={userId}
             isAdmin={isAdmin}
             hasOpenTicket={!!monTicket}
+            feuilles={feuilles}
+            focusIds={focusIds}
+            scripts={scripts}
             selectedTicketId={selectedTicketId}
             onSelectTicket={setSelectedTicketId}
             onTicketsChanged={refreshMonTicket}
-            onTicketCreated={handleTicketCreated}
           />
         )}
       </div>
@@ -183,4 +146,9 @@ export default function ForumClient({
       {openResource && <ScriptPdfModal script={openResource} onClose={() => setOpenResource(null)} />}
     </div>
   )
+}
+
+function sameTopic(a: ActiveTopic, b: ActiveTopic): boolean {
+  if (a.kind === 'questions' || b.kind === 'questions') return a.kind === b.kind
+  return a.id === b.id
 }

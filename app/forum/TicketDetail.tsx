@@ -4,8 +4,17 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import MathText from '../components/MathText'
 import { fetchPseudoMap } from './profiles'
+import { STATUT_STYLE, questionReference } from './questionMeta'
 import { formatRelative } from './relativeTime'
-import type { ForumMessage, ForumTicket } from './types'
+import { STATUT_LABEL, SUJET_LABEL } from './types'
+import type { Feuille, ForumMessage, ForumScript, ForumTicket } from './types'
+
+// Le trigger sur forum_tickets refuse tout changement d'epingle par un
+// non-admin (code P0001) — reformulé plutôt que d'afficher l'erreur brute.
+function friendlyPinError(error: { code?: string; message: string }): string {
+  if (error.code === 'P0001') return 'Seul un admin peut épingler ou désépingler une question.'
+  return error.message
+}
 
 function TrashIcon() {
   return (
@@ -23,12 +32,25 @@ interface Props {
   authorPseudo: string
   userId: string
   isAdmin: boolean
+  feuilleById: Map<string, Feuille>
+  scriptById: Map<string, ForumScript>
   onBack: () => void
-  onResolved: () => void
+  // Remonte la modification au panneau pour mettre à jour la liste.
+  onUpdated: (patch: Partial<Pick<ForumTicket, 'statut' | 'epingle'>>) => void
   onDeleted: () => void
 }
 
-export default function TicketDetail({ ticket, authorPseudo, userId, isAdmin, onBack, onResolved, onDeleted }: Props) {
+export default function TicketDetail({
+  ticket,
+  authorPseudo,
+  userId,
+  isAdmin,
+  feuilleById,
+  scriptById,
+  onBack,
+  onUpdated,
+  onDeleted,
+}: Props) {
   const supabase = createClient()
 
   const [messages, setMessages] = useState<ForumMessage[]>([])
@@ -41,20 +63,53 @@ export default function TicketDetail({ ticket, authorPseudo, userId, isAdmin, on
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resolving, setResolving] = useState(false)
+  const [pinning, setPinning] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [deletingTicket, setDeletingTicket] = useState(false)
 
   const isAuthor = ticket.user_id === userId
   const isFerme = ticket.statut === 'ferme'
+  const isQuestion = ticket.topic_id === null
   const canManageTicket = isAuthor || isAdmin
+  const reference = isQuestion ? questionReference(ticket, feuilleById, scriptById) : null
 
+  // .select('id') : une mise à jour filtrée par la RLS ne renvoie pas
+  // d'erreur, juste 0 ligne — on le détecte pour ne pas afficher un faux succès.
   async function handleResolve() {
     setResolving(true)
-    const { error: resolveError } = await supabase
+    setActionError(null)
+    const { data, error: resolveError } = await supabase
       .from('forum_tickets')
       .update({ statut: 'ferme' })
       .eq('id', ticket.id)
+      .select('id')
     setResolving(false)
-    if (!resolveError) onResolved()
+    if (resolveError) {
+      setActionError(resolveError.message)
+    } else if (!data || data.length === 0) {
+      setActionError("Tu n'as pas le droit de fermer ce ticket.")
+    } else {
+      onUpdated({ statut: 'ferme' })
+    }
+  }
+
+  async function handleTogglePin() {
+    const epingle = !ticket.epingle
+    setPinning(true)
+    setActionError(null)
+    const { data, error: pinError } = await supabase
+      .from('forum_tickets')
+      .update({ epingle })
+      .eq('id', ticket.id)
+      .select('id')
+    setPinning(false)
+    if (pinError) {
+      setActionError(friendlyPinError(pinError))
+    } else if (!data || data.length === 0) {
+      setActionError("Tu n'as pas le droit d'épingler cette question.")
+    } else {
+      onUpdated({ epingle })
+    }
   }
 
   async function handleDeleteTicket() {
@@ -174,12 +229,38 @@ export default function TicketDetail({ ticket, authorPseudo, userId, isAdmin, on
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1 min-w-0">
           <h2 className="font-semibold text-text-primary text-lg truncate">{ticket.titre}</h2>
+          {isQuestion && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {ticket.epingle && <span title="Épinglée" aria-label="Épinglée">📌</span>}
+              {ticket.sujet && (
+                <span className="rounded-full border border-border px-2 py-0.5 font-medium text-text-secondary">
+                  {SUJET_LABEL[ticket.sujet]}
+                </span>
+              )}
+              {reference && <span className="text-text-muted">{reference}</span>}
+              {ticket.statut && (
+                <span className={`rounded-full px-2.5 py-0.5 font-medium ${STATUT_STYLE[ticket.statut] ?? 'bg-surface-2 text-text-secondary'}`}>
+                  {STATUT_LABEL[ticket.statut] ?? ticket.statut}
+                </span>
+              )}
+            </div>
+          )}
           <p className="text-xs text-text-muted">
             {authorPseudo} · {formatRelative(ticket.created_at)}
           </p>
+          {actionError && <p className="text-xs text-danger">{actionError}</p>}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {isAuthor && !isFerme && (
+        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+          {isAdmin && isQuestion && (
+            <button
+              onClick={handleTogglePin}
+              disabled={pinning}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-2 disabled:opacity-50 transition-colors"
+            >
+              {pinning ? '…' : ticket.epingle ? 'Désépingler' : 'Épingler'}
+            </button>
+          )}
+          {canManageTicket && !isFerme && (
             <button
               onClick={handleResolve}
               disabled={resolving}

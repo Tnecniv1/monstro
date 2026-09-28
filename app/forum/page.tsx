@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUser } from '@/lib/supabase/getUser'
 import ForumClient from './ForumClient'
 import { isForumAdmin } from './adminGate'
-import type { FeuilleTopic, ForumResource, ForumScript, ForumTopic } from './types'
+import type { Feuille, ForumResource, ForumScript, ForumTopic } from './types'
 
 export default async function ForumPage() {
   const { user, profile } = await getUser()
@@ -15,8 +15,6 @@ export default async function ForumPage() {
     { data: topicsData },
     { data: feuillesData },
     { data: focusData },
-    { data: pinsData },
-    { data: ticketFeuillesData },
   ] = await Promise.all([
     supabase
       .from('forum_scripts')
@@ -32,9 +30,8 @@ export default async function ForumPage() {
       .from('forum_topics')
       .select('id, nom, ordre, display_mode')
       .order('ordre'),
-    // Topics "de travail" — mêmes feuilles que la Bibliothèque (app/bibliotheque/page.tsx),
-    // affichées ici à plat (un topic par feuille), sans la hiérarchie de nœuds.
-    // La liste complète sert aussi de source au picker d'épinglage.
+    // Toutes les feuilles — choix de la feuille d'une question Problème et
+    // référence affichée dans la liste des questions.
     supabase
       .from('feuille_entrainement')
       .select('id, titre'),
@@ -43,30 +40,15 @@ export default async function ForumPage() {
       .from('feuille_focus')
       .select('feuille_id')
       .eq('user_id', user.id),
-    supabase
-      .from('forum_topic_pins')
-      .select('feuille_id')
-      .eq('user_id', user.id),
-    // Une feuille reste visible tant que l'utilisateur y a un ticket, même
-    // retirée du Focus et jamais épinglée.
-    supabase
-      .from('forum_tickets')
-      .select('feuille_id')
-      .eq('user_id', user.id)
-      .not('feuille_id', 'is', null),
   ])
 
   const scripts = (scriptsData ?? []) as ForumScript[]
   const resources = (resourcesData ?? []) as ForumResource[]
   const topicsSens = (topicsData ?? []) as ForumTopic[]
-  const allFeuilles = ((feuillesData ?? []) as FeuilleTopic[])
+  const feuilles = ((feuillesData ?? []) as Feuille[])
     .slice()
     .sort((a, b) => a.titre.localeCompare(b.titre, 'fr'))
-  const focusIds = (focusData ?? []).map((f) => f.feuille_id)
-  const pinnedIds = (pinsData ?? []).map((p) => p.feuille_id)
-  const ticketFeuilleIds = Array.from(
-    new Set((ticketFeuillesData ?? []).map((t) => t.feuille_id as string))
-  )
+  const focusIds = (focusData ?? []).map((f) => f.feuille_id as string)
 
   return (
     <div className="min-h-screen bg-bg">
@@ -77,10 +59,8 @@ export default async function ForumPage() {
           scripts={scripts}
           resources={resources}
           topicsSens={topicsSens}
-          allFeuilles={allFeuilles}
+          feuilles={feuilles}
           focusIds={focusIds}
-          initialPinnedIds={pinnedIds}
-          ticketFeuilleIds={ticketFeuilleIds}
           userId={user.id}
           isAdmin={isForumAdmin(profile?.role)}
         />
