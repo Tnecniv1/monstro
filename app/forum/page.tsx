@@ -5,9 +5,18 @@ import ForumClient from './ForumClient'
 import { isForumAdmin } from './adminGate'
 import type { Feuille, ForumResource, ForumScript, ForumTopic } from './types'
 
-export default async function ForumPage() {
+export default async function ForumPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined }
+}) {
   const { user, profile } = await getUser()
   const supabase = createClient()
+
+  // ?script=N (ex. lien "Voir le Script 1" de l'onboarding) : ouvre le
+  // script d'ordre N au chargement.
+  const scriptParam = Number(Array.isArray(searchParams.script) ? searchParams.script[0] : searchParams.script)
+  const autoOpenScriptOrdre = Number.isInteger(scriptParam) && scriptParam >= 1 ? scriptParam : null
 
   const [
     { data: scriptsData },
@@ -15,6 +24,7 @@ export default async function ForumPage() {
     { data: topicsData },
     { data: feuillesData },
     { data: focusData },
+    { data: onboardingData },
   ] = await Promise.all([
     supabase
       .from('forum_scripts')
@@ -40,6 +50,12 @@ export default async function ForumPage() {
       .from('feuille_focus')
       .select('feuille_id')
       .eq('user_id', user.id),
+    // Onboarding : le modal "avant le Script 1" ne s'affiche qu'une fois.
+    supabase
+      .from('user_profile')
+      .select('script1_ouvert_at')
+      .eq('id', user.id)
+      .single(),
   ])
 
   const scripts = (scriptsData ?? []) as ForumScript[]
@@ -61,6 +77,8 @@ export default async function ForumPage() {
           topicsSens={topicsSens}
           feuilles={feuilles}
           focusIds={focusIds}
+          script1Ouvert={onboardingData?.script1_ouvert_at != null}
+          autoOpenScriptOrdre={autoOpenScriptOrdre}
           userId={user.id}
           isAdmin={isForumAdmin(profile?.role)}
         />

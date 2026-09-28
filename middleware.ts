@@ -1,18 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-
-// Routes accessibles sans authentification (correspondance exacte)
-const PUBLIC_PATHS = new Set(['/', '/mentions-legales', '/privacy', '/robots.txt', '/sitemap.xml'])
+import { PUBLIC_PATHS, hasAppAccess, isVitrine } from '@/lib/access'
 
 // Routes accessibles sans plan payant (+ /login déjà géré en-dessous)
 const WHITELIST = new Set(['/', '/profil', '/login', '/mentions-legales', '/privacy'])
-
-// Sections vitrine publiques pour tous, sous-pages comprises (ex. futur /philosophie/[slug])
-const VITRINE_SECTIONS = ['/voyage', '/problemes', '/philosophie']
-
-function isVitrine(pathname: string): boolean {
-  return VITRINE_SECTIONS.some((s) => pathname === s || pathname.startsWith(`${s}/`))
-}
 
 export async function middleware(request: NextRequest) {
   // Routes cron : pas de session, authentifiées par CRON_SECRET dans la route elle-même
@@ -69,13 +60,8 @@ export async function middleware(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    const plan: string = profile?.plan ?? 'gratuit'
-    const role: string = profile?.role ?? ''
-
-    // Admin → accès complet toujours
-    // plan 'classe' ou 'abonne' → accès complet
-    // sinon → redirection vers /profil
-    if (role !== 'admin' && plan !== 'classe' && plan !== 'abonne' && plan !== 'essai') {
+    // Pas d'accès (cf. hasAppAccess) → redirection vers /profil
+    if (!hasAppAccess(profile?.role, profile?.plan)) {
       const url = request.nextUrl.clone()
       url.pathname = '/profil'
       return NextResponse.redirect(url)

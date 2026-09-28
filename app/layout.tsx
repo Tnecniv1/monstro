@@ -4,6 +4,7 @@ import { Cinzel } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { SITE_URL } from "@/lib/site";
+import OnboardingGate from "./onboarding/OnboardingGate";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -32,6 +33,7 @@ export default function RootLayout({
     <html lang="fr">
       <body className={`${geistSans.variable} ${geistMono.variable} ${cinzel.variable} antialiased`}>
         {children}
+        <OnboardingGate />
       </body>
     </html>
   );

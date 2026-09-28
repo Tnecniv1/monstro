@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { markScript1Ouvert } from '../onboarding/profileWrites'
+import AvantScript1Modal from './AvantScript1Modal'
 import ScriptsRow from './ScriptsRow'
 import ScriptTextModal from './ScriptTextModal'
 import ScriptPdfModal from './ScriptPdfModal'
@@ -17,6 +19,8 @@ interface Props {
   topicsSens: ForumTopic[]
   feuilles: Feuille[]
   focusIds: string[]
+  script1Ouvert: boolean
+  autoOpenScriptOrdre: number | null
   userId: string
   isAdmin: boolean
 }
@@ -27,6 +31,8 @@ export default function ForumClient({
   topicsSens,
   feuilles,
   focusIds,
+  script1Ouvert: initialScript1Ouvert,
+  autoOpenScriptOrdre,
   userId,
   isAdmin,
 }: Props) {
@@ -34,6 +40,50 @@ export default function ForumClient({
   // différents — ScriptPdfModal reste inchangé, dédié aux ressources.
   const [openScript, setOpenScript] = useState<ForumScript | null>(null)
   const [openResource, setOpenResource] = useState<ForumResource | null>(null)
+
+  // Onboarding (modal 3) : avant la toute première ouverture du Script 1
+  // (ordre = 1) par un élève, un court modal s'intercale.
+  const [script1Ouvert, setScript1Ouvert] = useState(initialScript1Ouvert)
+  const [pendingScript1, setPendingScript1] = useState<ForumScript | null>(null)
+  const [savingScript1, setSavingScript1] = useState(false)
+  const [script1Error, setScript1Error] = useState(false)
+
+  function selectScript(script: ForumScript) {
+    if (script.ordre === 1 && !script1Ouvert && !isAdmin) {
+      setPendingScript1(script)
+      return
+    }
+    setOpenScript(script)
+  }
+
+  async function confirmScript1() {
+    if (!pendingScript1) return
+    setSavingScript1(true)
+    setScript1Error(false)
+    const result = await markScript1Ouvert(userId)
+    setSavingScript1(false)
+    // Écriture refusée ou 0 ligne : on ne continue pas le parcours.
+    if (!result.ok) {
+      setScript1Error(true)
+      return
+    }
+    setScript1Ouvert(true)
+    setOpenScript(pendingScript1)
+    setPendingScript1(null)
+  }
+
+  // ?script=N : ouvre le script d'ordre N une seule fois, puis retire le
+  // paramètre de l'URL pour qu'un rafraîchissement ne le rouvre pas
+  // (history.replaceState : pas de nouvel aller-retour serveur).
+  const autoOpenDone = useRef(false)
+  useEffect(() => {
+    if (autoOpenDone.current || autoOpenScriptOrdre == null) return
+    autoOpenDone.current = true
+    const script = scripts.find((s) => s.ordre === autoOpenScriptOrdre)
+    if (script) selectScript(script)
+    window.history.replaceState(null, '', '/forum')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenScriptOrdre])
   // Le panneau Questions est actif par défaut à l'ouverture de la page.
   const [activeTopic, setActiveTopic] = useState<ActiveTopic>({ kind: 'questions' })
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
@@ -98,7 +148,7 @@ export default function ForumClient({
         )}
       </div>
 
-      <ScriptsRow items={scripts} onSelect={setOpenScript} showNumber />
+      <ScriptsRow items={scripts} onSelect={selectScript} showNumber />
 
       {monTicket && (
         <button
@@ -142,6 +192,9 @@ export default function ForumClient({
         )}
       </div>
 
+      {pendingScript1 && (
+        <AvantScript1Modal saving={savingScript1} error={script1Error} onOk={confirmScript1} />
+      )}
       {openScript && <ScriptTextModal script={openScript} onClose={() => setOpenScript(null)} />}
       {openResource && <ScriptPdfModal script={openResource} onClose={() => setOpenResource(null)} />}
     </div>
