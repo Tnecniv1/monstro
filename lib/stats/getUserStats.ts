@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import type { RapportCardProps } from '@/app/profil/RapportCard'
 
@@ -7,8 +8,8 @@ type Entrainement = { id: string; date_creation: string }
 type Session = { temps_min: number; date: string }
 type Observation = { etat: string; entrainement_id: string }
 
-async function fetchRawData(userId: string) {
-  const supabase = createClient()
+// Par défaut le client de la session courante ; le cron passe un client service role.
+async function fetchRawData(userId: string, supabase: SupabaseClient = createClient()) {
 
   const { data: ents } = await supabase
     .from('entrainement')
@@ -117,8 +118,12 @@ export async function getUserStats(userId: string): Promise<UserStats> {
 }
 
 /** Stats de la semaine [lundi, lundi+7) vs la semaine précédente. */
-export async function getUserStatsForWeek(userId: string, lundi: string): Promise<UserStats> {
-  const { ents, sessions, obs } = await fetchRawData(userId)
+export async function getUserStatsForWeek(
+  userId: string,
+  lundi: string,
+  supabase?: SupabaseClient,
+): Promise<UserStats> {
+  const { ents, sessions, obs } = await fetchRawData(userId, supabase)
 
   const dateFin = addDays(lundi, 7)
   const dateDebutPrev = addDays(lundi, -7)

@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toPng } from 'html-to-image'
 import { createClient } from '@/lib/supabase/client'
 import RapportCard from '@/app/profil/RapportCard'
+import { HEURES_ENVOI, JOURS_SEMAINE } from '@/lib/agora/planning'
 import { getRapportHebdoAction } from './agoraActions'
+import { envoyerRapportWhatsAppAction } from './whatsappActions'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,6 +44,26 @@ interface RapportRow {
   envoye_le: string | null
 }
 
+interface Reglage {
+  jour_semaine: number
+  heure: string // 'HH:MM'
+  actif: boolean
+  dernier_envoi_auto: string | null
+}
+
+interface HistoriqueEntry {
+  cle: string
+  date: string
+  semaine: string
+  suiveur: string
+  canal: 'whatsapp' | 'sms' | null
+  declenchement: 'manuel' | 'auto' | null
+  statut: 'succes' | 'echec'
+  erreur: string | null
+}
+
+type StatutEnvoi = 'envoye' | 'erreur' | 'attente'
+
 interface Props {
   eleves: EleveAgora[]
 }
@@ -76,7 +98,7 @@ function formatSemaineLabel(lundi: string): string {
   return `Semaine du ${formatSemaineCourt(lundi)}`
 }
 
-function referentLabel(r: ReferentEntry): string {
+function referentLabel(r: { prenom?: string | null; nom?: string | null }): string {
   return [r.prenom, r.nom].filter(Boolean).join(' ') || '—'
 }
 
@@ -85,6 +107,27 @@ function normalizePhone(raw: string): string {
   if (digits.startsWith('+')) return digits.slice(1)
   if (digits.startsWith('0')) return '33' + digits.slice(1)
   return digits
+}
+
+function nomEleve(e: EleveAgora): string {
+  const fullName = `${e.prenom ?? ''} ${e.nom ?? ''}`.trim()
+  return fullName || e.pseudo || '—'
+}
+
+// Relation Supabase embarquée : objet ou tableau selon l'inférence
+function premier<T>(v: T | T[] | null | undefined): T | undefined {
+  return Array.isArray(v) ? v[0] : (v ?? undefined)
+}
+
+// Table absente = migration 20260928_agora_envoi_auto.sql pas encore appliquée
+function tableAbsente(error: { code?: string; message?: string } | null): boolean {
+  return !!error && (error.code === '42P01' || error.code === 'PGRST205' || /does not exist|schema cache/i.test(error.message ?? ''))
+}
+
+const STATUTS: Record<StatutEnvoi, { label: string; color: string; background: string }> = {
+  envoye: { label: 'Envoyé', color: '#15803d', background: '#dcfce7' },
+  erreur: { label: 'Erreur', color: '#b91c1c', background: '#fee2e2' },
+  attente: { label: 'En attente', color: '#6b7280', background: '#f3f4f6' },
 }
 
 // ── Composant ─────────────────────────────────────────────────────────────────
@@ -96,8 +139,15 @@ export default function AgoraAdminView({ eleves }: Props) {
 
   const [referentsMap, setReferentsMap] = useState<ReferentsMap>({})
   const [rapports, setRapports] = useState<Record<string, RapportRow>>({})
-  const [envoisMap, setEnvoisMap] = useState<Record<string, number>>({}) // rapport_mensuel.id → n envois
+  const [envoisMap, setEnvoisMap] = useState<Record<string, number>>({}) // rapport_mensuel.id → n envois réussis
+  const [derniersEnvois, setDerniersEnvois] = useState<Record<string, 'succes' | 'echec'>>({}) // rapport_mensuel.id → dernière tentative
   const [loadingTable, setLoadingTable] = useState(true)
+  const [migrationManquante, setMigrationManquante] = useState(false)
+
+  // Réglage global de l'envoi automatique
+  const [reglage, setReglage] = useState<Reglage | null>(null)
+  const [reglageSaving, setReglageSaving] = useState(false)
+  const [reglageMessage, setReglageMessage] = useState<{ ok: boolean; texte: string } | null>(null)
 
   // Panneau latéral
   const [panneau, setPanneau] = useState<{ eleveId: string; pseudo: string } | null>(null)
@@ -107,8 +157,12 @@ export default function AgoraAdminView({ eleves }: Props) {
   const [noteSaving, setNoteSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
+  // État d'envoi WhatsApp par suiveur (referent.id)
+  const [envois, setEnvois] = useState<Record<string, { statut: 'envoi' | 'ok' | 'erreur'; message?: string }>>({})
+  const [historique, setHistorique] = useState<HistoriqueEntry[]>([])
+  const [historiqueLoading, setHistoriqueLoading] = useState(false)
 
-  // Formulaire ajout suiveur (inline dans la cellule Agora)
+  // Formulaire ajout suiveur (dans le panneau)
   const [openFormEleveId, setOpenFormEleveId] = useState<string | null>(null)
   const [formPrenom, setFormPrenom] = useState('')
   const [formNom, setFormNom] = useState('')
@@ -151,21 +205,33 @@ export default function AgoraAdminView({ eleves }: Props) {
     for (const r of (rapportRows ?? []) as RapportRow[]) rMap[r.eleve_id] = r
     setRapports(rMap)
 
-    // Compteurs d'envoi par rapport_mensuel.id
+    // Compteurs d'envois réussis + dernière tentative (journal) par rapport_mensuel.id
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rapportIds = (rapportRows ?? []).map((r: any) => r.id).filter(Boolean) as string[]
     if (rapportIds.length > 0) {
-      const { data: envoisRows } = await supabase
-        .from('rapport_envoi')
-        .select('rapport_id')
-        .in('rapport_id', rapportIds)
+      const [{ data: envoisRows }, { data: logRows, error: logError }] = await Promise.all([
+        supabase.from('rapport_envoi').select('rapport_id').in('rapport_id', rapportIds),
+        supabase
+          .from('rapport_envoi_log')
+          .select('rapport_id, statut, created_at')
+          .in('rapport_id', rapportIds)
+          .order('created_at', { ascending: false }),
+      ])
       const eMap: Record<string, number> = {}
       for (const e of (envoisRows ?? []) as { rapport_id: string }[]) {
         eMap[e.rapport_id] = (eMap[e.rapport_id] ?? 0) + 1
       }
       setEnvoisMap(eMap)
+
+      if (tableAbsente(logError)) setMigrationManquante(true)
+      const dMap: Record<string, 'succes' | 'echec'> = {}
+      for (const l of (logRows ?? []) as { rapport_id: string; statut: 'succes' | 'echec' }[]) {
+        if (!dMap[l.rapport_id]) dMap[l.rapport_id] = l.statut // trié du plus récent au plus ancien
+      }
+      setDerniersEnvois(dMap)
     } else {
       setEnvoisMap({})
+      setDerniersEnvois({})
     }
     setLoadingTable(false)
   }, [lundi])
@@ -173,6 +239,23 @@ export default function AgoraAdminView({ eleves }: Props) {
   useEffect(() => {
     charger()
   }, [charger])
+
+  // Réglage global (une seule ligne)
+  useEffect(() => {
+    supabase
+      .from('agora_settings')
+      .select('jour_semaine, heure, actif, dernier_envoi_auto')
+      .eq('id', true)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (tableAbsente(error)) {
+          setMigrationManquante(true)
+          return
+        }
+        if (data) setReglage({ ...data, heure: String(data.heure).slice(0, 5) } as Reglage)
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Fermer le panneau et le formulaire si on change de semaine
   useEffect(() => {
@@ -183,7 +266,78 @@ export default function AgoraAdminView({ eleves }: Props) {
     setFormError(null)
   }, [lundi])
 
-  // ── Gestion suiveurs (colonne Agora) ────────────────────────────────────────
+  async function sauvegarderReglage() {
+    if (!reglage) return
+    setReglageSaving(true)
+    setReglageMessage(null)
+    const { error } = await supabase
+      .from('agora_settings')
+      .update({
+        jour_semaine: reglage.jour_semaine,
+        heure: reglage.heure,
+        actif: reglage.actif,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', true)
+    setReglageMessage(error ? { ok: false, texte: error.message } : { ok: true, texte: 'Réglage enregistré.' })
+    setReglageSaving(false)
+  }
+
+  // ── Historique des envois d'un élève (journal + anciens envois de rapport_envoi) ──
+
+  const chargerHistorique = useCallback(async (eleveId: string) => {
+    setHistoriqueLoading(true)
+    const [{ data: logs, error: logError }, { data: anciens }] = await Promise.all([
+      supabase
+        .from('rapport_envoi_log')
+        .select('id, rapport_id, referent_id, statut, erreur, canal, declenchement, created_at, referent(prenom, nom), rapport_mensuel!inner(mois, eleve_id)')
+        .eq('rapport_mensuel.eleve_id', eleveId)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('rapport_envoi')
+        .select('rapport_id, referent_id, envoye_le, referent(prenom, nom), rapport_mensuel!inner(mois, eleve_id)')
+        .eq('rapport_mensuel.eleve_id', eleveId),
+    ])
+    if (tableAbsente(logError)) setMigrationManquante(true)
+
+    const entrees: HistoriqueEntry[] = []
+    const succesJournalises = new Set<string>()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const l of (logs ?? []) as any[]) {
+      if (l.statut === 'succes') succesJournalises.add(`${l.rapport_id}|${l.referent_id}`)
+      entrees.push({
+        cle: l.id,
+        date: l.created_at,
+        semaine: premier(l.rapport_mensuel)?.mois ?? '',
+        suiveur: l.referent_id ? referentLabel(premier(l.referent) ?? {}) : 'Suiveur supprimé',
+        canal: l.canal,
+        declenchement: l.declenchement,
+        statut: l.statut,
+        erreur: l.erreur,
+      })
+    }
+    // Envois réussis antérieurs au journal : seulement dans rapport_envoi
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const a of (anciens ?? []) as any[]) {
+      if (succesJournalises.has(`${a.rapport_id}|${a.referent_id}`)) continue
+      entrees.push({
+        cle: `ancien-${a.rapport_id}-${a.referent_id}`,
+        date: a.envoye_le,
+        semaine: premier(a.rapport_mensuel)?.mois ?? '',
+        suiveur: referentLabel(premier(a.referent) ?? {}),
+        canal: null,
+        declenchement: null,
+        statut: 'succes',
+        erreur: null,
+      })
+    }
+    entrees.sort((x, y) => y.date.localeCompare(x.date))
+    setHistorique(entrees)
+    setHistoriqueLoading(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── Gestion suiveurs ───────────────────────────────────────────────────────
 
   function ouvrirForm(eleveId: string) {
     setOpenFormEleveId(eleveId)
@@ -203,6 +357,7 @@ export default function AgoraAdminView({ eleves }: Props) {
     setFormError(null)
   }
 
+  // Désactive le rattachement (referent_eleve.actif = false) : l'historique est conservé
   async function handleRetirer(eleveId: string, linkId: string) {
     await supabase.from('referent_eleve').update({ actif: false }).eq('id', linkId)
     setReferentsMap((prev) => ({
@@ -246,7 +401,7 @@ export default function AgoraAdminView({ eleves }: Props) {
       return
     }
 
-    // Recharger les suiveurs de cette ligne uniquement
+    // Recharger les suiveurs de cet élève uniquement
     const { data: rows } = await supabase
       .from('referent_eleve')
       .select('id, referent(id, prenom, nom, telephone, mode)')
@@ -276,6 +431,10 @@ export default function AgoraAdminView({ eleves }: Props) {
     setPanneau({ eleveId, pseudo })
     setPanneauLoading(true)
     setGenerateError(null)
+    setEnvois({})
+    setHistorique([])
+    fermerForm()
+    chargerHistorique(eleveId)
 
     let rapport = rapports[eleveId] ?? null
 
@@ -316,6 +475,9 @@ export default function AgoraAdminView({ eleves }: Props) {
     setPanneauRapport(null)
     setNote('')
     setGenerateError(null)
+    setEnvois({})
+    setHistorique([])
+    fermerForm()
   }
 
   async function sauvegarderNote() {
@@ -378,71 +540,83 @@ export default function AgoraAdminView({ eleves }: Props) {
 
   async function envoyer(ref: ReferentEntry) {
     if (!panneau || !panneauRapport?.image_path) return
-
-    const { data: publicData } = supabase.storage
-      .from('rapports')
-      .getPublicUrl(panneauRapport.image_path)
-
-    const url = `${publicData.publicUrl}?v=${Date.now()}`
-    const msg = `Bonjour, voici le rapport hebdomadaire de ${panneau.pseudo} pour la ${formatSemaineLabel(lundi).toLowerCase()} sur Monstro : ${url}`
-    const tel = ref.telephone
+    const eleveId = panneau.eleveId
+    const rapport = panneauRapport
 
     if (ref.mode === 'sms') {
-      window.open(`sms:+${tel}?&body=${encodeURIComponent(msg)}`, '_blank')
+      // SMS : inchangé, ouverture de l'application SMS avec le message pré-rempli
+      const { data: publicData } = supabase.storage
+        .from('rapports')
+        .getPublicUrl(rapport.image_path!)
+      const url = `${publicData.publicUrl}?v=${Date.now()}`
+      const msg = `Bonjour, voici le rapport hebdomadaire de ${panneau.pseudo} pour la ${formatSemaineLabel(lundi).toLowerCase()} sur Monstro : ${url}`
+      window.open(`sms:+${ref.telephone}?&body=${encodeURIComponent(msg)}`, '_blank')
+
+      // Suivi côté client (le WhatsApp est suivi par le serveur)
+      const envoye_le = new Date().toISOString()
+      await supabase.from('rapport_mensuel').update({ envoye_le }).eq('id', rapport.id)
+      await supabase
+        .from('rapport_envoi')
+        .upsert({ rapport_id: rapport.id, referent_id: ref.id, envoye_le }, { onConflict: 'rapport_id,referent_id' })
+      await supabase.from('rapport_envoi_log').insert({
+        rapport_id: rapport.id,
+        referent_id: ref.id,
+        canal: 'sms',
+        declenchement: 'manuel',
+        statut: 'succes',
+      })
     } else {
-      window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank')
+      // WhatsApp : envoi via Twilio (Server Action) ; journal, rapport_envoi et envoye_le mis à jour côté serveur
+      setEnvois((prev) => ({ ...prev, [ref.id]: { statut: 'envoi' } }))
+      const res = await envoyerRapportWhatsAppAction(rapport.id, ref.id).catch(() => ({
+        ok: false as const,
+        erreur: 'Impossible de joindre le serveur : vérifie la connexion et réessaie.',
+      }))
+      setDerniersEnvois((prev) => ({ ...prev, [rapport.id]: res.ok ? 'succes' : 'echec' }))
+      chargerHistorique(eleveId)
+      if (!res.ok) {
+        setEnvois((prev) => ({ ...prev, [ref.id]: { statut: 'erreur', message: res.erreur } }))
+        return
+      }
+      setEnvois((prev) => ({ ...prev, [ref.id]: { statut: 'ok', message: 'Message accepté par Twilio.' } }))
     }
 
-    const envoye_le = new Date().toISOString()
-    await supabase
-      .from('rapport_mensuel')
-      .update({ envoye_le })
-      .eq('eleve_id', panneau.eleveId)
-      .eq('mois', lundi)
-
-    // Suivi par suiveur
-    await supabase
-      .from('rapport_envoi')
-      .upsert(
-        { rapport_id: panneauRapport.id, referent_id: ref.id },
-        { onConflict: 'rapport_id,referent_id' },
-      )
+    if (ref.mode === 'sms') {
+      setDerniersEnvois((prev) => ({ ...prev, [rapport.id]: 'succes' }))
+      chargerHistorique(eleveId)
+    }
 
     // Rafraîchir le compteur pour ce rapport
     const { count } = await supabase
       .from('rapport_envoi')
       .select('*', { count: 'exact', head: true })
-      .eq('rapport_id', panneauRapport.id)
-    setEnvoisMap((prev) => ({ ...prev, [panneauRapport.id]: count ?? 0 }))
+      .eq('rapport_id', rapport.id)
+    setEnvoisMap((prev) => ({ ...prev, [rapport.id]: count ?? 0 }))
 
-    const updated = { ...panneauRapport, envoye_le }
+    const updated = { ...rapport, envoye_le: new Date().toISOString() }
     setPanneauRapport(updated)
-    setRapports((prev) => ({ ...prev, [panneau.eleveId]: updated }))
+    setRapports((prev) => ({ ...prev, [eleveId]: updated }))
   }
 
   // ── Utils affichage ────────────────────────────────────────────────────────
 
   const profiles = eleves.filter((p) => !p.is_fake)
 
-  function statutRapport(r: RapportRow | undefined): { label: string; color: string } {
-    if (!r) return { label: 'À générer', color: '#9ca3af' }
-    if (r.envoye_le)
-      return {
-        label: `Envoyé le ${new Date(r.envoye_le).toLocaleDateString('fr-FR')}`,
-        color: '#16a34a',
-      }
-    if (r.image_path) return { label: 'Image générée', color: '#2563eb' }
-    return { label: 'Données chargées', color: '#d97706' }
+  function statutEnvoi(r: RapportRow | undefined): StatutEnvoi {
+    if (!r) return 'attente'
+    const dernier = derniersEnvois[r.id]
+    if (dernier === 'echec') return 'erreur'
+    if (dernier === 'succes' || (envoisMap[r.id] ?? 0) > 0) return 'envoye'
+    return 'attente'
   }
 
   const panRefs = panneau ? (referentsMap[panneau.eleveId] ?? []) : []
 
-  // Styles réutilisables pour le mini-formulaire
-  const cellInputStyle: React.CSSProperties = {
-    fontSize: 12,
-    borderRadius: 6,
+  const inputStyle: React.CSSProperties = {
+    fontSize: 13,
+    borderRadius: 8,
     border: '1px solid #d1d5db',
-    padding: '4px 7px',
+    padding: '6px 9px',
     color: '#111827',
     background: '#fff',
     outline: 'none',
@@ -465,10 +639,113 @@ export default function AgoraAdminView({ eleves }: Props) {
     cursor: 'pointer',
   }
 
+  const sectionTitreStyle: React.CSSProperties = {
+    fontSize: 11,
+    fontWeight: 600,
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    margin: 0,
+  }
+
+  const heuresProposees = reglage && !HEURES_ENVOI.includes(reglage.heure) ? [reglage.heure, ...HEURES_ENVOI] : HEURES_ENVOI
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div>
+      {migrationManquante && (
+        <div
+          role="alert"
+          style={{
+            marginBottom: 16,
+            padding: '10px 14px',
+            borderRadius: 10,
+            background: '#fef3c7',
+            color: '#92400e',
+            fontSize: 13,
+          }}
+        >
+          Tables <code>agora_settings</code> / <code>rapport_envoi_log</code> absentes : exécuter la migration{' '}
+          <code>supabase/migrations/20260928_agora_envoi_auto.sql</code> dans l&apos;éditeur SQL Supabase.
+        </div>
+      )}
+
+      {/* Réglage global de l'envoi automatique */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: 10,
+          padding: '12px 16px',
+          marginBottom: 20,
+          borderRadius: 12,
+          border: '1px solid #e5e7eb',
+          background: '#fff',
+          fontSize: 13,
+        }}
+      >
+        <span style={{ fontWeight: 700, color: '#111827' }}>Envoi automatique</span>
+        {reglage ? (
+          <>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#374151' }}>
+              <input
+                type="checkbox"
+                checked={reglage.actif}
+                onChange={(e) => setReglage({ ...reglage, actif: e.target.checked })}
+              />
+              Activé
+            </label>
+            <select
+              value={reglage.jour_semaine}
+              onChange={(e) => setReglage({ ...reglage, jour_semaine: Number(e.target.value) })}
+              aria-label="Jour d'envoi"
+              style={{ ...inputStyle, flex: '0 0 auto' }}
+            >
+              {JOURS_SEMAINE.map((jour, i) => (
+                <option key={jour} value={i + 1}>{jour}</option>
+              ))}
+            </select>
+            <select
+              value={reglage.heure}
+              onChange={(e) => setReglage({ ...reglage, heure: e.target.value })}
+              aria-label="Heure d'envoi"
+              style={{ ...inputStyle, flex: '0 0 auto' }}
+            >
+              {heuresProposees.map((h) => (
+                <option key={h} value={h}>{h.replace(':', 'h')}</option>
+              ))}
+            </select>
+            <button
+              onClick={sauvegarderReglage}
+              disabled={reglageSaving}
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                padding: '6px 14px',
+                borderRadius: 8,
+                border: 'none',
+                background: reglageSaving ? '#9ca3af' : '#111827',
+                color: '#fff',
+                cursor: reglageSaving ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {reglageSaving ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
+            <span style={{ color: '#9ca3af', fontSize: 12 }}>
+              Heure de Paris · rapport de la semaine précédente · dernier envoi auto :{' '}
+              {reglage.dernier_envoi_auto ? formatSemaineLabel(reglage.dernier_envoi_auto).toLowerCase() : 'jamais'}
+            </span>
+            {reglageMessage && (
+              <span style={{ fontSize: 12, color: reglageMessage.ok ? '#16a34a' : '#dc2626' }}>{reglageMessage.texte}</span>
+            )}
+          </>
+        ) : (
+          <span style={{ color: '#9ca3af' }}>{migrationManquante ? 'Indisponible (migration à appliquer).' : 'Chargement…'}</span>
+        )}
+      </div>
+
       {/* Sélecteur de semaine */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
         <button onClick={() => setLundi((l) => shiftSemaine(l, -1))} style={navBtnStyle} aria-label="Semaine précédente">
@@ -482,251 +759,59 @@ export default function AgoraAdminView({ eleves }: Props) {
         </button>
       </div>
 
-      {/* Tableau */}
-      <div
-        style={{
-          overflowX: 'auto',
-          borderRadius: 12,
-          border: '1px solid #e5e7eb',
-          background: '#fff',
-        }}
-      >
-        {loadingTable ? (
-          <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
-            Chargement…
-          </div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                {['Étudiant', 'Agora', `Rapport ${formatSemaineCourt(lundi)}`, 'Envoyés', ''].map((h, i) => (
-                  <th
-                    key={i}
+      {/* Grille de cartes élèves */}
+      {loadingTable ? (
+        <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>Chargement…</div>
+      ) : profiles.length === 0 ? (
+        <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Aucun élève.</div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+          {profiles.map((profile) => {
+            const rapport = rapports[profile.id]
+            const statut = STATUTS[statutEnvoi(rapport)]
+            const nReferents = (referentsMap[profile.id] ?? []).length
+            const nEnvoyes = rapport?.id ? (envoisMap[rapport.id] ?? 0) : 0
+            const isOpen = panneau?.eleveId === profile.id
+            return (
+              <button
+                key={profile.id}
+                onClick={() => ouvrirPanneau(profile.id, profile.pseudo ?? nomEleve(profile))}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: 8,
+                  padding: '14px 16px',
+                  borderRadius: 12,
+                  border: `1px solid ${isOpen ? '#6D28D9' : '#e5e7eb'}`,
+                  background: '#fff',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+              >
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{nomEleve(profile)}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span
                     style={{
-                      textAlign: i === 4 ? 'right' : 'left',
-                      padding: '10px 16px',
-                      color: '#6b7280',
-                      fontWeight: 600,
                       fontSize: 11,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
+                      fontWeight: 600,
+                      padding: '2px 8px',
+                      borderRadius: 999,
+                      color: statut.color,
+                      background: statut.background,
                     }}
                   >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {profiles.map((profile) => {
-                const fullName = `${profile.prenom ?? ''} ${profile.nom ?? ''}`.trim()
-                const pseudo = profile.pseudo ?? (fullName || '—')
-                const refs = referentsMap[profile.id] ?? []
-                const rapport = rapports[profile.id]
-                const { label, color } = statutRapport(rapport)
-                const isOpen = panneau?.eleveId === profile.id
-                const formOpen = openFormEleveId === profile.id
-                const nReferents = (referentsMap[profile.id] ?? []).length
-                const nEnvoyes = rapport?.id ? (envoisMap[rapport.id] ?? 0) : 0
-                const tousEnvoyes = nReferents > 0 && nEnvoyes === nReferents
-
-                return (
-                  <tr
-                    key={profile.id}
-                    style={{
-                      borderBottom: '1px solid #f3f4f6',
-                      background: isOpen ? '#f0f9ff' : 'transparent',
-                    }}
-                  >
-                    {/* Étudiant */}
-                    <td style={{ padding: '10px 16px', fontWeight: 600, color: '#111827', verticalAlign: 'top' }}>
-                      {pseudo}
-                    </td>
-
-                    {/* Agora — gestion inline des suiveurs */}
-                    <td style={{ padding: '10px 16px', verticalAlign: 'top', minWidth: 220 }}>
-                      {/* Liste des suiveurs actifs */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: refs.length > 0 || formOpen ? 6 : 0 }}>
-                        {refs.map((r) => (
-                          <div key={r.linkId} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span style={{ fontSize: 13, color: '#374151' }}>
-                              {referentLabel(r)}
-                            </span>
-                            <span style={{
-                              fontSize: 10,
-                              fontWeight: 600,
-                              padding: '1px 5px',
-                              borderRadius: 4,
-                              background: r.mode === 'sms' ? '#dbeafe' : '#dcfce7',
-                              color: r.mode === 'sms' ? '#1d4ed8' : '#15803d',
-                              flexShrink: 0,
-                            }}>
-                              {r.mode === 'sms' ? 'SMS' : 'WA'}
-                            </span>
-                            <button
-                              onClick={() => handleRetirer(profile.id, r.linkId)}
-                              title="Retirer ce suiveur"
-                              style={{
-                                fontSize: 15,
-                                lineHeight: 1,
-                                color: '#9ca3af',
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                padding: '0 2px',
-                                flexShrink: 0,
-                              }}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Mini-formulaire ou bouton + Ajouter */}
-                      {formOpen ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                          <div style={{ display: 'flex', gap: 5 }}>
-                            <input
-                              type="text"
-                              placeholder="Prénom"
-                              value={formPrenom}
-                              onChange={(e) => setFormPrenom(e.target.value)}
-                              style={cellInputStyle}
-                            />
-                            <input
-                              type="text"
-                              placeholder="Nom *"
-                              value={formNom}
-                              onChange={(e) => setFormNom(e.target.value)}
-                              style={cellInputStyle}
-                            />
-                          </div>
-                          <div style={{ display: 'flex', gap: 5 }}>
-                            <input
-                              type="tel"
-                              placeholder="33698815992 — format international sans +"
-                              value={formTelephone}
-                              onChange={(e) => setFormTelephone(e.target.value)}
-                              style={cellInputStyle}
-                            />
-                          </div>
-                          <div style={{ display: 'flex', gap: 5 }}>
-                            <select
-                              value={formMode}
-                              onChange={(e) => setFormMode(e.target.value as 'whatsapp' | 'sms')}
-                              style={{ ...cellInputStyle, flex: '0 0 auto' }}
-                            >
-                              <option value="whatsapp">WhatsApp</option>
-                              <option value="sms">SMS</option>
-                            </select>
-                          </div>
-                          {formError && (
-                            <p style={{ fontSize: 11, color: '#dc2626', margin: 0 }}>{formError}</p>
-                          )}
-                          <div style={{ display: 'flex', gap: 5 }}>
-                            <button
-                              onClick={() => handleAjouter(profile.id)}
-                              disabled={formSaving}
-                              style={{
-                                fontSize: 12,
-                                fontWeight: 600,
-                                padding: '4px 10px',
-                                borderRadius: 6,
-                                border: 'none',
-                                background: formSaving ? '#9ca3af' : '#111827',
-                                color: '#fff',
-                                cursor: formSaving ? 'not-allowed' : 'pointer',
-                              }}
-                            >
-                              {formSaving ? '…' : 'Valider'}
-                            </button>
-                            <button
-                              onClick={fermerForm}
-                              disabled={formSaving}
-                              style={{
-                                fontSize: 12,
-                                padding: '4px 10px',
-                                borderRadius: 6,
-                                border: '1px solid #e5e7eb',
-                                background: '#fff',
-                                color: '#6b7280',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Annuler
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => ouvrirForm(profile.id)}
-                          style={{
-                            fontSize: 12,
-                            color: '#6b7280',
-                            background: 'none',
-                            border: '1px dashed #d1d5db',
-                            borderRadius: 6,
-                            padding: '3px 8px',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          + Ajouter
-                        </button>
-                      )}
-                    </td>
-
-                    {/* Rapport */}
-                    <td style={{ padding: '10px 16px', verticalAlign: 'top' }}>
-                      <span style={{ fontSize: 12, fontWeight: 500, color }}>{label}</span>
-                    </td>
-
-                    {/* Envoyés */}
-                    <td style={{ padding: '10px 16px', verticalAlign: 'top' }}>
-                      {nReferents === 0 ? (
-                        <span style={{ fontSize: 12, color: '#d1d5db' }}>—</span>
-                      ) : (
-                        <span style={{ fontSize: 12, fontWeight: 600, color: tousEnvoyes ? '#16a34a' : '#9ca3af' }}>
-                          {nEnvoyes}/{nReferents}
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Ouvrir/Fermer/Envoyer à tous */}
-                    <td style={{ padding: '10px 16px', textAlign: 'right', verticalAlign: 'top' }}>
-                      <button
-                        onClick={() => (isOpen ? fermerPanneau() : ouvrirPanneau(profile.id, pseudo))}
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          padding: '5px 12px',
-                          borderRadius: 7,
-                          border: '1px solid #e5e7eb',
-                          background: isOpen ? '#111827' : '#fff',
-                          color: isOpen ? '#fff' : '#374151',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {isOpen ? 'Fermer' : nReferents > 0 ? 'Envoyer à tous' : 'Ouvrir'}
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-              {profiles.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={5}
-                    style={{ padding: 40, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}
-                  >
-                    Aucun élève.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+                    {statut.label}
+                  </span>
+                  <span style={{ fontSize: 12, color: '#9ca3af' }}>
+                    {nReferents === 0 ? 'Aucun suiveur' : `${nEnvoyes}/${nReferents} suiveur${nReferents > 1 ? 's' : ''}`}
+                  </span>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* Panneau latéral (drawer fixe) */}
       {panneau && (
@@ -758,7 +843,7 @@ export default function AgoraAdminView({ eleves }: Props) {
               padding: '24px 24px 60px',
               display: 'flex',
               flexDirection: 'column',
-              gap: 20,
+              gap: 24,
               boxShadow: '-4px 0 24px rgba(0,0,0,0.12)',
             }}
           >
@@ -774,6 +859,7 @@ export default function AgoraAdminView({ eleves }: Props) {
               </div>
               <button
                 onClick={fermerPanneau}
+                aria-label="Fermer"
                 style={{
                   fontSize: 22,
                   color: '#9ca3af',
@@ -788,13 +874,13 @@ export default function AgoraAdminView({ eleves }: Props) {
               </button>
             </div>
 
+            {/* ── Rapport de la semaine ── */}
             {panneauLoading ? (
               <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 14, padding: 40 }}>
                 Chargement…
               </div>
             ) : panneauRapport ? (
-              <>
-                {/* RapportCard */}
+              <section style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <RapportCard
                   problemesTravailles={panneauRapport.problemes_travailles}
                   problemesTravaillesPrev={panneauRapport.problemes_travailles_prev}
@@ -808,21 +894,11 @@ export default function AgoraAdminView({ eleves }: Props) {
 
                 {/* Note */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: '#6b7280',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    Note
-                  </label>
+                  <label style={sectionTitreStyle}>Note</label>
                   <textarea
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    rows={4}
+                    rows={3}
                     placeholder="Ajouter une note…"
                     style={{
                       fontSize: 14,
@@ -886,88 +962,241 @@ export default function AgoraAdminView({ eleves }: Props) {
                   )}
                 </div>
 
-                {/* Envoi par suiveur (WhatsApp + SMS) — boutons individuels regroupés */}
+                {/* Envoi par suiveur (WhatsApp via Twilio, SMS via l'application) */}
                 {panRefs.length > 0 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: '#6b7280',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                      }}
-                    >
+                    <p style={sectionTitreStyle}>
                       Envoyer le rapport ({panRefs.length} suiveur{panRefs.length > 1 ? 's' : ''})
-                    </div>
+                    </p>
 
                     {panRefs.map((ref) => {
                       const hasImage = !!panneauRapport.image_path
                       const isWA = ref.mode !== 'sms'
+                      const envoi = envois[ref.id]
+                      const enCours = envoi?.statut === 'envoi'
                       return (
-                        <div
-                          key={ref.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '10px 14px',
-                            background: '#f9fafb',
-                            borderRadius: 10,
-                            gap: 10,
-                          }}
-                        >
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
-                              {referentLabel(ref)}
-                            </div>
-                            <div style={{ fontSize: 12, color: '#9ca3af' }}>{ref.telephone}</div>
-                          </div>
-
-                          <button
-                            onClick={() => envoyer(ref)}
-                            disabled={!hasImage}
-                            title={!hasImage ? "Générer le PNG d'abord" : undefined}
+                        <div key={ref.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <div
                             style={{
                               display: 'flex',
                               alignItems: 'center',
-                              gap: 5,
-                              fontSize: 13,
-                              fontWeight: 600,
-                              padding: '7px 14px',
-                              borderRadius: 8,
-                              border: 'none',
-                              cursor: hasImage ? 'pointer' : 'not-allowed',
-                              flexShrink: 0,
-                              background: !hasImage ? '#e5e7eb' : isWA ? '#25D366' : '#3b82f6',
-                              color: hasImage ? '#fff' : '#9ca3af',
+                              justifyContent: 'space-between',
+                              padding: '10px 14px',
+                              background: '#f9fafb',
+                              borderRadius: 10,
+                              gap: 10,
                             }}
                           >
-                            {isWA ? (
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                              </svg>
-                            ) : (
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                              </svg>
-                            )}
-                            {isWA ? 'Envoyer (WhatsApp)' : 'Envoyer (SMS)'}
-                          </button>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
+                                {referentLabel(ref)}
+                              </div>
+                              <div style={{ fontSize: 12, color: '#9ca3af' }}>{ref.telephone}</div>
+                            </div>
+
+                            <button
+                              onClick={() => envoyer(ref)}
+                              disabled={!hasImage || enCours}
+                              title={!hasImage ? "Générer le PNG d'abord" : undefined}
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 600,
+                                padding: '7px 14px',
+                                borderRadius: 8,
+                                border: 'none',
+                                cursor: !hasImage ? 'not-allowed' : enCours ? 'wait' : 'pointer',
+                                opacity: enCours ? 0.6 : 1,
+                                flexShrink: 0,
+                                background: !hasImage ? '#e5e7eb' : isWA ? '#25D366' : '#3b82f6',
+                                color: hasImage ? '#fff' : '#9ca3af',
+                              }}
+                            >
+                              {enCours ? 'Envoi…' : isWA ? 'Envoyer (WhatsApp)' : 'Envoyer (SMS)'}
+                            </button>
+                          </div>
+                          {envoi && envoi.statut !== 'envoi' && (
+                            <p
+                              role={envoi.statut === 'erreur' ? 'alert' : 'status'}
+                              style={{
+                                fontSize: 12,
+                                margin: 0,
+                                padding: '0 14px',
+                                color: envoi.statut === 'ok' ? '#16a34a' : '#dc2626',
+                              }}
+                            >
+                              {envoi.statut === 'ok' ? '✓ ' : '✗ '}
+                              {envoi.message}
+                            </p>
+                          )}
                         </div>
                       )
                     })}
-
-                    {panneauRapport.envoye_le && (
-                      <p style={{ fontSize: 12, color: '#16a34a', margin: 0 }}>
-                        ✓ Envoyé le{' '}
-                        {new Date(panneauRapport.envoye_le).toLocaleDateString('fr-FR')}
-                      </p>
-                    )}
                   </div>
                 )}
-              </>
+              </section>
             ) : null}
+
+            {/* ── Suiveurs ── */}
+            <section style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <p style={sectionTitreStyle}>Suiveurs</p>
+              {panRefs.length === 0 && (
+                <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>Aucun suiveur actif.</p>
+              )}
+              {panRefs.map((r) => (
+                <div
+                  key={r.linkId}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#374151' }}
+                >
+                  <span style={{ fontWeight: 600 }}>{referentLabel(r)}</span>
+                  <span style={{ color: '#9ca3af' }}>{r.telephone}</span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      padding: '1px 5px',
+                      borderRadius: 4,
+                      background: r.mode === 'sms' ? '#dbeafe' : '#dcfce7',
+                      color: r.mode === 'sms' ? '#1d4ed8' : '#15803d',
+                    }}
+                  >
+                    {r.mode === 'sms' ? 'SMS' : 'WA'}
+                  </span>
+                  <button
+                    onClick={() => handleRetirer(panneau.eleveId, r.linkId)}
+                    title="Retirer ce suiveur (désactivé, historique conservé)"
+                    style={{
+                      marginLeft: 'auto',
+                      fontSize: 12,
+                      color: '#6b7280',
+                      background: 'none',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 6,
+                      padding: '2px 8px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Retirer
+                  </button>
+                </div>
+              ))}
+
+              {openFormEleveId === panneau.eleveId ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input type="text" placeholder="Prénom" value={formPrenom} onChange={(e) => setFormPrenom(e.target.value)} style={inputStyle} />
+                    <input type="text" placeholder="Nom *" value={formNom} onChange={(e) => setFormNom(e.target.value)} style={inputStyle} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input
+                      type="tel"
+                      placeholder="33698815992 — format international sans +"
+                      value={formTelephone}
+                      onChange={(e) => setFormTelephone(e.target.value)}
+                      style={inputStyle}
+                    />
+                    <select
+                      value={formMode}
+                      onChange={(e) => setFormMode(e.target.value as 'whatsapp' | 'sms')}
+                      style={{ ...inputStyle, flex: '0 0 auto' }}
+                    >
+                      <option value="whatsapp">WhatsApp</option>
+                      <option value="sms">SMS</option>
+                    </select>
+                  </div>
+                  {formError && <p style={{ fontSize: 12, color: '#dc2626', margin: 0 }}>{formError}</p>}
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      onClick={() => handleAjouter(panneau.eleveId)}
+                      disabled={formSaving}
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        padding: '6px 12px',
+                        borderRadius: 8,
+                        border: 'none',
+                        background: formSaving ? '#9ca3af' : '#111827',
+                        color: '#fff',
+                        cursor: formSaving ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {formSaving ? '…' : 'Valider'}
+                    </button>
+                    <button
+                      onClick={fermerForm}
+                      disabled={formSaving}
+                      style={{
+                        fontSize: 13,
+                        padding: '6px 12px',
+                        borderRadius: 8,
+                        border: '1px solid #e5e7eb',
+                        background: '#fff',
+                        color: '#6b7280',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => ouvrirForm(panneau.eleveId)}
+                  style={{
+                    alignSelf: 'flex-start',
+                    fontSize: 12,
+                    color: '#6b7280',
+                    background: 'none',
+                    border: '1px dashed #d1d5db',
+                    borderRadius: 6,
+                    padding: '4px 10px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  + Ajouter un suiveur
+                </button>
+              )}
+            </section>
+
+            {/* ── Historique des envois ── */}
+            <section style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <p style={sectionTitreStyle}>Historique des envois</p>
+              {historiqueLoading ? (
+                <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>Chargement…</p>
+              ) : historique.length === 0 ? (
+                <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>Aucun envoi pour le moment.</p>
+              ) : (
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {historique.map((h) => (
+                    <li
+                      key={h.cle}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        background: h.statut === 'echec' ? '#fef2f2' : '#f9fafb',
+                        fontSize: 12,
+                        color: '#374151',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 700, color: h.statut === 'succes' ? '#16a34a' : '#dc2626' }}>
+                          {h.statut === 'succes' ? '✓ Succès' : '✗ Échec'}
+                        </span>
+                        <span style={{ fontWeight: 600 }}>{h.suiveur}</span>
+                        <span style={{ color: '#9ca3af' }}>
+                          {new Date(h.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                        </span>
+                        {h.semaine && <span style={{ color: '#9ca3af' }}>· {formatSemaineLabel(h.semaine).toLowerCase()}</span>}
+                        <span style={{ color: '#9ca3af' }}>
+                          · {h.canal === 'sms' ? 'SMS' : h.canal === 'whatsapp' ? 'WhatsApp' : 'antérieur au journal'}
+                          {h.declenchement === 'auto' ? ' (auto)' : ''}
+                        </span>
+                      </div>
+                      {h.erreur && <p style={{ margin: '4px 0 0', color: '#b91c1c' }}>{h.erreur}</p>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           </div>
         </div>
       )}

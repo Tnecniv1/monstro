@@ -15,6 +15,9 @@ function isVitrine(pathname: string): boolean {
 }
 
 export async function middleware(request: NextRequest) {
+  // Routes cron : pas de session, authentifiées par CRON_SECRET dans la route elle-même
+  if (request.nextUrl.pathname.startsWith('/api/cron/')) return NextResponse.next()
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
