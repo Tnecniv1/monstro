@@ -15,9 +15,12 @@ export interface PersonalReferent {
 interface Props {
   eleveId: string
   initial: PersonalReferent[]
+  /** Profil de l'élève, pour pré-remplir le suiveur « Moi » */
+  profil: { prenom: string; nom: string; telephone: string }
 }
 
 type Relation =
+  | 'moi'
   | 'pere'
   | 'mere'
   | 'frere'
@@ -30,6 +33,7 @@ type Relation =
   | 'coach_sport'
 
 const RELATION_OPTIONS: { value: Relation; label: string }[] = [
+  { value: 'moi', label: 'Moi' }, // l'élève reçoit lui-même son rapport hebdomadaire
   { value: 'pere', label: 'Père' },
   { value: 'mere', label: 'Mère' },
   { value: 'frere', label: 'Frère' },
@@ -59,7 +63,7 @@ function referentLabel(r: PersonalReferent): string {
   return [r.prenom, r.nom].filter(Boolean).join(' ') || '—'
 }
 
-export default function AgoraPersonalView({ eleveId, initial }: Props) {
+export default function AgoraPersonalView({ eleveId, initial, profil }: Props) {
   const supabase = createClient()
   const [referents, setReferents] = useState<PersonalReferent[]>(initial)
   const [showForm, setShowForm] = useState(false)
@@ -75,6 +79,15 @@ export default function AgoraPersonalView({ eleveId, initial }: Props) {
     if (digits.startsWith('+')) return digits.slice(1)
     if (digits.startsWith('0')) return '33' + digits.slice(1)
     return digits
+  }
+
+  // « Moi » : pré-remplit avec le profil de l'élève les champs encore vides (modifiables ensuite)
+  function changerRelation(valeur: Relation) {
+    setRelation(valeur)
+    if (valeur !== 'moi') return
+    if (!telephone.trim() && profil.telephone) setTelephone(profil.telephone)
+    if (!prenom.trim() && profil.prenom) setPrenom(profil.prenom)
+    if (!nom.trim() && profil.nom) setNom(profil.nom)
   }
 
   async function recharger() {
@@ -290,7 +303,7 @@ export default function AgoraPersonalView({ eleveId, initial }: Props) {
             </label>
             <select
               value={relation}
-              onChange={(e) => setRelation(e.target.value as Relation)}
+              onChange={(e) => changerRelation(e.target.value as Relation)}
               style={{
                 fontSize: 14,
                 color: '#111827',
@@ -326,6 +339,13 @@ export default function AgoraPersonalView({ eleveId, initial }: Props) {
                 outline: 'none',
               }}
             />
+            {relation === 'moi' && (
+              <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>
+                {profil.telephone
+                  ? 'Numéro de ton compte pré-rempli : modifie-le si besoin.'
+                  : 'Aucun numéro enregistré sur ton compte : saisis-le ici.'}
+              </p>
+            )}
           </div>
 
           {error && (

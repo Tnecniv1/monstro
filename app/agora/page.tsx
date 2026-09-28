@@ -7,11 +7,15 @@ export default async function AgoraPage() {
   const { user } = await getUser()
   const supabase = createClient()
 
-  const { data: referentRows } = await supabase
-    .from('referent_eleve')
-    .select('id, referent_id, referent(prenom, nom, relation, telephone)')
-    .eq('eleve_id', user.id)
-    .eq('actif', true)
+  const [{ data: referentRows }, { data: profil }] = await Promise.all([
+    supabase
+      .from('referent_eleve')
+      .select('id, referent_id, referent(prenom, nom, relation, telephone)')
+      .eq('eleve_id', user.id)
+      .eq('actif', true),
+    // Pour pré-remplir le suiveur « Moi » (l'élève reçoit son propre rapport)
+    supabase.from('user_profile').select('prenom, nom, telephone').eq('id', user.id).single(),
+  ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const referents: PersonalReferent[] = (referentRows ?? []).map((r: any) => ({
@@ -30,7 +34,11 @@ export default async function AgoraPage() {
           ← Retour
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">Agora</h1>
-        <AgoraPersonalView eleveId={user.id} initial={referents} />
+        <AgoraPersonalView
+          eleveId={user.id}
+          initial={referents}
+          profil={{ prenom: profil?.prenom ?? '', nom: profil?.nom ?? '', telephone: profil?.telephone ?? '' }}
+        />
       </div>
     </div>
   )
