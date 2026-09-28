@@ -214,10 +214,16 @@ export default function TicketDetail({
     }
 
     setMessages((prev) => [...prev, newMessage as ForumMessage])
-    setPseudos((prev) => new Map(prev).set(userId, prev.get(userId) ?? '—'))
     setInput('')
     clearImage()
     setSending(false)
+    // Première réponse de l'utilisateur dans cette discussion : son pseudo
+    // n'a pas encore été chargé — on le récupère au lieu d'afficher "—".
+    if (!pseudos.has(userId)) {
+      fetchPseudoMap(supabase, [userId]).then((map) => {
+        setPseudos((prev) => new Map(prev).set(userId, map.get(userId) ?? '—'))
+      })
+    }
   }
 
   return (
