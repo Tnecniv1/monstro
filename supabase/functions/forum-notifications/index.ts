@@ -24,10 +24,14 @@ const SUJET_LABEL: Record<string, string> = {
   application: "Application",
 };
 
+// Payload d'un Database Webhook Supabase : type en majuscules, table sans le
+// schéma, record = la ligne insérée.
 type WebhookPayload = {
   type: "INSERT" | "UPDATE" | "DELETE";
   table: string;
+  schema: string;
   record: Record<string, unknown> | null;
+  old_record: Record<string, unknown> | null;
 };
 
 type Destinataire = { id: string; push_token: string };
@@ -57,11 +61,7 @@ async function envoyer(
   data: Record<string, unknown>,
   logPrefix: string,
 ) {
-  if (destinataires.length === 0) {
-    console.log(`${logPrefix} aucun destinataire`);
-    return { destinataires: 0, envoyes: 0, tokensInvalides: 0 };
-  }
-
+  console.log(`${logPrefix} envoi à ${destinataires.length} destinataire(s) : ${destinataires.map((d) => d.id).join(", ")}`);
   const messages: ExpoPushMessage[] = destinataires.map((d) => ({
     to: d.push_token,
     title: TITRE,
@@ -83,13 +83,31 @@ async function envoyer(
   };
 }
 
+type ProfilPush = { id: string; notifications_actives: boolean | null; push_token: string | null };
+
+// Filtres appliqués en JS (et non dans la requête) pour journaliser le nombre
+// de destinataires restant après chacun : notifications_actives, push_token.
+function filtrerDestinataires(profils: ProfilPush[], logPrefix: string): Destinataire[] {
+  const actifs = profils.filter((p) => p.notifications_actives === true);
+  console.log(`${logPrefix} après filtre notifications_actives=true : ${actifs.length}`);
+  const avecToken = actifs.filter((p) => !!p.push_token);
+  console.log(`${logPrefix} après filtre push_token non null : ${avecToken.length}`);
+  return avecToken.map((p) => ({ id: p.id, push_token: p.push_token as string }));
+}
+
+function sortie(logPrefix: string, raison: string) {
+  console.log(`${logPrefix} SORTIE — ${raison}`);
+  return { ignore: raison };
+}
+
 // Réponse dans une question : auteur du ticket + toute personne ayant déjà
 // écrit dans le ticket, sauf l'expéditeur.
 async function surNouveauMessage(record: Record<string, unknown>) {
   const ticketId = record.ticket_id as string | undefined;
   const expediteurId = record.user_id as string | undefined;
   const logPrefix = `[forum_messages ${record.id}]`;
-  if (!ticketId || !expediteurId) return { ignore: "record incomplet" };
+  console.log(`${logPrefix} ticket_id=${ticketId} expediteur=${expediteurId}`);
+  if (!ticketId || !expediteurId) return sortie(logPrefix, "record incomplet (ticket_id ou user_id manquant)");
 
   const { data: ticket, error: ticketError } = await supabase
     .from("forum_tickets")
@@ -97,8 +115,9 @@ async function surNouveauMessage(record: Record<string, unknown>) {
     .eq("id", ticketId)
     .maybeSingle();
   if (ticketError) throw ticketError;
-  if (!ticket) return { ignore: "ticket introuvable" };
-  if (ticket.topic_id != null) return { ignore: "ticket de topic de sens" };
+  console.log(`${logPrefix} ticket chargé=${JSON.stringify(ticket)}`);
+  if (!ticket) return sortie(logPrefix, "ticket introuvable");
+  if (ticket.topic_id != null) return sortie(logPrefix, `ticket de topic de sens (topic_id=${ticket.topic_id})`);
 
   const { data: participants, error: participantsError } = await supabase
     .from("forum_messages")
@@ -107,34 +126,34 @@ async function surNouveauMessage(record: Record<string, unknown>) {
   if (participantsError) throw participantsError;
 
   const ids = new Set<string>([ticket.user_id, ...(participants ?? []).map((p) => p.user_id as string)]);
+  console.log(`${logPrefix} auteur + participants (distincts) : ${ids.size}`);
   ids.delete(expediteurId);
-  if (ids.size === 0) return { destinataires: 0, envoyes: 0, tokensInvalides: 0 };
+  console.log(`${logPrefix} après retrait de l'expéditeur : ${ids.size}`);
+  if (ids.size === 0) return sortie(logPrefix, "aucun destinataire hors expéditeur (ex. premier message de l'auteur)");
 
-  const [{ data: destinataires, error: destError }, { data: expediteur }] = await Promise.all([
+  const [{ data: profils, error: profilsError }, { data: expediteur }] = await Promise.all([
     supabase
       .from("user_profile")
-      .select("id, push_token")
-      .in("id", Array.from(ids))
-      .eq("notifications_actives", true)
-      .not("push_token", "is", null),
+      .select("id, notifications_actives, push_token")
+      .in("id", Array.from(ids)),
     supabase.from("user_profile").select("pseudo").eq("id", expediteurId).maybeSingle(),
   ]);
-  if (destError) throw destError;
+  if (profilsError) throw profilsError;
+  console.log(`${logPrefix} profils trouvés dans user_profile : ${(profils ?? []).length}`);
+
+  const destinataires = filtrerDestinataires((profils ?? []) as ProfilPush[], logPrefix);
+  if (destinataires.length === 0) return sortie(logPrefix, "aucun destinataire avec notifications actives et token");
 
   const pseudo = (expediteur?.pseudo as string | null) || "Quelqu'un";
   const body = `${pseudo} a répondu à «${NBSP}${ticket.titre}${NBSP}»`;
-  return await envoyer(
-    (destinataires ?? []) as Destinataire[],
-    body,
-    { type: "forum_reply", ticketId },
-    logPrefix,
-  );
+  return await envoyer(destinataires, body, { type: "forum_reply", ticketId }, logPrefix);
 }
 
 // Nouvelle question (topic_id null) : tous les admins, sauf l'auteur.
 async function surNouveauTicket(record: Record<string, unknown>) {
   const logPrefix = `[forum_tickets ${record.id}]`;
-  if (record.topic_id != null) return { ignore: "ticket de topic de sens" };
+  console.log(`${logPrefix} topic_id=${record.topic_id} sujet=${record.sujet} auteur=${record.user_id}`);
+  if (record.topic_id != null) return sortie(logPrefix, `ticket de topic de sens (topic_id=${record.topic_id})`);
 
   const ticketId = record.id as string;
   const auteurId = record.user_id as string;
@@ -143,39 +162,51 @@ async function surNouveauTicket(record: Record<string, unknown>) {
 
   const { data: admins, error } = await supabase
     .from("user_profile")
-    .select("id, push_token")
-    .eq("role", "admin")
-    .eq("notifications_actives", true)
-    .not("push_token", "is", null)
-    .neq("id", auteurId);
+    .select("id, notifications_actives, push_token")
+    .eq("role", "admin");
   if (error) throw error;
+  console.log(`${logPrefix} comptes role='admin' : ${(admins ?? []).length}`);
+
+  const horsAuteur = ((admins ?? []) as ProfilPush[]).filter((a) => a.id !== auteurId);
+  console.log(`${logPrefix} après retrait de l'auteur : ${horsAuteur.length}`);
+
+  const destinataires = filtrerDestinataires(horsAuteur, logPrefix);
+  if (destinataires.length === 0) return sortie(logPrefix, "aucun admin avec notifications actives et token");
 
   const body = sujet
     ? `Nouvelle question (${sujet})${NBSP}: ${titre}`
     : `Nouvelle question${NBSP}: ${titre}`;
-  return await envoyer(
-    (admins ?? []) as Destinataire[],
-    body,
-    { type: "forum_ticket", ticketId },
-    logPrefix,
-  );
+  return await envoyer(destinataires, body, { type: "forum_ticket", ticketId }, logPrefix);
 }
 
 serve(async (req) => {
   const attendu = Deno.env.get("FORUM_WEBHOOK_SECRET");
-  if (!attendu || !secretValide(req.headers.get("x-webhook-secret"), attendu)) {
+  if (!attendu) {
+    console.error("[forum-notifications] SORTIE 401 — secret FORUM_WEBHOOK_SECRET non défini");
+    return json({ error: "unauthorized" }, 401);
+  }
+  if (!secretValide(req.headers.get("x-webhook-secret"), attendu)) {
+    console.error("[forum-notifications] SORTIE 401 — en-tête x-webhook-secret absent ou invalide");
     return json({ error: "unauthorized" }, 401);
   }
 
   try {
     const payload = (await req.json()) as WebhookPayload;
-    if (payload.type !== "INSERT" || !payload.record) {
-      return json({ ignore: `événement ${payload.type} non traité` });
+    console.log(
+      `[forum-notifications] reçu type=${payload.type} schema=${payload.schema} table=${payload.table} record.id=${payload.record?.id}`,
+    );
+    if (payload.type !== "INSERT") {
+      return json(sortie("[forum-notifications]", `événement ${payload.type} non traité`));
     }
+    if (!payload.record) return json(sortie("[forum-notifications]", "record absent du payload"));
 
-    if (payload.table === "forum_messages") return json(await surNouveauMessage(payload.record));
-    if (payload.table === "forum_tickets") return json(await surNouveauTicket(payload.record));
-    return json({ ignore: `table ${payload.table} non traitée` });
+    let resultat: unknown;
+    if (payload.table === "forum_messages") resultat = await surNouveauMessage(payload.record);
+    else if (payload.table === "forum_tickets") resultat = await surNouveauTicket(payload.record);
+    else resultat = sortie("[forum-notifications]", `table ${payload.table} non traitée`);
+
+    console.log(`[forum-notifications] résultat=${JSON.stringify(resultat)}`);
+    return json(resultat);
   } catch (err) {
     console.error("Erreur forum-notifications:", err);
     return json({ error: String((err as Error)?.message ?? err) }, 500);
