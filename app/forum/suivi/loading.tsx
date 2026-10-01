@@ -1,4 +1,4 @@
-// Squelette affiché pendant l'appel à get_regularite_admin().
+// Squelette affiché pendant les appels à get_regularite_admin() et get_parcours_admin().
 export default function SuiviLoading() {
   return (
     <div className="min-h-screen bg-bg">
@@ -6,6 +6,11 @@ export default function SuiviLoading() {
         <span className="text-sm text-text-muted">← Forum</span>
 
         <h1 className="text-2xl font-bold text-text-primary">Suivi</h1>
+
+        <div className="inline-flex gap-0.5 rounded-xl bg-surface-2 p-1">
+          <span className="rounded-lg bg-surface px-4 py-1.5 text-sm font-semibold text-text-primary shadow-sm">Régularité</span>
+          <span className="rounded-lg px-4 py-1.5 text-sm font-semibold text-text-muted">Parcours</span>
+        </div>
 
         <div className="grid gap-6 md:grid-cols-2">
           {[

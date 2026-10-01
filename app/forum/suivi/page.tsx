@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getUser } from '@/lib/supabase/getUser'
 import { isForumAdmin } from '../adminGate'
 import { formatJoursDepuis } from '../relativeTime'
+import ParcoursView, { type EleveParcours } from './ParcoursView'
+import SuiviTabs from './SuiviTabs'
 
 // Ligne renvoyée par la RPC get_regularite_admin() (lève une exception hors admin).
 type EleveRegularite = {
@@ -23,8 +25,12 @@ export default async function SuiviPage() {
   if (!isForumAdmin(profile?.role)) redirect('/forum')
 
   const supabase = createClient()
-  const { data, error } = await supabase.rpc('get_regularite_admin')
+  const [{ data, error }, { data: parcoursData, error: parcoursError }] = await Promise.all([
+    supabase.rpc('get_regularite_admin'),
+    supabase.rpc('get_parcours_admin'),
+  ])
   const eleves = (data ?? []) as EleveRegularite[]
+  const elevesParcours = (parcoursData ?? []) as EleveParcours[]
 
   // Perdants : ordre de la RPC (jamais actifs, puis activité la plus ancienne).
   const perdants = eleves.filter((e) => e.categorie === 'perdant')
@@ -39,18 +45,29 @@ export default async function SuiviPage() {
 
         <h1 className="text-2xl font-bold text-text-primary">Suivi</h1>
 
-        {error ? (
-          <div className="rounded-2xl border border-border bg-surface p-8 text-center text-sm text-danger">
-            Impossible de charger le suivi : {error.message}
-          </div>
-        ) : (
-          // Sur mobile, Perdants passe en premier.
-          <div className="grid gap-6 md:grid-cols-2">
-            <Colonne titre="Gagnants" eleves={gagnants} className="order-2 md:order-1" />
-            <Colonne titre="Perdants" eleves={perdants} className="order-1 md:order-2" />
-          </div>
-        )}
+        <SuiviTabs
+          regularite={
+            error ? (
+              <Erreur message={error.message} />
+            ) : (
+              // Sur mobile, Perdants passe en premier.
+              <div className="grid gap-6 md:grid-cols-2">
+                <Colonne titre="Gagnants" eleves={gagnants} className="order-2 md:order-1" />
+                <Colonne titre="Perdants" eleves={perdants} className="order-1 md:order-2" />
+              </div>
+            )
+          }
+          parcours={parcoursError ? <Erreur message={parcoursError.message} /> : <ParcoursView eleves={elevesParcours} />}
+        />
       </div>
+    </div>
+  )
+}
+
+function Erreur({ message }: { message: string }) {
+  return (
+    <div className="rounded-2xl border border-border bg-surface p-8 text-center text-sm text-danger">
+      Impossible de charger le suivi : {message}
     </div>
   )
 }
