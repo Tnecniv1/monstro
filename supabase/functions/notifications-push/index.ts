@@ -1,12 +1,12 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { handlePushResults, sendExpoPush, type ExpoPushMessage } from "../_shared/expoPush.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
-const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const NOTIF_TYPE = "rappel_quotidien";
 const MESSAGE_TITLE = "Monstro";
 const OBJECTIF_TOTAL = 1000;
@@ -151,60 +151,27 @@ serve(async (_req) => {
           }
         }
 
-        // 6. Envoi via l'API Expo Push.
-        const pushPayload = {
+        // 6. Envoi via l'API Expo Push (module partagé, un message par
+        //    utilisateur comme avant). Le nettoyage DeviceNotRegistered est
+        //    fait par handlePushResults.
+        const pushPayload: ExpoPushMessage = {
           to: user.push_token,
           title: MESSAGE_TITLE,
           body: messageBody,
           sound: "default",
         };
-        const pushTokenTronque = `${user.push_token.slice(0, 12)}…${user.push_token.slice(-6)}`;
-        console.log(`[user ${user.id}] avant appel Expo — token=${pushTokenTronque} payload=${JSON.stringify(pushPayload)}`);
+        const [result] = await sendExpoPush([pushPayload], `[user ${user.id}]`);
+        const [outcome] = await handlePushResults(supabase, [{ userId: user.id, result }], `[user ${user.id}]`);
 
-        let pushResponse: Response;
-        let pushBodyTexte: string;
-        try {
-          pushResponse = await fetch(EXPO_PUSH_URL, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Accept": "application/json",
-              "Accept-Encoding": "gzip, deflate",
-            },
-            body: JSON.stringify(pushPayload),
-          });
-          pushBodyTexte = await pushResponse.text();
-        } catch (fetchErr) {
-          console.error(`[user ${user.id}] EXCEPTION fetch Expo:`, (fetchErr as Error)?.message ?? fetchErr, (fetchErr as Error)?.stack);
+        if (outcome.statut === "device_not_registered") {
+          tokensInvalides++;
+          console.log(`[user ${user.id}] SKIP — DeviceNotRegistered, token retiré`);
           continue;
         }
-
-        console.log(`[user ${user.id}] réponse Expo — status=${pushResponse.status} body=${pushBodyTexte}`);
-
-        let pushResult: unknown;
-        try {
-          pushResult = JSON.parse(pushBodyTexte);
-        } catch (parseErr) {
-          console.error(`[user ${user.id}] réponse Expo non-JSON (status=${pushResponse.status}):`, (parseErr as Error)?.message ?? parseErr);
-          continue;
-        }
-
-        const ticket = Array.isArray((pushResult as any)?.data) ? (pushResult as any).data[0] : (pushResult as any)?.data;
-        console.log(`[user ${user.id}] ticket=${JSON.stringify(ticket)}`);
-
-        if (ticket?.status === "error") {
-          // Token mort (désinstallation, etc.) — on le retire pour ne plus
-          // jamais réessayer dessus.
-          if (ticket.details?.error === "DeviceNotRegistered") {
-            await supabase
-              .from("user_profile")
-              .update({ push_token: null, notifications_actives: false })
-              .eq("id", user.id);
-            tokensInvalides++;
-            console.log(`[user ${user.id}] SKIP — DeviceNotRegistered, token retiré`);
-          } else {
-            console.error(`[user ${user.id}] erreur push (autre que DeviceNotRegistered):`, JSON.stringify(ticket));
-          }
+        // Comportement d'origine conservé : seule une requête sans réponse
+        // exploitable ou un ticket en erreur interrompt ; une réponse JSON
+        // sans ticket ("sans_ticket") est journalisée comme un envoi réussi.
+        if (outcome.statut === "erreur" || outcome.statut === "echec_requete") {
           continue;
         }
 
