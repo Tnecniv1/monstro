@@ -4,13 +4,14 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { PUBLIC_PATHS, hasAppAccess, isVitrine } from '@/lib/access'
-import { SCRIPT1_OUVERT_EVENT, markCharteAcceptee } from './profileWrites'
+import { SCRIPT1_OUVERT_EVENT, markCharteAcceptee, markInvitationScript1Vue } from './profileWrites'
 import { CHARTE, ERREUR_ENREGISTREMENT, INVITATION_SCRIPT1 } from './texts'
 
 type OnboardingState = {
   userId: string
   charteAcceptee: boolean
   script1Ouvert: boolean
+  invitationVue: boolean
 }
 
 // Pages publiques : rien ne s'affiche et aucune requête n'est faite.
@@ -64,7 +65,7 @@ export default function OnboardingGate() {
       }
       const { data: profile } = await supabase
         .from('user_profile')
-        .select('role, plan, charte_acceptee_at, script1_ouvert_at')
+        .select('role, plan, charte_acceptee_at, script1_ouvert_at, invitation_script1_vue_at')
         .eq('id', user.id)
         .single()
       if (cancelled) return
@@ -77,6 +78,7 @@ export default function OnboardingGate() {
         userId: user.id,
         charteAcceptee: profile.charte_acceptee_at != null,
         script1Ouvert: profile.script1_ouvert_at != null,
+        invitationVue: profile.invitation_script1_vue_at != null,
       })
     }
 
@@ -95,6 +97,17 @@ export default function OnboardingGate() {
     return () => window.removeEventListener(SCRIPT1_OUVERT_EVENT, onScript1Ouvert)
   }, [])
 
+  // "Continuer" du modal 2 : la fermeture ne change pas ; la date du premier
+  // clic est écrite en arrière-plan, une seule fois (marquée tout de suite
+  // pour qu'un second clic n'écrive pas une seconde fois).
+  function fermerInvitation() {
+    setInvitationFermee(true)
+    if (state && !state.invitationVue) {
+      setState((prev) => (prev ? { ...prev, invitationVue: true } : prev))
+      markInvitationScript1Vue(state.userId)
+    }
+  }
+
   if (publicPage || !state) return null
 
   if (!state.charteAcceptee) {
@@ -107,7 +120,7 @@ export default function OnboardingGate() {
   }
 
   if (!state.script1Ouvert && !invitationFermee && pathname !== '/forum') {
-    return <InvitationScript1Modal onContinuer={() => setInvitationFermee(true)} />
+    return <InvitationScript1Modal onContinuer={fermerInvitation} />
   }
 
   return null

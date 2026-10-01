@@ -9,21 +9,28 @@ export const SCRIPT1_OUVERT_EVENT = 'onboarding:script1-ouvert'
 
 type WriteResult = { ok: true } | { ok: false; error: string }
 
+type Colonne = 'charte_acceptee_at' | 'script1_ouvert_at' | 'invitation_script1_vue_at'
+
 async function stampProfile(
   userId: string,
-  column: 'charte_acceptee_at' | 'script1_ouvert_at'
+  column: Colonne,
+  { seulementSiNull = false }: { seulementSiNull?: boolean } = {}
 ): Promise<WriteResult> {
   const supabase = createClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from('user_profile')
     .update({ [column]: new Date().toISOString() })
     .eq('id', userId)
-    .select('id')
+  // Ne jamais écraser une date déjà posée (autre onglet, autre appareil).
+  if (seulementSiNull) query = query.is(column, null)
+  const { data, error } = await query.select('id')
 
   if (error) {
     console.error(`[onboarding] échec de l'écriture de ${column}`, error)
     return { ok: false, error: error.message }
   }
+  // Avec seulementSiNull, 0 ligne veut dire que la date était déjà posée.
+  if (seulementSiNull) return { ok: true }
   if (!data || data.length === 0) {
     console.error(`[onboarding] ${column} : 0 ligne mise à jour (RLS ?)`, { userId })
     return { ok: false, error: '0 ligne mise à jour' }
@@ -33,6 +40,12 @@ async function stampProfile(
 
 export function markCharteAcceptee(userId: string): Promise<WriteResult> {
   return stampProfile(userId, 'charte_acceptee_at')
+}
+
+// Modal 2 : date du premier "Continuer", pour le parcours admin. Écrite une
+// seule fois ; une date existante n'est jamais remplacée.
+export function markInvitationScript1Vue(userId: string): Promise<WriteResult> {
+  return stampProfile(userId, 'invitation_script1_vue_at', { seulementSiNull: true })
 }
 
 // Prévient OnboardingGate (monté dans le layout, état séparé) que le
