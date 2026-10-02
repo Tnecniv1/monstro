@@ -1,22 +1,23 @@
 'use client'
 
-import type { ActiveTopic, ForumTopic } from './types'
+import type { ForumOnglet, ForumTopic } from './types'
 
 interface Props {
   topicsSens: ForumTopic[]
-  selected: ActiveTopic
-  onSelect: (topic: ActiveTopic) => void
+  selected: ForumOnglet
+  onSelect: (onglet: ForumOnglet) => void
 }
 
-// Barre d'onglets sous les scripts : les topics "de sens" dans l'ordre de
+// Barre d'onglets : Scripts, puis les topics "de sens" dans l'ordre de
 // forum_topics (Philosophie, Ressources…), puis Questions.
 export default function ForumTabs({ topicsSens, selected, onSelect }: Props) {
-  const onglets: { key: string; label: string; active: boolean; topic: ActiveTopic }[] = [
+  const onglets: { key: string; label: string; active: boolean; topic: ForumOnglet }[] = [
+    { key: 'scripts', label: 'Scripts', active: selected.kind === 'scripts', topic: { kind: 'scripts' } },
     ...topicsSens.map((t) => ({
       key: t.id,
       label: t.nom,
       active: selected.kind === 'sens' && selected.id === t.id,
-      topic: { kind: 'sens', id: t.id, nom: t.nom, displayMode: t.display_mode } as ActiveTopic,
+      topic: { kind: 'sens', id: t.id, nom: t.nom, displayMode: t.display_mode } as ForumOnglet,
     })),
     { key: 'questions', label: 'Questions', active: selected.kind === 'questions', topic: { kind: 'questions' } },
   ]

@@ -57,6 +57,10 @@ export type ActiveTopic =
   | { kind: 'sens'; id: string; nom: string; displayMode: 'tickets' | 'resources' }
   | { kind: 'questions' }
 
+// Onglet de la page forum : Scripts (cartes des scripts), ou un panneau
+// ActiveTopic (topic de sens ou Questions).
+export type ForumOnglet = { kind: 'scripts' } | ActiveTopic
+
 // Sujet d'une question — null pour un ticket de topic de sens.
 // probleme : feuille_id obligatoire (+ numero_exercice à la création).
 // methode : script_id optionnel. application : ni feuille ni script.

@@ -80,7 +80,7 @@ export default async function ForumPage({
     // restante, chaque colonne défile seule). Si l'écran est trop bas pour
     // la hauteur minimale de la messagerie, c'est ce conteneur qui défile.
     <div className="min-h-screen bg-bg md:h-dvh md:min-h-0 md:overflow-y-auto">
-      <div className="max-w-5xl mx-auto flex flex-col gap-6 px-4 py-6 md:h-full">
+      <div className="max-w-5xl mx-auto flex flex-col gap-4 px-4 py-5 md:h-full">
         <Link href="/" className="shrink-0 self-start text-sm text-text-muted hover:text-text-secondary transition-colors">← Monstro</Link>
 
         <ForumClient

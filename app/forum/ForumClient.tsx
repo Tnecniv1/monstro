@@ -11,7 +11,7 @@ import ScriptPdfModal from './ScriptPdfModal'
 import ForumTabs from './ForumTabs'
 import TicketsPanel from './TicketsPanel'
 import { TICKET_COLUMNS } from './types'
-import type { ActiveTopic, Feuille, ForumResource, ForumScript, ForumTicket, ForumTopic, InitialTicket } from './types'
+import type { ActiveTopic, Feuille, ForumOnglet, ForumResource, ForumScript, ForumTicket, ForumTopic, InitialTicket } from './types'
 
 interface Props {
   scripts: ForumScript[]
@@ -74,6 +74,17 @@ export default function ForumClient({
     setPendingScript1(null)
   }
 
+  // Onglet initial, par priorité : ?ticket=<id> (onglet du ticket),
+  // ?script=N (Scripts), élève qui n'a pas encore ouvert le Script 1
+  // (Scripts), sinon Questions — admin compris.
+  const [activeTopic, setActiveTopic] = useState<ForumOnglet>(() => {
+    if (initialTicket) return topicDuTicket(initialTicket, topicsSens)
+    if (autoOpenScriptOrdre != null) return { kind: 'scripts' }
+    if (!initialScript1Ouvert && !isAdmin) return { kind: 'scripts' }
+    return { kind: 'questions' }
+  })
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(initialTicket?.id ?? null)
+
   // ?script=N : ouvre le script d'ordre N une seule fois, puis retire le
   // paramètre de l'URL pour qu'un rafraîchissement ne le rouvre pas
   // (history.replaceState : pas de nouvel aller-retour serveur).
@@ -86,10 +97,6 @@ export default function ForumClient({
     window.history.replaceState(null, '', '/forum')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenScriptOrdre])
-  // Le panneau Questions est actif par défaut à l'ouverture de la page, sauf
-  // ?ticket=<id> : l'onglet du ticket est ouvert et le ticket sélectionné.
-  const [activeTopic, setActiveTopic] = useState<ActiveTopic>(() => topicDuTicket(initialTicket, topicsSens))
-  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(initialTicket?.id ?? null)
 
   // Retire ?ticket= de l'URL (comme ?script=) : un rafraîchissement ne
   // force plus la sélection.
@@ -126,7 +133,7 @@ export default function ForumClient({
     setMonTicketVersion((v) => v + 1)
   }
 
-  function selectTopic(topic: ActiveTopic) {
+  function selectTopic(topic: ForumOnglet) {
     setActiveTopic((prev) => (sameTopic(prev, topic) ? prev : topic))
     setSelectedTicketId(null)
   }
@@ -141,7 +148,7 @@ export default function ForumClient({
   const showResources = activeTopic.kind === 'sens' && activeTopic.displayMode === 'resources'
 
   return (
-    <div className="flex flex-col gap-6 md:min-h-0 md:flex-1">
+    <div className="flex flex-col gap-4 md:min-h-0 md:flex-1">
       <div className="flex shrink-0 items-center gap-3">
         <h1 className="text-2xl font-bold text-text-primary">Forum</h1>
         {isAdmin && (
@@ -152,10 +159,6 @@ export default function ForumClient({
             Suivi
           </Link>
         )}
-      </div>
-
-      <div className="shrink-0">
-        <ScriptsRow items={scripts} onSelect={selectScript} showNumber />
       </div>
 
       {monTicket && (
@@ -171,13 +174,18 @@ export default function ForumClient({
       )}
 
       {/* Onglets + panneau : la messagerie prend la hauteur restante (≥ md),
-          avec une hauteur minimale au-delà de laquelle la page défile. */}
-      <div className="flex flex-col gap-4 md:min-h-[28rem] md:flex-1">
+          avec une hauteur minimale au-delà de laquelle la page défile
+          (seulement sur un écran très bas : 1366×768 tient sans défilement). */}
+      <div className="flex flex-col gap-4 md:min-h-[20rem] md:flex-1">
         <div className="shrink-0">
           <ForumTabs topicsSens={topicsSens} selected={activeTopic} onSelect={selectTopic} />
         </div>
 
-        {showResources ? (
+        {activeTopic.kind === 'scripts' ? (
+          <div className="md:min-h-0 md:flex-1 md:overflow-y-auto">
+            <ScriptsRow items={scripts} onSelect={selectScript} variant="grid" showNumber />
+          </div>
+        ) : showResources ? (
           <div className="md:min-h-0 md:flex-1 md:overflow-y-auto">
             <ScriptsRow
               items={resources}
@@ -219,7 +227,7 @@ function topicDuTicket(ticket: Pick<ForumTicket, 'topic_id'> | null, topicsSens:
   return t ? { kind: 'sens', id: t.id, nom: t.nom, displayMode: t.display_mode } : { kind: 'questions' }
 }
 
-function sameTopic(a: ActiveTopic, b: ActiveTopic): boolean {
-  if (a.kind === 'questions' || b.kind === 'questions') return a.kind === b.kind
+function sameTopic(a: ForumOnglet, b: ForumOnglet): boolean {
+  if (a.kind !== 'sens' || b.kind !== 'sens') return a.kind === b.kind
   return a.id === b.id
 }

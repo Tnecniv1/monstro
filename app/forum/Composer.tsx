@@ -21,12 +21,18 @@ export default function Composer({ sending, error, onSend }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Le champ s'agrandit avec le texte, jusqu'à HAUTEUR_MAX_PX.
+  // Le champ s'agrandit avec le texte, jusqu'à HAUTEUR_MAX_PX. En dessous,
+  // overflow-y caché (aucune barre ni flèche) ; au-delà, défilement.
+  // scrollHeight exclut les bordures alors que la hauteur (border-box) les
+  // inclut : sans les rajouter, il manque 2 px et une barre apparaît.
   useLayoutEffect(() => {
     const el = textareaRef.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, HAUTEUR_MAX_PX)}px`
+    const bordures = el.offsetHeight - el.clientHeight
+    const contenu = el.scrollHeight
+    el.style.height = `${Math.min(contenu + bordures, HAUTEUR_MAX_PX)}px`
+    el.style.overflowY = contenu + bordures > HAUTEUR_MAX_PX ? 'auto' : 'hidden'
   }, [input])
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -116,7 +122,7 @@ export default function Composer({ sending, error, onSend }: Props) {
           disabled={sending}
           rows={1}
           placeholder="Écris ta réponse… ($...$ pour les maths)"
-          className="min-h-[40px] flex-1 resize-none rounded-[20px] border border-border bg-surface-2 px-4 py-2.5 text-sm leading-5 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50"
+          className="min-h-[40px] flex-1 resize-none overflow-y-hidden rounded-[20px] border border-border bg-surface-2 px-4 py-2.5 text-sm leading-5 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50"
         />
 
         <button
