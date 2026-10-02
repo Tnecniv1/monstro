@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUser } from '@/lib/supabase/getUser'
 import ForumClient from './ForumClient'
 import { isForumAdmin } from './adminGate'
-import type { Feuille, ForumResource, ForumScript, ForumTopic } from './types'
+import type { Feuille, ForumResource, ForumScript, ForumTopic, InitialTicket } from './types'
 
 export default async function ForumPage({
   searchParams,
@@ -18,6 +18,11 @@ export default async function ForumPage({
   const scriptParam = Number(Array.isArray(searchParams.script) ? searchParams.script[0] : searchParams.script)
   const autoOpenScriptOrdre = Number.isInteger(scriptParam) && scriptParam >= 1 ? scriptParam : null
 
+  // ?ticket=<id> (liens, notifications) : sélectionne la question au
+  // chargement. Son topic_id indique l'onglet à ouvrir.
+  const ticketParam = Array.isArray(searchParams.ticket) ? searchParams.ticket[0] : searchParams.ticket
+  const ticketId = ticketParam && /^[0-9a-f-]{36}$/i.test(ticketParam) ? ticketParam : null
+
   const [
     { data: scriptsData },
     { data: resourcesData },
@@ -25,6 +30,7 @@ export default async function ForumPage({
     { data: feuillesData },
     { data: focusData },
     { data: onboardingData },
+    { data: initialTicketData },
   ] = await Promise.all([
     supabase
       .from('forum_scripts')
@@ -56,6 +62,9 @@ export default async function ForumPage({
       .select('script1_ouvert_at')
       .eq('id', user.id)
       .single(),
+    ticketId
+      ? supabase.from('forum_tickets').select('id, topic_id').eq('id', ticketId).maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
 
   const scripts = (scriptsData ?? []) as ForumScript[]
@@ -67,9 +76,12 @@ export default async function ForumPage({
   const focusIds = (focusData ?? []).map((f) => f.feuille_id as string)
 
   return (
-    <div className="min-h-screen bg-bg">
-      <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-        <Link href="/" className="text-sm text-text-muted hover:text-text-secondary transition-colors">← Monstro</Link>
+    // ≥ md : la page tient dans l'écran (la vue messagerie prend la hauteur
+    // restante, chaque colonne défile seule). Si l'écran est trop bas pour
+    // la hauteur minimale de la messagerie, c'est ce conteneur qui défile.
+    <div className="min-h-screen bg-bg md:h-dvh md:min-h-0 md:overflow-y-auto">
+      <div className="max-w-5xl mx-auto flex flex-col gap-6 px-4 py-6 md:h-full">
+        <Link href="/" className="shrink-0 self-start text-sm text-text-muted hover:text-text-secondary transition-colors">← Monstro</Link>
 
         <ForumClient
           scripts={scripts}
@@ -79,6 +91,7 @@ export default async function ForumPage({
           focusIds={focusIds}
           script1Ouvert={onboardingData?.script1_ouvert_at != null}
           autoOpenScriptOrdre={autoOpenScriptOrdre}
+          initialTicket={(initialTicketData as InitialTicket | null) ?? null}
           userId={user.id}
           isAdmin={isForumAdmin(profile?.role)}
         />

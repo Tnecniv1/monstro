@@ -26,3 +26,28 @@ export function formatJoursDepuis(date: string | null): string {
   if (diffJ === 1) return 'hier'
   return `il y a ${diffJ} j`
 }
+
+// Jour calendaire 'YYYY-MM-DD' d'un horodatage, à l'heure de Paris — clé de
+// regroupement des messages par jour.
+export function jourParis(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' })
+}
+
+// Heure "HH:mm" à l'heure de Paris (bulles de conversation).
+export function formatHeure(iso: string): string {
+  return new Date(iso).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' })
+}
+
+// Séparateur de jour : "Aujourd'hui", "Hier", puis la date ("3 octobre 2026").
+export function libelleJour(jour: string): string {
+  const aujourdhui = jourParis(new Date().toISOString())
+  const diffJ = Math.round((Date.parse(aujourdhui) - Date.parse(jour)) / 86_400_000)
+  if (diffJ === 0) return "Aujourd'hui"
+  if (diffJ === 1) return 'Hier'
+  return new Date(`${jour}T12:00:00Z`).toLocaleDateString('fr-FR', {
+    timeZone: 'Europe/Paris',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}

@@ -1,6 +1,6 @@
 import type { Feuille, ForumScript, ForumTicket, TicketStatut } from './types'
 
-// Partagé par TicketsPanel (liste) et TicketDetail (en-tête).
+// Partagé par TicketsPanel (liste) et Conversation (en-tête).
 export const STATUT_STYLE: Record<TicketStatut, string> = {
   ouvert: 'bg-accent/10 text-accent',
   ferme: 'bg-success/15 text-success',

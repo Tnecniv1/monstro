@@ -8,10 +8,10 @@ import AvantScript1Modal from './AvantScript1Modal'
 import ScriptsRow from './ScriptsRow'
 import ScriptTextModal from './ScriptTextModal'
 import ScriptPdfModal from './ScriptPdfModal'
-import TopicsList from './TopicsList'
+import ForumTabs from './ForumTabs'
 import TicketsPanel from './TicketsPanel'
 import { TICKET_COLUMNS } from './types'
-import type { ActiveTopic, Feuille, ForumResource, ForumScript, ForumTicket, ForumTopic } from './types'
+import type { ActiveTopic, Feuille, ForumResource, ForumScript, ForumTicket, ForumTopic, InitialTicket } from './types'
 
 interface Props {
   scripts: ForumScript[]
@@ -21,6 +21,7 @@ interface Props {
   focusIds: string[]
   script1Ouvert: boolean
   autoOpenScriptOrdre: number | null
+  initialTicket: InitialTicket | null
   userId: string
   isAdmin: boolean
 }
@@ -33,6 +34,7 @@ export default function ForumClient({
   focusIds,
   script1Ouvert: initialScript1Ouvert,
   autoOpenScriptOrdre,
+  initialTicket,
   userId,
   isAdmin,
 }: Props) {
@@ -84,9 +86,17 @@ export default function ForumClient({
     window.history.replaceState(null, '', '/forum')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenScriptOrdre])
-  // Le panneau Questions est actif par défaut à l'ouverture de la page.
-  const [activeTopic, setActiveTopic] = useState<ActiveTopic>({ kind: 'questions' })
-  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
+  // Le panneau Questions est actif par défaut à l'ouverture de la page, sauf
+  // ?ticket=<id> : l'onglet du ticket est ouvert et le ticket sélectionné.
+  const [activeTopic, setActiveTopic] = useState<ActiveTopic>(() => topicDuTicket(initialTicket, topicsSens))
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(initialTicket?.id ?? null)
+
+  // Retire ?ticket= de l'URL (comme ?script=) : un rafraîchissement ne
+  // force plus la sélection.
+  useEffect(() => {
+    if (initialTicket) window.history.replaceState(null, '', '/forum')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // "Mon ticket en cours" — accès rapide toujours visible, indépendant du
   // topic actif. Un non-admin ne peut en avoir qu'un (trigger DB), mais on
@@ -123,20 +133,16 @@ export default function ForumClient({
 
   function openMonTicket() {
     if (!monTicket) return
-    if (monTicket.topic_id) {
-      const t = topicsSens.find((x) => x.id === monTicket.topic_id)
-      if (t) setActiveTopic({ kind: 'sens', id: t.id, nom: t.nom, displayMode: t.display_mode })
-    } else {
-      setActiveTopic((prev) => (prev.kind === 'questions' ? prev : { kind: 'questions' }))
-    }
+    const topic = topicDuTicket(monTicket, topicsSens)
+    setActiveTopic((prev) => (sameTopic(prev, topic) ? prev : topic))
     setSelectedTicketId(monTicket.id)
   }
 
   const showResources = activeTopic.kind === 'sens' && activeTopic.displayMode === 'resources'
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-6 md:min-h-0 md:flex-1">
+      <div className="flex shrink-0 items-center gap-3">
         <h1 className="text-2xl font-bold text-text-primary">Forum</h1>
         {isAdmin && (
           <Link
@@ -148,12 +154,14 @@ export default function ForumClient({
         )}
       </div>
 
-      <ScriptsRow items={scripts} onSelect={selectScript} showNumber />
+      <div className="shrink-0">
+        <ScriptsRow items={scripts} onSelect={selectScript} showNumber />
+      </div>
 
       {monTicket && (
         <button
           onClick={openMonTicket}
-          className="w-full flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/5 px-4 py-2.5 text-left hover:bg-accent/10 transition-colors"
+          className="w-full shrink-0 flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/5 px-4 py-2.5 text-left hover:bg-accent/10 transition-colors"
         >
           <span className="text-sm text-text-primary truncate">
             <span className="font-medium">Ton ticket en cours</span> — {monTicket.titre}
@@ -162,12 +170,15 @@ export default function ForumClient({
         </button>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4 items-start">
-        <TopicsList topicsSens={topicsSens} selected={activeTopic} onSelect={selectTopic} />
+      {/* Onglets + panneau : la messagerie prend la hauteur restante (≥ md),
+          avec une hauteur minimale au-delà de laquelle la page défile. */}
+      <div className="flex flex-col gap-4 md:min-h-[28rem] md:flex-1">
+        <div className="shrink-0">
+          <ForumTabs topicsSens={topicsSens} selected={activeTopic} onSelect={selectTopic} />
+        </div>
 
         {showResources ? (
-          <div className="space-y-3">
-            <h2 className="font-semibold text-text-primary">{activeTopic.nom}</h2>
+          <div className="md:min-h-0 md:flex-1 md:overflow-y-auto">
             <ScriptsRow
               items={resources}
               onSelect={setOpenResource}
@@ -199,6 +210,13 @@ export default function ForumClient({
       {openResource && <ScriptPdfModal script={openResource} onClose={() => setOpenResource(null)} />}
     </div>
   )
+}
+
+// Onglet d'un ticket : son topic de sens, ou Questions (topic_id null, ou
+// topic introuvable).
+function topicDuTicket(ticket: Pick<ForumTicket, 'topic_id'> | null, topicsSens: ForumTopic[]): ActiveTopic {
+  const t = ticket?.topic_id ? topicsSens.find((x) => x.id === ticket.topic_id) : undefined
+  return t ? { kind: 'sens', id: t.id, nom: t.nom, displayMode: t.display_mode } : { kind: 'questions' }
 }
 
 function sameTopic(a: ActiveTopic, b: ActiveTopic): boolean {

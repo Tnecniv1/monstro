@@ -101,3 +101,7 @@ export type ForumMessage = {
   image_url: string | null
   created_at: string
 }
+
+// Ticket demandé par ?ticket=<id> : topic_id choisit l'onglet à ouvrir
+// (null = Questions).
+export type InitialTicket = Pick<ForumTicket, 'id' | 'topic_id'>
