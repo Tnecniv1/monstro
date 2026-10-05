@@ -4,8 +4,9 @@ import { useMemo, useState } from 'react'
 import { ETAPES_PARCOURS, NB_ETAPES_ONBOARDING, PARCOURS_TERMINE } from './etapes'
 
 // Ligne renvoyée par la RPC get_parcours_admin() (lève une exception hors admin).
-// La RPC applique déjà la règle linéaire : rien n'est recalculé ici.
-export type EleveParcours = {
+// Ses dates suivent la règle linéaire : etapes[i] est vide dès qu'une étape
+// précédente manque.
+export type LigneParcours = {
   id: string
   prenom: string | null
   nom: string | null
@@ -17,6 +18,10 @@ export type EleveParcours = {
   etape_depuis: string | null
   etapes: (string | null)[]
 }
+
+// Ligne affichée : faites[N-1] dit si l'étape N est faite, indépendamment des
+// autres (etapesFaites), et etape_courante est la première étape non faite.
+export type EleveParcours = LigneParcours & { faites: boolean[] }
 
 type Tri = 'anciens' | 'recents' | 'avances' | 'moins_avances'
 
@@ -165,14 +170,15 @@ function LigneEleve({ eleve }: { eleve: EleveParcours }) {
   )
 }
 
-// Plein = franchie, encadré = étape courante (orange si bloqué), vide = à venir.
+// Plein = faite, vide = non faite ; encadré = étape courante, c'est-à-dire la
+// première non faite (orange si bloqué).
 function Carres({ eleve, bloque }: { eleve: EleveParcours; bloque: boolean }) {
   const carres = ETAPES_PARCOURS.map((libelle, i) => {
     const n = i + 1
     const franchieLe = eleve.etapes?.[i] ?? null
-    const titre = `${n} · ${libelle}${franchieLe ? ` — franchie le ${formatDate(franchieLe)}` : ''}`
+    const titre = `${n} · ${libelle}${franchieLe ? ` — franchie le ${formatDate(franchieLe)}` : eleve.faites[i] ? ' — faite' : ''}`
     const etat =
-      n < eleve.etape_courante
+      eleve.faites[i]
         ? 'bg-accent border border-accent'
         : n === eleve.etape_courante
           ? bloque

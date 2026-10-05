@@ -4,7 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import { getUser } from '@/lib/supabase/getUser'
 import { isForumAdmin } from '../adminGate'
 import { formatJoursDepuis } from '../relativeTime'
-import ParcoursView, { type EleveParcours } from './ParcoursView'
+import { chargerDonneesParcours } from './donneesParcours'
+import { etapeCourante, etapesFaites } from './etapes'
+import ParcoursView, { type EleveParcours, type LigneParcours } from './ParcoursView'
 import SuiviTabs from './SuiviTabs'
 
 // Ligne renvoyée par la RPC get_regularite_admin() (lève une exception hors admin).
@@ -30,7 +32,25 @@ export default async function SuiviPage() {
     supabase.rpc('get_parcours_admin'),
   ])
   const eleves = (data ?? []) as EleveRegularite[]
-  const elevesParcours = (parcoursData ?? []) as EleveParcours[]
+
+  // Chaque étape est réévaluée ici, indépendamment des autres : etape_courante
+  // devient la première étape non faite (identique à celle de la RPC, sauf
+  // élève sans parcours_debut_at).
+  let elevesParcours: EleveParcours[] = []
+  let erreurParcours = parcoursError?.message ?? null
+  if (erreurParcours == null) {
+    const lignes = (parcoursData ?? []) as LigneParcours[]
+    try {
+      const donnees = await chargerDonneesParcours(supabase, lignes.map((l) => l.id))
+      elevesParcours = lignes.map((l) => {
+        const d = donnees.get(l.id)
+        const faites = d ? etapesFaites({ ...d, pixels: l.pixels }) : l.etapes.map((date) => date != null)
+        return { ...l, faites, etape_courante: etapeCourante(faites) }
+      })
+    } catch (e) {
+      erreurParcours = e instanceof Error ? e.message : String(e)
+    }
+  }
 
   // Perdants : ordre de la RPC (jamais actifs, puis activité la plus ancienne).
   const perdants = eleves.filter((e) => e.categorie === 'perdant')
@@ -57,7 +77,7 @@ export default async function SuiviPage() {
               </div>
             )
           }
-          parcours={parcoursError ? <Erreur message={parcoursError.message} /> : <ParcoursView eleves={elevesParcours} />}
+          parcours={erreurParcours != null ? <Erreur message={erreurParcours} /> : <ParcoursView eleves={elevesParcours} />}
         />
       </div>
     </div>
