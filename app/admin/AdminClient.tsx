@@ -466,7 +466,7 @@ function NoeudAccordeon({
   // Enfants directs (triés par ordre)
   const enfants = allNoeuds
     .filter((n) => n.parent_id === noeud.id)
-    .sort((a, b) => a.ordre - b.ordre)
+    .sort((a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom, 'fr'))
 
   // État local de l'enfant ouvert dans CE nœud
   const [openChildId, setOpenChildId] = useState<string | null>(null)
@@ -719,7 +719,7 @@ export default function AdminClient({ noeuds: initial }: { noeuds: Noeud[] }) {
 
   const racines = noeuds
     .filter((n) => n.parent_id === null)
-    .sort((a, b) => a.ordre - b.ordre)
+    .sort((a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom, 'fr'))
 
   async function rechargerNoeuds() {
     const { data } = await supabase

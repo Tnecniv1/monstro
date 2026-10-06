@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getSignedPdfUrl } from '@/lib/getSignedPdfUrl'
 
-type NoeudBase = { id: string; nom: string; parent_id: string | null }
+type NoeudBase = { id: string; nom: string; ordre: number; parent_id: string | null }
 type Noeud = NoeudBase & {
   parent: (NoeudBase & { grandparent: NoeudBase | null }) | null
 }
@@ -124,7 +124,7 @@ export default function BibliothequeClient({ feuilles, focusIds: initialFocusIds
         result.push(node)
       }
     })
-    return result.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))
+    return result.sort((a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom, 'fr'))
   }
 
   const depth0Options = useMemo(() => optionsAtDepth(0), [feuilles])

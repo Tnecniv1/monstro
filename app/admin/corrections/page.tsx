@@ -12,10 +12,10 @@ export default async function CorrectionsPage() {
     .select(`
       id, titre, ordre,
       noeud:noeud_id (
-        id, nom, parent_id,
+        id, nom, ordre, parent_id,
         parent:parent_id (
-          id, nom, parent_id,
-          grandparent:parent_id ( id, nom )
+          id, nom, ordre, parent_id,
+          grandparent:parent_id ( id, nom, ordre )
         )
       ),
       correction ( id, pdf_url )

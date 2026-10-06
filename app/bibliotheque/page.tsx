@@ -18,10 +18,10 @@ export default async function BibliothequePage() {
       .select(`
         id, titre, volume, pdf_url,
         noeud:noeud_id (
-          id, nom, parent_id,
+          id, nom, ordre, parent_id,
           parent:parent_id (
-            id, nom, parent_id,
-            grandparent:parent_id ( id, nom )
+            id, nom, ordre, parent_id,
+            grandparent:parent_id ( id, nom, ordre )
           )
         )
       `)
