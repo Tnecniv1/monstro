@@ -444,6 +444,83 @@ function FormulaireRemplacerFeuille({
   )
 }
 
+// ── Édition inline du titre d'une feuille ──────────────────────────
+// Remplace le titre dans la ligne. Entrée ou « Enregistrer » valide, Échap annule.
+function EditionTitreFeuille({
+  feuille,
+  onCancel,
+  onSuccess,
+}: {
+  feuille: Feuille
+  onCancel: () => void
+  onSuccess: (titre: string) => void
+}) {
+  const supabase = createClient()
+  const [titre, setTitre] = useState(feuille.titre)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const propre = titre.trim()
+    if (!propre) {
+      setError('Le titre est obligatoire.')
+      return
+    }
+    if (propre === feuille.titre) {
+      onCancel()
+      return
+    }
+    setLoading(true)
+    setError(null)
+    const { data, error } = await supabase
+      .from('feuille_entrainement')
+      .update({ titre: propre })
+      .eq('id', feuille.id)
+      .select('id')
+    setLoading(false)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    // Une mise à jour bloquée par la RLS ne renvoie pas d'erreur, juste 0 ligne.
+    if (!data || data.length === 0) {
+      setError('Titre non enregistré : aucune ligne modifiée (droits insuffisants ?).')
+      return
+    }
+    onSuccess(propre)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex-1 min-w-0 space-y-1">
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={titre}
+          onChange={(e) => setTitre(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') onCancel()
+          }}
+          autoFocus
+          aria-label="Titre de la feuille"
+          className="flex-1 min-w-0 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-black"
+        />
+        <button
+          type="submit"
+          disabled={loading || !titre.trim()}
+          className="shrink-0 rounded bg-blue-500 px-3 py-1 text-xs text-white hover:bg-blue-600 disabled:opacity-50"
+        >
+          {loading ? '…' : 'Enregistrer'}
+        </button>
+        <button type="button" onClick={onCancel} className="shrink-0 text-xs text-gray-400 hover:text-gray-600">
+          Annuler
+        </button>
+      </div>
+      {error && <p className="text-xs text-red-600">{error}</p>}
+    </form>
+  )
+}
+
 // ── Nœud accordéon récursif ─────────────────────────────────────────
 function NoeudAccordeon({
   noeud,
@@ -479,6 +556,7 @@ function NoeudAccordeon({
   const [showEnfantForm, setShowEnfantForm] = useState(false)
   const [suppression, setSuppression] = useState(false)
   const [openReplaceId, setOpenReplaceId] = useState<string | null>(null)
+  const [editionTitreId, setEditionTitreId] = useState<string | null>(null)
 
   async function chargerFeuilles() {
     setFeuillesLoading(true)
@@ -641,7 +719,19 @@ function NoeudAccordeon({
               {feuilles.map((f) => (
                 <div key={f.id}>
                   <div className="flex items-center justify-between px-3 py-2 gap-2">
-                    <span className="text-sm text-gray-700 flex-1 min-w-0 truncate">{f.titre}</span>
+                    {editionTitreId === f.id ? (
+                      <EditionTitreFeuille
+                        feuille={f}
+                        onCancel={() => setEditionTitreId(null)}
+                        onSuccess={(titre) => {
+                          // Mise à jour locale : pas de rechargement de la liste.
+                          setFeuilles((prev) => prev && prev.map((x) => (x.id === f.id ? { ...x, titre } : x)))
+                          setEditionTitreId(null)
+                        }}
+                      />
+                    ) : (
+                      <span className="text-sm text-gray-700 flex-1 min-w-0 truncate">{f.titre}</span>
+                    )}
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-xs text-gray-400">{f.volume} ex.</span>
                       {f.pdf_url && (
@@ -662,6 +752,19 @@ function NoeudAccordeon({
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
+                            // Un seul des deux à la fois : le panneau « Modifier » a son propre champ titre.
+                            setOpenReplaceId(null)
+                            setEditionTitreId(editionTitreId === f.id ? null : f.id)
+                          }}
+                          className="text-gray-400 hover:text-blue-500 transition-colors text-sm"
+                          title="Renommer"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditionTitreId(null)
                             setOpenReplaceId(openReplaceId === f.id ? null : f.id)
                           }}
                           className="text-gray-400 hover:text-blue-500 transition-colors text-sm"
