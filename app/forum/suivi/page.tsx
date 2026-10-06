@@ -7,6 +7,7 @@ import { formatJoursDepuis } from '../relativeTime'
 import { etapeCourante, etapesFaites } from './etapes'
 import ParcoursView, { type EleveParcours, type LigneParcours } from './ParcoursView'
 import SuiviTabs from './SuiviTabs'
+import TicketsView from './TicketsView'
 
 // Ligne renvoyée par la RPC get_regularite_admin() (lève une exception hors admin).
 type EleveRegularite = {
@@ -65,6 +66,7 @@ export default async function SuiviPage() {
             )
           }
           parcours={parcoursError ? <Erreur message={parcoursError.message} /> : <ParcoursView eleves={elevesParcours} />}
+          tickets={<TicketsView />}
         />
       </div>
     </div>

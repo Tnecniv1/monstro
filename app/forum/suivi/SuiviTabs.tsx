@@ -2,16 +2,26 @@
 
 import { useState, type ReactNode } from 'react'
 
-type Onglet = 'regularite' | 'parcours'
+type Onglet = 'regularite' | 'parcours' | 'tickets'
 
 const ONGLETS: { id: Onglet; label: string }[] = [
   { id: 'regularite', label: 'Régularité' },
   { id: 'parcours', label: 'Parcours' },
+  { id: 'tickets', label: 'Tickets' },
 ]
 
-// Les deux vues sont rendues côté serveur (page.tsx) ; seul le choix de
-// l'onglet vit ici. Régularité reste l'onglet par défaut.
-export default function SuiviTabs({ regularite, parcours }: { regularite: ReactNode; parcours: ReactNode }) {
+// Régularité et Parcours sont rendues côté serveur (page.tsx) ; seul le choix
+// de l'onglet vit ici. Régularité reste l'onglet par défaut. Seule la vue
+// active est montée : Tickets se charge donc à son ouverture.
+export default function SuiviTabs({
+  regularite,
+  parcours,
+  tickets,
+}: {
+  regularite: ReactNode
+  parcours: ReactNode
+  tickets: ReactNode
+}) {
   const [onglet, setOnglet] = useState<Onglet>('regularite')
 
   return (
@@ -33,7 +43,7 @@ export default function SuiviTabs({ regularite, parcours }: { regularite: ReactN
         ))}
       </div>
 
-      {onglet === 'regularite' ? regularite : parcours}
+      {onglet === 'regularite' ? regularite : onglet === 'parcours' ? parcours : tickets}
     </>
   )
 }
