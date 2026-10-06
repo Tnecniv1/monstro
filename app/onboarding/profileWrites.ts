@@ -9,7 +9,7 @@ export const SCRIPT1_OUVERT_EVENT = 'onboarding:script1-ouvert'
 
 type WriteResult = { ok: true } | { ok: false; error: string }
 
-type Colonne = 'charte_acceptee_at' | 'script1_ouvert_at' | 'invitation_script1_vue_at'
+type Colonne = 'charte_acceptee_at' | 'script1_ouvert_at' | 'invitation_script1_vue_at' | 'focus_valide_at'
 
 async function stampProfile(
   userId: string,
@@ -46,6 +46,13 @@ export function markCharteAcceptee(userId: string): Promise<WriteResult> {
 // seule fois ; une date existante n'est jamais remplacée.
 export function markInvitationScript1Vue(userId: string): Promise<WriteResult> {
   return stampProfile(userId, 'invitation_script1_vue_at', { seulementSiNull: true })
+}
+
+// Étape Focus : date de la première fois où la condition est remplie (une
+// feuille de chaque catégorie en Focus). Écrite une seule fois et jamais
+// effacée, même si l'élève retire une feuille ensuite.
+export function markFocusValide(userId: string): Promise<WriteResult> {
+  return stampProfile(userId, 'focus_valide_at', { seulementSiNull: true })
 }
 
 // Prévient OnboardingGate (monté dans le layout, état séparé) que le

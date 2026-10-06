@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ageAujourdhui, etapeFocusValidee, type CategoriesFocus } from './focus'
+import { ageAujourdhui, type CategoriesFocus } from './focus'
 import { FOCUS } from './texts'
 
 type Categorie = 'chaotique' | 'mecanique'
@@ -177,11 +177,19 @@ export function FocusModal({ categories, dateNaissance }: { categories: Categori
 
 // Bandeau de la Bibliothèque pendant l'étape : consigne courte, checklist à
 // jour à chaque mise en Focus ou retrait, et le tableau de recommandations à
-// la demande. Les deux catégories cochées : message de réussite et retour à
-// l'accueil, où l'invitation au Script 1 prend le relais.
-export function BandeauFocus({ categories, dateNaissance }: { categories: CategoriesFocus; dateNaissance: string | null }) {
+// la demande. Étape validée (les deux catégories ont été cochées, même si une
+// feuille a été retirée depuis) : message de réussite et retour à l'accueil,
+// où l'invitation au Script 1 prend le relais.
+export function BandeauFocus({
+  categories,
+  valide,
+  dateNaissance,
+}: {
+  categories: CategoriesFocus
+  valide: boolean
+  dateNaissance: string | null
+}) {
   const [tableauOuvert, setTableauOuvert] = useState(false)
-  const valide = etapeFocusValidee(categories)
 
   useEffect(() => {
     if (!tableauOuvert) return

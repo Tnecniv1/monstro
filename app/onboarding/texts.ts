@@ -63,7 +63,7 @@ export const FOCUS = {
   bandeau: {
     consigne: `Mettez en Focus une feuille «${NBSP}Problèmes Chaotiques${NBSP}» et une feuille «${NBSP}Exercices Mécaniques${NBSP}» (le petit cercle en haut à droite de la carte).`, // [TEXTE PROVISOIRE]
     lien: 'Voir les recommandations',
-    reussite: `C'est fait${NBSP}: vos deux feuilles sont en Focus.`, // [TEXTE PROVISOIRE]
+    reussite: `C'est fait${NBSP}: l'étape est validée.`, // [TEXTE PROVISOIRE]
     continuer: 'Continuer',
   },
 }

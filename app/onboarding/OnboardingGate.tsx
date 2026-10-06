@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { PUBLIC_PATHS, hasAppAccess, isVitrine } from '@/lib/access'
 import { FocusModal } from './FocusEtape'
 import { FOCUS_CHANGE_EVENT, chargerCategoriesEnFocus, etapeFocusValidee, type CategoriesFocus } from './focus'
-import { SCRIPT1_OUVERT_EVENT, markCharteAcceptee, markInvitationScript1Vue } from './profileWrites'
+import { SCRIPT1_OUVERT_EVENT, markCharteAcceptee, markFocusValide, markInvitationScript1Vue } from './profileWrites'
 import { CHARTE, ERREUR_ENREGISTREMENT, INVITATION_SCRIPT1 } from './texts'
 
 type OnboardingState = {
@@ -15,6 +15,8 @@ type OnboardingState = {
   script1Ouvert: boolean
   invitationVue: boolean
   dateNaissance: string | null
+  // Étape Focus déjà validée (focus_valide_at posé) : elle ne revient plus.
+  focusValide: boolean
 }
 
 // Pages où le modal de l'étape Focus ne s'affiche pas : la Bibliothèque (son
@@ -77,7 +79,7 @@ export default function OnboardingGate() {
       }
       const { data: profile } = await supabase
         .from('user_profile')
-        .select('role, plan, charte_acceptee_at, script1_ouvert_at, invitation_script1_vue_at, date_naissance')
+        .select('role, plan, charte_acceptee_at, script1_ouvert_at, invitation_script1_vue_at, date_naissance, focus_valide_at')
         .eq('id', user.id)
         .single()
       if (cancelled) return
@@ -92,6 +94,7 @@ export default function OnboardingGate() {
         script1Ouvert: profile.script1_ouvert_at != null,
         invitationVue: profile.invitation_script1_vue_at != null,
         dateNaissance: profile.date_naissance ?? null,
+        focusValide: profile.focus_valide_at != null,
       })
     }
 
@@ -110,11 +113,13 @@ export default function OnboardingGate() {
     return () => window.removeEventListener(SCRIPT1_OUVERT_EVENT, onScript1Ouvert)
   }, [])
 
-  // Étape Focus : ne concerne que l'élève qui a accepté la charte et n'a pas
-  // encore ouvert le Script 1. Les Focus sont relus à chaque changement de
-  // page et à chaque mise en Focus ou retrait dans la Bibliothèque.
+  // Étape Focus : ne concerne que l'élève qui a accepté la charte, n'a pas
+  // encore ouvert le Script 1 et ne l'a pas déjà validée. Les Focus sont relus
+  // à chaque changement de page et à chaque mise en Focus ou retrait dans la
+  // Bibliothèque. Dès que la condition est remplie, la date est écrite (une
+  // seule fois) et l'étape est acquise : retirer une feuille ne la rouvre pas.
   const userId = state?.userId ?? null
-  const enEtapeFocus = state != null && state.charteAcceptee && !state.script1Ouvert
+  const enEtapeFocus = state != null && state.charteAcceptee && !state.script1Ouvert && !state.focusValide
   useEffect(() => {
     function onFocusChange() {
       setFocusVersion((v) => v + 1)
@@ -130,7 +135,12 @@ export default function OnboardingGate() {
     }
     let cancelled = false
     chargerCategoriesEnFocus(createClient(), userId).then((c) => {
-      if (!cancelled && c) setCategories(c)
+      if (cancelled || !c) return
+      setCategories(c)
+      if (etapeFocusValidee(c)) {
+        markFocusValide(userId)
+        setState((prev) => (prev ? { ...prev, focusValide: true } : prev))
+      }
     })
     return () => {
       cancelled = true
@@ -161,10 +171,12 @@ export default function OnboardingGate() {
 
   if (!state.script1Ouvert) {
     // Étape Focus, avant l'invitation au Script 1.
-    if (!categories) return null
-    if (!etapeFocusValidee(categories)) {
-      if (PAGES_SANS_MODAL_FOCUS.has(pathname)) return null
-      return <FocusModal categories={categories} dateNaissance={state.dateNaissance} />
+    if (!state.focusValide) {
+      if (!categories) return null
+      if (!etapeFocusValidee(categories)) {
+        if (PAGES_SANS_MODAL_FOCUS.has(pathname)) return null
+        return <FocusModal categories={categories} dateNaissance={state.dateNaissance} />
+      }
     }
     // Étape validée dans la Bibliothèque : son bandeau propose « Continuer »
     // vers l'accueil, l'invitation n'apparaît qu'ensuite.

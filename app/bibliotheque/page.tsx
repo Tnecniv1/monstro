@@ -39,7 +39,7 @@ export default async function BibliothequePage() {
     // Onboarding : le bandeau de l'étape Focus ne s'affiche que pendant l'étape.
     supabase
       .from('user_profile')
-      .select('role, plan, charte_acceptee_at, script1_ouvert_at, date_naissance')
+      .select('role, plan, charte_acceptee_at, script1_ouvert_at, focus_valide_at, date_naissance')
       .eq('id', user.id)
       .single(),
   ])

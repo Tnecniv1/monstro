@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react'
 import { ETAPES_PARCOURS, NB_ETAPES_ONBOARDING, PARCOURS_TERMINE } from './etapes'
 
 // Ligne renvoyée par la RPC get_parcours_admin() (lève une exception hors admin).
-// Ses dates suivent la règle linéaire : etapes[i] est vide dès qu'une étape
-// précédente manque.
+// etapes[N-1] est la date de l'étape N, ou null si elle n'est pas faite ;
+// chaque étape est datée indépendamment des autres.
 export type LigneParcours = {
   id: string
   prenom: string | null
@@ -176,7 +176,7 @@ function Carres({ eleve, bloque }: { eleve: EleveParcours; bloque: boolean }) {
   const carres = ETAPES_PARCOURS.map((libelle, i) => {
     const n = i + 1
     const franchieLe = eleve.etapes?.[i] ?? null
-    const titre = `${n} · ${libelle}${franchieLe ? ` — franchie le ${formatDate(franchieLe)}` : eleve.faites[i] ? ' — faite' : ''}`
+    const titre = `${n} · ${libelle}${franchieLe ? ` — franchie le ${formatDate(franchieLe)}` : ''}`
     const etat =
       eleve.faites[i]
         ? 'bg-accent border border-accent'

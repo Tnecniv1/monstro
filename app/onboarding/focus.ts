@@ -28,17 +28,19 @@ export function etapeFocusValidee(c: CategoriesFocus): boolean {
 
 // L'étape ne concerne que les élèves en cours d'onboarding : charte acceptée,
 // Script 1 pas encore ouvert. Mêmes exclusions qu'OnboardingGate (admin, sans
-// abonnement actif).
+// abonnement actif). Elle est acquise une fois focus_valide_at posé, quoi que
+// deviennent les Focus ensuite.
 export function estEnEtapeFocus(
   profile: {
     role: string | null
     plan: string | null
     charte_acceptee_at: string | null
     script1_ouvert_at: string | null
+    focus_valide_at: string | null
   } | null
 ): boolean {
   if (!profile || profile.role === 'admin' || !hasAppAccess(profile.role, profile.plan)) return false
-  return profile.charte_acceptee_at != null && profile.script1_ouvert_at == null
+  return profile.charte_acceptee_at != null && profile.script1_ouvert_at == null && profile.focus_valide_at == null
 }
 
 // Âge en années révolues aujourd'hui (heure de Paris), à partir d'une date

@@ -1,11 +1,12 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getSignedPdfUrl } from '@/lib/getSignedPdfUrl'
 import { BandeauFocus } from '../onboarding/FocusEtape'
-import { FOCUS_CHANGE_EVENT, categoriesEnFocus } from '../onboarding/focus'
+import { FOCUS_CHANGE_EVENT, categoriesEnFocus, etapeFocusValidee } from '../onboarding/focus'
+import { markFocusValide } from '../onboarding/profileWrites'
 
 type NoeudBase = { id: string; nom: string; ordre: number; parent_id: string | null }
 type Noeud = NoeudBase & {
@@ -169,10 +170,22 @@ export default function BibliothequeClient({ feuilles, focusIds: initialFocusIds
     () => categoriesEnFocus(feuilles.filter((f) => focusIds.has(f.id)).map((f) => getAncestorChain(f)[0]?.nom)),
     [feuilles, focusIds]
   )
+  // Dès que la deuxième catégorie se coche, l'étape est acquise : la date est
+  // écrite (une seule fois, jamais effacée) et le bandeau reste en réussite
+  // même si une feuille est retirée ensuite.
+  const [focusAcquis, setFocusAcquis] = useState(false)
+  const conditionFocus = etapeFocus != null && etapeFocusValidee(categoriesFocus)
+  useEffect(() => {
+    if (!conditionFocus || focusAcquis) return
+    setFocusAcquis(true)
+    markFocusValide(userId)
+  }, [conditionFocus, focusAcquis, userId])
 
   return (
     <div className="space-y-4">
-      {etapeFocus && <BandeauFocus categories={categoriesFocus} dateNaissance={etapeFocus.dateNaissance} />}
+      {etapeFocus && (
+        <BandeauFocus categories={categoriesFocus} valide={focusAcquis || conditionFocus} dateNaissance={etapeFocus.dateNaissance} />
+      )}
 
       {/* Toast */}
       {toast && (
