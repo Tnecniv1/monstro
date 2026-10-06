@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getSignedPdfUrl } from '@/lib/getSignedPdfUrl'
+import { BandeauFocus } from '../onboarding/FocusEtape'
+import { FOCUS_CHANGE_EVENT, categoriesEnFocus } from '../onboarding/focus'
 
 type NoeudBase = { id: string; nom: string; ordre: number; parent_id: string | null }
 type Noeud = NoeudBase & {
@@ -68,9 +70,11 @@ interface Props {
   focusIds: Set<string>
   termineIds: Set<string>
   userId: string
+  // Onboarding : non nul pendant l'étape Focus (bandeau en haut de la page).
+  etapeFocus: { dateNaissance: string | null } | null
 }
 
-export default function BibliothequeClient({ feuilles, focusIds: initialFocusIds, termineIds, userId }: Props) {
+export default function BibliothequeClient({ feuilles, focusIds: initialFocusIds, termineIds, userId, etapeFocus }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -92,6 +96,7 @@ export default function BibliothequeClient({ feuilles, focusIds: initialFocusIds
     if (focusIds.has(feuilleId)) {
       setFocusIds((prev) => { const s = new Set(prev); s.delete(feuilleId); return s })
       await supabase.from('feuille_focus').delete().eq('user_id', userId).eq('feuille_id', feuilleId)
+      window.dispatchEvent(new Event(FOCUS_CHANGE_EVENT))
       router.refresh()
     } else {
       if (focusIds.size >= 3) {
@@ -100,6 +105,7 @@ export default function BibliothequeClient({ feuilles, focusIds: initialFocusIds
       }
       setFocusIds((prev) => new Set(prev).add(feuilleId))
       await supabase.from('feuille_focus').insert({ user_id: userId, feuille_id: feuilleId })
+      window.dispatchEvent(new Event(FOCUS_CHANGE_EVENT))
       router.refresh()
     }
   }
@@ -157,8 +163,17 @@ export default function BibliothequeClient({ feuilles, focusIds: initialFocusIds
 
   const filAriane = chemin.map((id) => idToNom.get(id) ?? id).join(' › ')
 
+  // Étape Focus : catégories couvertes, d'après l'état local des Focus (celui
+  // qui colore la pastille), donc à jour dès le clic.
+  const categoriesFocus = useMemo(
+    () => categoriesEnFocus(feuilles.filter((f) => focusIds.has(f.id)).map((f) => getAncestorChain(f)[0]?.nom)),
+    [feuilles, focusIds]
+  )
+
   return (
     <div className="space-y-4">
+      {etapeFocus && <BandeauFocus categories={categoriesFocus} dateNaissance={etapeFocus.dateNaissance} />}
+
       {/* Toast */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-sm px-4 py-2 rounded-full shadow-lg z-50">

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { PUBLIC_PATHS, hasAppAccess, isVitrine } from '@/lib/access'
+import { FocusModal } from './FocusEtape'
+import { FOCUS_CHANGE_EVENT, chargerCategoriesEnFocus, etapeFocusValidee, type CategoriesFocus } from './focus'
 import { SCRIPT1_OUVERT_EVENT, markCharteAcceptee, markInvitationScript1Vue } from './profileWrites'
 import { CHARTE, ERREUR_ENREGISTREMENT, INVITATION_SCRIPT1 } from './texts'
 
@@ -12,7 +14,13 @@ type OnboardingState = {
   charteAcceptee: boolean
   script1Ouvert: boolean
   invitationVue: boolean
+  dateNaissance: string | null
 }
+
+// Pages où le modal de l'étape Focus ne s'affiche pas : la Bibliothèque (son
+// bandeau prend le relais) et la lecture d'une feuille, pour pouvoir
+// feuilleter avant de choisir.
+const PAGES_SANS_MODAL_FOCUS = new Set(['/bibliotheque', '/viewer'])
 
 // Pages publiques : rien ne s'affiche et aucune requête n'est faite.
 // '/' est exclu de la liste : c'est la landing pour un visiteur (pas
@@ -30,6 +38,10 @@ export default function OnboardingGate() {
 
   const [state, setState] = useState<OnboardingState | null>(null)
   const [authVersion, setAuthVersion] = useState(0)
+  // Étape Focus : catégories couvertes par les feuilles en Focus. null tant
+  // que la lecture n'a pas abouti (rien ne s'affiche en attendant).
+  const [categories, setCategories] = useState<CategoriesFocus | null>(null)
+  const [focusVersion, setFocusVersion] = useState(0)
   // "Continuer" sur l'invitation au Script 1 ne la ferme que pour la page en
   // cours : l'état est remis à zéro à chaque changement de pathname (pendant
   // le rendu, pour ne pas afficher une frame sans modal), et n'est pas
@@ -65,7 +77,7 @@ export default function OnboardingGate() {
       }
       const { data: profile } = await supabase
         .from('user_profile')
-        .select('role, plan, charte_acceptee_at, script1_ouvert_at, invitation_script1_vue_at')
+        .select('role, plan, charte_acceptee_at, script1_ouvert_at, invitation_script1_vue_at, date_naissance')
         .eq('id', user.id)
         .single()
       if (cancelled) return
@@ -79,6 +91,7 @@ export default function OnboardingGate() {
         charteAcceptee: profile.charte_acceptee_at != null,
         script1Ouvert: profile.script1_ouvert_at != null,
         invitationVue: profile.invitation_script1_vue_at != null,
+        dateNaissance: profile.date_naissance ?? null,
       })
     }
 
@@ -96,6 +109,33 @@ export default function OnboardingGate() {
     window.addEventListener(SCRIPT1_OUVERT_EVENT, onScript1Ouvert)
     return () => window.removeEventListener(SCRIPT1_OUVERT_EVENT, onScript1Ouvert)
   }, [])
+
+  // Étape Focus : ne concerne que l'élève qui a accepté la charte et n'a pas
+  // encore ouvert le Script 1. Les Focus sont relus à chaque changement de
+  // page et à chaque mise en Focus ou retrait dans la Bibliothèque.
+  const userId = state?.userId ?? null
+  const enEtapeFocus = state != null && state.charteAcceptee && !state.script1Ouvert
+  useEffect(() => {
+    function onFocusChange() {
+      setFocusVersion((v) => v + 1)
+    }
+    window.addEventListener(FOCUS_CHANGE_EVENT, onFocusChange)
+    return () => window.removeEventListener(FOCUS_CHANGE_EVENT, onFocusChange)
+  }, [])
+  useEffect(() => {
+    if (publicPage) return
+    if (!userId || !enEtapeFocus) {
+      setCategories(null)
+      return
+    }
+    let cancelled = false
+    chargerCategoriesEnFocus(createClient(), userId).then((c) => {
+      if (!cancelled && c) setCategories(c)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [publicPage, userId, enEtapeFocus, pathname, focusVersion])
 
   // "Continuer" du modal 2 : la fermeture ne change pas ; la date du premier
   // clic est écrite en arrière-plan, une seule fois (marquée tout de suite
@@ -119,8 +159,18 @@ export default function OnboardingGate() {
     )
   }
 
-  if (!state.script1Ouvert && !invitationFermee && pathname !== '/forum') {
-    return <InvitationScript1Modal onContinuer={fermerInvitation} />
+  if (!state.script1Ouvert) {
+    // Étape Focus, avant l'invitation au Script 1.
+    if (!categories) return null
+    if (!etapeFocusValidee(categories)) {
+      if (PAGES_SANS_MODAL_FOCUS.has(pathname)) return null
+      return <FocusModal categories={categories} dateNaissance={state.dateNaissance} />
+    }
+    // Étape validée dans la Bibliothèque : son bandeau propose « Continuer »
+    // vers l'accueil, l'invitation n'apparaît qu'ensuite.
+    if (!invitationFermee && pathname !== '/forum' && pathname !== '/bibliotheque') {
+      return <InvitationScript1Modal onContinuer={fermerInvitation} />
+    }
   }
 
   return null

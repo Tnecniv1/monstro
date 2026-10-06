@@ -31,6 +31,43 @@ export const CHARTE: { titre: string; sections: CharteSection[]; case: string; b
   bouton: 'Continuer',
 }
 
+// Étape Focus, entre la charte et l'invitation au Script 1 (modal bloquant,
+// puis bandeau de la Bibliothèque). [TEXTE PROVISOIRE] : tous les textes de
+// ce bloc sont à relire.
+export const FOCUS = {
+  titre: 'Choisissez vos deux premières feuilles', // [TEXTE PROVISOIRE]
+  consigne: `Avant de commencer, mettez en Focus deux feuilles de la Bibliothèque${NBSP}: une feuille «${NBSP}Problèmes Chaotiques${NBSP}» et une feuille «${NBSP}Exercices Mécaniques${NBSP}».`, // [TEXTE PROVISOIRE]
+  geste:
+    "Pour mettre une feuille en Focus, cliquez sur le petit cercle blanc en haut à droite de sa carte : il devient violet.", // [TEXTE PROVISOIRE]
+  checklist: {
+    chaotique: `Une feuille «${NBSP}Problèmes Chaotiques${NBSP}» en Focus`, // [TEXTE PROVISOIRE]
+    mecanique: `Une feuille «${NBSP}Exercices Mécaniques${NBSP}» en Focus`, // [TEXTE PROVISOIRE]
+  },
+  bouton: 'Aller à la Bibliothèque',
+  recommandations: {
+    titre: 'Feuilles recommandées', // [TEXTE PROVISOIRE]
+    intro: `Repérez la ligne de votre âge, puis la colonne de votre moyenne en mathématiques.`, // [TEXTE PROVISOIRE]
+    sections: { chaotique: 'Problèmes Chaotiques', mecanique: 'Exercices Mécaniques' },
+    colonneAge: 'Âge',
+    niveaux: {
+      fragile: { nom: 'Fragile', detail: `moyenne < 10` },
+      moyen: { nom: 'Moyen', detail: '10 à 14' },
+      fort: { nom: 'Fort', detail: `≥ 15` },
+    },
+    caseVide: 'Pas encore de feuille recommandée',
+    votreAge: 'votre âge', // [TEXTE PROVISOIRE]
+    chargement: 'Chargement…',
+    erreur: 'Impossible de charger les recommandations.', // [TEXTE PROVISOIRE]
+    fermer: 'Fermer',
+  },
+  bandeau: {
+    consigne: `Mettez en Focus une feuille «${NBSP}Problèmes Chaotiques${NBSP}» et une feuille «${NBSP}Exercices Mécaniques${NBSP}» (le petit cercle en haut à droite de la carte).`, // [TEXTE PROVISOIRE]
+    lien: 'Voir les recommandations',
+    reussite: `C'est fait${NBSP}: vos deux feuilles sont en Focus.`, // [TEXTE PROVISOIRE]
+    continuer: 'Continuer',
+  },
+}
+
 export const INVITATION_SCRIPT1 = {
   titre: `Comment résoudre votre premier problème${NBSP}?`,
   texte: 'Cliquez sur la page Forum, puis ouvrez le script #1.',

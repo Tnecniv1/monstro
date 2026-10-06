@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { estEnEtapeFocus } from '../onboarding/focus'
 import BibliothequeClient, { type Feuille } from './BibliothequeClient'
 
 export default async function BibliothequePage() {
@@ -12,7 +13,7 @@ export default async function BibliothequePage() {
 
   if (!user) redirect('/login')
 
-  const [{ data }, { data: focusData }, { data: terminesData }] = await Promise.all([
+  const [{ data }, { data: focusData }, { data: terminesData }, { data: profile }] = await Promise.all([
     supabase
       .from('feuille_entrainement')
       .select(`
@@ -35,6 +36,12 @@ export default async function BibliothequePage() {
       .select('feuille_id, feuille_entrainement!inner(volume)')
       .eq('user_id', user.id)
       .eq('statut', 'termine'),
+    // Onboarding : le bandeau de l'étape Focus ne s'affiche que pendant l'étape.
+    supabase
+      .from('user_profile')
+      .select('role, plan, charte_acceptee_at, script1_ouvert_at, date_naissance')
+      .eq('id', user.id)
+      .single(),
   ])
 
   const focusIds = new Set(focusData?.map((f) => f.feuille_id) ?? [])
@@ -64,6 +71,7 @@ export default async function BibliothequePage() {
           focusIds={focusIds}
           termineIds={termineIds}
           userId={user.id}
+          etapeFocus={estEnEtapeFocus(profile) ? { dateNaissance: profile?.date_naissance ?? null } : null}
         />
       </div>
     </div>
