@@ -3,6 +3,7 @@
 // Paramètre optionnel ?dry=1 : simule (ce qui partirait) sans rien générer, envoyer ni marquer.
 import { randomUUID, timingSafeEqual } from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
+import { chargerEligibiliteAgora, type MotifBlocage } from '@/lib/agora/eligibilite'
 import { evaluerCreneau } from '@/lib/agora/planning'
 import { genererImageRapport } from '@/lib/rapport/imageServeur'
 import { getUserStatsForWeek } from '@/lib/stats/getUserStats'
@@ -50,6 +51,16 @@ async function traiter(req: NextRequest) {
     return NextResponse.json({ ignore: 'déjà envoyé cette semaine', ...contexte })
   }
 
+  // Agora coupé pour les élèves sans accès ou à l'abonnement résilié. Chargé avant de réserver
+  // la semaine : si le statut est illisible, rien ne part et le prochain appel réessaiera.
+  let motifBlocage: (eleveId: string) => MotifBlocage | null
+  try {
+    motifBlocage = await chargerEligibiliteAgora(supabase)
+  } catch (e) {
+    console.error('[cron rapports] éligibilité Agora', (e as Error).message)
+    return NextResponse.json({ erreur: (e as Error).message }, { status: 500 })
+  }
+
   // Idempotence : on « réserve » la semaine AVANT d'envoyer. Si deux appels se chevauchent,
   // un seul obtient la ligne ; en cas de plantage en cours de route, pas de double envoi.
   if (!simulation) {
@@ -71,7 +82,13 @@ async function traiter(req: NextRequest) {
   ])
   const fauxIds = new Set(((faux ?? []) as { user_id: string }[]).map((f) => f.user_id))
   const parEleve = new Map<string, { id: string; nom: string }[]>()
+  const elevesBloques: Record<string, MotifBlocage> = {}
   for (const lien of (liens ?? []) as { eleve_id: string; referent: unknown }[]) {
+    const motif = motifBlocage(lien.eleve_id)
+    if (motif) {
+      elevesBloques[lien.eleve_id] = motif
+      continue
+    }
     const r = (Array.isArray(lien.referent) ? lien.referent[0] : lien.referent) as
       | { id: string; prenom: string | null; nom: string | null; mode: string | null }
       | undefined
@@ -164,13 +181,14 @@ async function traiter(req: NextRequest) {
     succes: resultats.filter((r) => r.statut === 'succes').length,
     echecs: resultats.filter((r) => r.statut === 'echec').length,
     dejaEnvoyes: resultats.filter((r) => r.statut === 'deja_envoye').length,
+    elevesBloques: Object.keys(elevesBloques).length,
   }
   console.log('[cron rapports]', JSON.stringify({ lundiRapport, simulation, ...bilan }))
   for (const r of resultats.filter((x) => x.statut === 'echec')) {
     console.error('[cron rapports] échec', r.eleve, r.referent, r.erreur)
   }
 
-  return NextResponse.json({ ...contexte, bilan, resultats })
+  return NextResponse.json({ ...contexte, bilan, resultats, elevesBloques })
 }
 
 export const GET = traiter

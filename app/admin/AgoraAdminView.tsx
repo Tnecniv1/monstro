@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toPng } from 'html-to-image'
 import { createClient } from '@/lib/supabase/client'
 import RapportCard from '@/app/profil/RapportCard'
+import { LIBELLES_BLOCAGE, type MotifBlocage } from '@/lib/agora/eligibilite'
 import { HEURES_ENVOI, JOURS_SEMAINE } from '@/lib/agora/planning'
 import { getRapportHebdoAction } from './agoraActions'
 import { envoyerRapportWhatsAppAction } from './whatsappActions'
@@ -15,7 +16,9 @@ export type EleveAgora = {
   pseudo: string | null
   prenom: string | null
   nom: string | null
+  plan: string | null
   is_fake: boolean
+  agora_bloque: MotifBlocage | null // Agora coupé : aucun accès ou abonnement résilié (calculé côté serveur)
 }
 
 interface ReferentEntry {
@@ -64,6 +67,9 @@ interface HistoriqueEntry {
 
 type StatutEnvoi = 'envoye' | 'erreur' | 'attente'
 
+type DernierRapport = Pick<RapportRow, 'id' | 'eleve_id' | 'mois'>
+type FiltreSuiveur = 'tous' | 'avec' | 'sans'
+
 interface Props {
   eleves: EleveAgora[]
 }
@@ -82,11 +88,6 @@ function defaultLundi(): string {
 
 function toISODate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function shiftSemaine(lundi: string, deltaSemaines: number): string {
-  const [y, m, d] = lundi.split('-').map(Number)
-  return toISODate(new Date(y, m - 1, d + deltaSemaines * 7))
 }
 
 function formatSemaineCourt(lundi: string): string {
@@ -124,6 +125,14 @@ function tableAbsente(error: { code?: string; message?: string } | null): boolea
   return !!error && (error.code === '42P01' || error.code === 'PGRST205' || /does not exist|schema cache/i.test(error.message ?? ''))
 }
 
+// Mêmes libellés que l'onglet Utilisateurs (user_profile.plan)
+const PLANS: Record<string, string> = {
+  essai: 'Essai',
+  abonne: 'Abonné',
+  classe: 'Classe',
+  gratuit: 'Aucun accès',
+}
+
 const STATUTS: Record<StatutEnvoi, { label: string; color: string; background: string }> = {
   envoye: { label: 'Envoyé', color: '#15803d', background: '#dcfce7' },
   erreur: { label: 'Erreur', color: '#b91c1c', background: '#fee2e2' },
@@ -135,14 +144,20 @@ const STATUTS: Record<StatutEnvoi, { label: string; color: string; background: s
 export default function AgoraAdminView({ eleves }: Props) {
   const supabase = createClient()
 
-  const [lundi, setLundi] = useState(defaultLundi())
+  // Semaine du rapport en cours (panneau) : toujours la dernière semaine écoulée, comme l'envoi automatique
+  const [lundi] = useState(defaultLundi)
 
   const [referentsMap, setReferentsMap] = useState<ReferentsMap>({})
   const [rapports, setRapports] = useState<Record<string, RapportRow>>({})
+  const [derniersRapports, setDerniersRapports] = useState<Record<string, DernierRapport>>({}) // eleve_id → rapport le plus récent
   const [envoisMap, setEnvoisMap] = useState<Record<string, number>>({}) // rapport_mensuel.id → n envois réussis
   const [derniersEnvois, setDerniersEnvois] = useState<Record<string, 'succes' | 'echec'>>({}) // rapport_mensuel.id → dernière tentative
   const [loadingTable, setLoadingTable] = useState(true)
   const [migrationManquante, setMigrationManquante] = useState(false)
+
+  // Filtres de la grille (combinés en ET)
+  const [filtrePlan, setFiltrePlan] = useState('tous') // 'tous' | plan | 'resilie'
+  const [filtreSuiveur, setFiltreSuiveur] = useState<FiltreSuiveur>('tous')
 
   // Réglage global de l'envoi automatique
   const [reglage, setReglage] = useState<Reglage | null>(null)
@@ -175,14 +190,35 @@ export default function AgoraAdminView({ eleves }: Props) {
 
   // ── Chargement données ─────────────────────────────────────────────────────
 
+  // Dernier rapport de chaque élève, toutes semaines confondues (paginé : PostgREST plafonne à 1000 lignes)
+  const chargerDerniersRapports = useCallback(async () => {
+    const PAGE = 1000
+    const map: Record<string, DernierRapport> = {}
+    for (let debut = 0; ; debut += PAGE) {
+      const { data } = await supabase
+        .from('rapport_mensuel')
+        .select('id, eleve_id, mois')
+        .lte('mois', lundi) // semaines écoulées seulement
+        .order('mois', { ascending: false })
+        .order('id')
+        .range(debut, debut + PAGE - 1)
+      const rows = (data ?? []) as DernierRapport[]
+      for (const r of rows) if (!map[r.eleve_id]) map[r.eleve_id] = r // trié du plus récent au plus ancien
+      if (rows.length < PAGE) break
+    }
+    return map
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lundi])
+
   const charger = useCallback(async () => {
     setLoadingTable(true)
-    const [{ data: refRows }, { data: rapportRows }] = await Promise.all([
+    const [{ data: refRows }, { data: rapportRows }, derniers] = await Promise.all([
       supabase
         .from('referent_eleve')
         .select('id, eleve_id, referent(id, prenom, nom, telephone, mode)')
         .eq('actif', true),
       supabase.from('rapport_mensuel').select('*').eq('mois', lundi),
+      chargerDerniersRapports(),
     ])
 
     const map: ReferentsMap = {}
@@ -204,10 +240,10 @@ export default function AgoraAdminView({ eleves }: Props) {
     const rMap: Record<string, RapportRow> = {}
     for (const r of (rapportRows ?? []) as RapportRow[]) rMap[r.eleve_id] = r
     setRapports(rMap)
+    setDerniersRapports(derniers)
 
     // Compteurs d'envois réussis + dernière tentative (journal) par rapport_mensuel.id
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rapportIds = (rapportRows ?? []).map((r: any) => r.id).filter(Boolean) as string[]
+    const rapportIds = Object.values(derniers).map((r) => r.id)
     if (rapportIds.length > 0) {
       const [{ data: envoisRows }, { data: logRows, error: logError }] = await Promise.all([
         supabase.from('rapport_envoi').select('rapport_id').in('rapport_id', rapportIds),
@@ -234,7 +270,7 @@ export default function AgoraAdminView({ eleves }: Props) {
       setDerniersEnvois({})
     }
     setLoadingTable(false)
-  }, [lundi])
+  }, [lundi, chargerDerniersRapports])
 
   useEffect(() => {
     charger()
@@ -256,15 +292,6 @@ export default function AgoraAdminView({ eleves }: Props) {
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // Fermer le panneau et le formulaire si on change de semaine
-  useEffect(() => {
-    setPanneau(null)
-    setPanneauRapport(null)
-    setNote('')
-    setOpenFormEleveId(null)
-    setFormError(null)
-  }, [lundi])
 
   async function sauvegarderReglage() {
     if (!reglage) return
@@ -428,6 +455,7 @@ export default function AgoraAdminView({ eleves }: Props) {
   // ── Panneau ────────────────────────────────────────────────────────────────
 
   async function ouvrirPanneau(eleveId: string, pseudo: string) {
+    if (eleves.find((e) => e.id === eleveId)?.agora_bloque) return
     setPanneau({ eleveId, pseudo })
     setPanneauLoading(true)
     setGenerateError(null)
@@ -602,7 +630,20 @@ export default function AgoraAdminView({ eleves }: Props) {
 
   const profiles = eleves.filter((p) => !p.is_fake)
 
-  function statutEnvoi(r: RapportRow | undefined): StatutEnvoi {
+  // Plans réellement présents parmi les élèves, dans l'ordre de PLANS
+  const plansPresents = Object.keys(PLANS).filter((plan) => profiles.some((p) => (p.plan ?? 'gratuit') === plan))
+
+  const profilesFiltres = profiles.filter((p) => {
+    const resilie = p.agora_bloque === 'resilie'
+    // « Abonné » = abonnement qui se renouvelle ; les résiliés ont leur propre entrée
+    if (filtrePlan === 'resilie' ? !resilie : filtrePlan !== 'tous' && ((p.plan ?? 'gratuit') !== filtrePlan || resilie)) return false
+    const aSuiveur = (referentsMap[p.id] ?? []).length > 0
+    if (filtreSuiveur === 'avec' && !aSuiveur) return false
+    if (filtreSuiveur === 'sans' && aSuiveur) return false
+    return true
+  })
+
+  function statutEnvoi(r: DernierRapport | undefined): StatutEnvoi {
     if (!r) return 'attente'
     const dernier = derniersEnvois[r.id]
     if (dernier === 'echec') return 'erreur'
@@ -622,21 +663,6 @@ export default function AgoraAdminView({ eleves }: Props) {
     outline: 'none',
     minWidth: 0,
     flex: 1,
-  }
-
-  const navBtnStyle: React.CSSProperties = {
-    width: 28,
-    height: 28,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 16,
-    fontWeight: 600,
-    borderRadius: 8,
-    border: '1px solid #e5e7eb',
-    background: '#fff',
-    color: '#374151',
-    cursor: 'pointer',
   }
 
   const sectionTitreStyle: React.CSSProperties = {
@@ -746,17 +772,35 @@ export default function AgoraAdminView({ eleves }: Props) {
         )}
       </div>
 
-      {/* Sélecteur de semaine */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-        <button onClick={() => setLundi((l) => shiftSemaine(l, -1))} style={navBtnStyle} aria-label="Semaine précédente">
-          ‹
-        </button>
-        <span style={{ fontSize: 14, fontWeight: 600, color: '#111827', minWidth: 150, textAlign: 'center' }}>
-          {formatSemaineLabel(lundi)}
-        </span>
-        <button onClick={() => setLundi((l) => shiftSemaine(l, 1))} style={navBtnStyle} aria-label="Semaine suivante">
-          ›
-        </button>
+      {/* Filtres de la grille */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+        <select
+          value={filtrePlan}
+          onChange={(e) => setFiltrePlan(e.target.value)}
+          aria-label="Filtrer par abonnement"
+          style={{ ...inputStyle, flex: '0 0 auto' }}
+        >
+          <option value="tous">Tous les abonnements</option>
+          {plansPresents.map((plan) => (
+            <option key={plan} value={plan}>{PLANS[plan]}</option>
+          ))}
+          <option value="resilie">Résilié</option>
+        </select>
+        <select
+          value={filtreSuiveur}
+          onChange={(e) => setFiltreSuiveur(e.target.value as FiltreSuiveur)}
+          aria-label="Filtrer par suiveur"
+          style={{ ...inputStyle, flex: '0 0 auto' }}
+        >
+          <option value="tous">Avec ou sans suiveur</option>
+          <option value="avec">Avec suiveur</option>
+          <option value="sans">Sans suiveur</option>
+        </select>
+        {!loadingTable && (
+          <span style={{ fontSize: 12, color: '#9ca3af' }}>
+            {profilesFiltres.length} élève{profilesFiltres.length > 1 ? 's' : ''}
+          </span>
+        )}
       </div>
 
       {/* Grille de cartes élèves */}
@@ -764,18 +808,23 @@ export default function AgoraAdminView({ eleves }: Props) {
         <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>Chargement…</div>
       ) : profiles.length === 0 ? (
         <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Aucun élève.</div>
+      ) : profilesFiltres.length === 0 ? (
+        <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Aucun élève ne correspond aux filtres.</div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-          {profiles.map((profile) => {
-            const rapport = rapports[profile.id]
+          {profilesFiltres.map((profile) => {
+            // Rapport le plus récent : celui de la semaine en cours de traitement s'il existe, sinon le précédent
+            const rapport: DernierRapport | undefined = rapports[profile.id] ?? derniersRapports[profile.id]
             const statut = STATUTS[statutEnvoi(rapport)]
             const nReferents = (referentsMap[profile.id] ?? []).length
             const nEnvoyes = rapport?.id ? (envoisMap[rapport.id] ?? 0) : 0
             const isOpen = panneau?.eleveId === profile.id
+            const bloque = profile.agora_bloque
             return (
               <button
                 key={profile.id}
                 onClick={() => ouvrirPanneau(profile.id, profile.pseudo ?? nomEleve(profile))}
+                disabled={!!bloque}
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
@@ -784,9 +833,10 @@ export default function AgoraAdminView({ eleves }: Props) {
                   padding: '14px 16px',
                   borderRadius: 12,
                   border: `1px solid ${isOpen ? '#6D28D9' : '#e5e7eb'}`,
-                  background: '#fff',
+                  background: bloque ? '#f9fafb' : '#fff',
                   textAlign: 'left',
-                  cursor: 'pointer',
+                  cursor: bloque ? 'not-allowed' : 'pointer',
+                  opacity: bloque ? 0.6 : 1,
                 }}
               >
                 <span style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{nomEleve(profile)}</span>
@@ -807,6 +857,12 @@ export default function AgoraAdminView({ eleves }: Props) {
                     {nReferents === 0 ? 'Aucun suiveur' : `${nEnvoyes}/${nReferents} suiveur${nReferents > 1 ? 's' : ''}`}
                   </span>
                 </div>
+                <span style={{ fontSize: 12, color: '#9ca3af' }}>
+                  {rapport ? formatSemaineLabel(rapport.mois) : 'Aucun rapport'}
+                </span>
+                {bloque && (
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#6b7280' }}>{LIBELLES_BLOCAGE[bloque]}</span>
+                )}
               </button>
             )
           })}

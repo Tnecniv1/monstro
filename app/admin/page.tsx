@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { requireAdmin } from '@/lib/admin/requireAdmin'
+import { chargerEligibiliteAgora, type MotifBlocage } from '@/lib/agora/eligibilite'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import AdminShell from './AdminShell'
 import type { Noeud } from './AdminClient'
@@ -11,7 +13,7 @@ export default async function AdminPage() {
 
   const supabase = createClient()
 
-  const [{ data: noeudData }, { data: feuilleData }, { data: profilesData }, { data: fakeData }] = await Promise.all([
+  const [{ data: noeudData }, { data: feuilleData }, { data: profilesData }, { data: fakeData }, motifBlocage] = await Promise.all([
     supabase.from('noeud').select('id, parent_id, nom, ordre').order('ordre'),
     supabase
       .from('feuille_entrainement')
@@ -27,8 +29,13 @@ export default async function AdminPage() {
         correction ( id, pdf_url )
       `)
       .order('ordre'),
-    supabase.from('user_profile').select('id, pseudo, prenom, nom'),
+    supabase.from('user_profile').select('id, pseudo, prenom, nom, plan'),
     supabase.rpc('get_fake_user_ids'),
+    // Agora coupé (aucun accès, abonnement résilié) ; statut illisible → tout est coupé par prudence
+    chargerEligibiliteAgora(createAdminClient()).catch((e: Error) => {
+      console.error('[admin] éligibilité Agora', e.message)
+      return (): MotifBlocage => 'inconnu'
+    }),
   ])
 
   const noeuds = (noeudData ?? []) as Noeud[]
@@ -40,6 +47,7 @@ export default async function AdminPage() {
   const eleves: EleveAgora[] = (profilesData ?? []).map((p) => ({
     ...p,
     is_fake: fakeUserIds.has(p.id),
+    agora_bloque: motifBlocage(p.id),
   }))
 
   return (
