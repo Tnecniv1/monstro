@@ -55,6 +55,7 @@ export const FOCUS = {
       fort: { nom: 'Fort', detail: `≥ 15` },
     },
     caseVide: 'Pas encore de feuille recommandée',
+    exerciceDepart: "à partir de l'exo",
     votreAge: 'votre âge', // [TEXTE PROVISOIRE]
     chargement: 'Chargement…',
     erreur: 'Impossible de charger les recommandations.', // [TEXTE PROVISOIRE]

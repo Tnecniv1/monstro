@@ -18,6 +18,10 @@ type Recommandation = {
   age_min: number
   age_max: number
   niveau: Niveau
+  // Nom de la ligne (« Collège »…), affiché à la place de la tranche d'âge.
+  libelle: string | null
+  // Exercice conseillé pour commencer la feuille, s'il y en a un.
+  exercice_depart: number | null
   feuille: { titre: string } | null
 }
 
@@ -49,8 +53,9 @@ function libelleAge(min: number, max: number): string {
 }
 
 // Tableau des feuilles recommandées : une section par catégorie, une ligne par
-// tranche d'âge, une colonne par niveau. La ligne de l'âge de l'élève est mise
-// en évidence si sa date de naissance est connue.
+// tranche d'âge (nommée par son libellé, ou par la tranche à défaut), une
+// colonne par niveau. La ligne de l'âge de l'élève est mise en évidence si sa
+// date de naissance est connue.
 export function TableauRecommandations({ dateNaissance }: { dateNaissance: string | null }) {
   const [lignes, setLignes] = useState<Recommandation[] | null>(null)
   const [erreur, setErreur] = useState(false)
@@ -59,7 +64,7 @@ export function TableauRecommandations({ dateNaissance }: { dateNaissance: strin
     let actif = true
     createClient()
       .from('recommandation_focus')
-      .select('categorie, age_min, age_max, niveau, feuille:feuille_entrainement ( titre )')
+      .select('categorie, age_min, age_max, niveau, libelle, exercice_depart, feuille:feuille_entrainement ( titre )')
       .order('age_min')
       .then(({ data, error }) => {
         if (!actif) return
@@ -104,20 +109,27 @@ export function TableauRecommandations({ dateNaissance }: { dateNaissance: strin
                 <tbody>
                   {tranches.map((tranche) => {
                     const maLigne = age != null && age >= tranche.age_min && age <= tranche.age_max
+                    const deLaTranche = deLaCategorie.filter((l) => l.age_min === tranche.age_min)
+                    const libelle = deLaTranche.map((l) => l.libelle?.trim()).find(Boolean)
                     return (
                       <tr key={tranche.age_min} className={`border-t border-border ${maLigne ? 'bg-accent/10' : ''}`}>
                         <th scope="row" className="whitespace-nowrap px-2 py-1.5 align-top font-semibold text-text-primary">
-                          {libelleAge(tranche.age_min, tranche.age_max)}
+                          {libelle || libelleAge(tranche.age_min, tranche.age_max)}
                           {maLigne && (
                             <span className="block font-normal text-accent">{FOCUS.recommandations.votreAge}</span>
                           )}
                         </th>
                         {NIVEAUX.map((n) => {
-                          const titre = deLaCategorie.find((l) => l.age_min === tranche.age_min && l.niveau === n)?.feuille
-                            ?.titre
+                          const reco = deLaTranche.find((l) => l.niveau === n)
+                          const titre = reco?.feuille?.titre
                           return (
                             <td key={n} className={`px-2 py-1.5 align-top ${titre ? 'text-text-primary' : 'text-text-muted'}`}>
                               {titre ?? FOCUS.recommandations.caseVide}
+                              {titre && reco?.exercice_depart != null && (
+                                <span className="block text-text-muted">
+                                  {FOCUS.recommandations.exerciceDepart} {reco.exercice_depart}
+                                </span>
+                              )}
                             </td>
                           )
                         })}
