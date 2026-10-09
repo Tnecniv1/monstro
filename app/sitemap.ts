@@ -1,10 +1,12 @@
 import type { MetadataRoute } from 'next'
 import { getArticles, SECTIONS } from '@/lib/articles'
 import { SITE_URL } from '@/lib/site'
+import { getVoyage } from '@/lib/voyage'
 
-// / + /voyage + chaque section ayant au moins un article publié + ses articles.
+// / + /voyage (si publié) + chaque section ayant au moins un article publié + ses articles.
 export default function sitemap(): MetadataRoute.Sitemap {
-  const entries: MetadataRoute.Sitemap = [{ url: `${SITE_URL}/` }, { url: `${SITE_URL}/voyage` }]
+  const entries: MetadataRoute.Sitemap = [{ url: `${SITE_URL}/` }]
+  if (getVoyage()) entries.push({ url: `${SITE_URL}/voyage` })
 
   for (const section of SECTIONS) {
     const articles = getArticles(section)

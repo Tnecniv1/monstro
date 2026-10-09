@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { resolveLoginEmail } from '@/lib/auth/resolveLoginEmail'
 
@@ -9,9 +9,11 @@ type Tab = 'connexion' | 'inscription'
 
 export default function AuthForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
 
-  const [tab, setTab] = useState<Tab>('connexion')
+  // /?mode=inscription ouvre directement l'onglet Inscription
+  const [tab, setTab] = useState<Tab>(searchParams.get('mode') === 'inscription' ? 'inscription' : 'connexion')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 

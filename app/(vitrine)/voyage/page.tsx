@@ -1,83 +1,51 @@
+import Link from 'next/link'
 import { VitrineTitre } from '@/app/components/VitrineShell'
+import { getVoyage } from '@/lib/voyage'
 import { vitrineMetadata } from '../metadata'
 
-// Espaces insécables : normale avant « ? », fine comme séparateur de milliers
-const NBSP = '\u00a0'
-const FINE = '\u202f'
-
-const BUT_QUESTION = `Le but du jeu${NBSP}?`
-const BUT_REPONSE = `Résoudre 1${FINE}000 problèmes.`
-
-const REGLES = [
-  "Respecter le parcours d'apprentissage.",
-  'Poser une question par blocage.',
-  'Prouver chaque session de travail.',
-]
-
-export const metadata = vitrineMetadata({
-  path: '/voyage',
-  title: 'Voyage — Monstro',
-  description: `${BUT_QUESTION} ${BUT_REPONSE}`,
-  indexable: true,
-})
-
-export default function VoyagePage() {
-  return (
-    <div className="max-w-3xl mx-auto space-y-8">
-      <VitrineTitre>Voyage</VitrineTitre>
-
-      <div className="divide-y divide-gray-200">
-        <QuestionReponse question={BUT_QUESTION} reponse={BUT_REPONSE} />
-
-        <section className="py-12">
-          {/* Cartes symétriques : la grille étire les trois cartes à la même hauteur ; dans chaque carte,
-              le rond est en haut (ronds alignés) et le texte centré dans l'espace restant */}
-          <ol className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {REGLES.map((regle, i) => (
-              <li
-                key={regle}
-                className="grid grid-rows-[auto_1fr] justify-items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-6 text-center"
-              >
-                <span
-                  aria-hidden="true"
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-100 text-sm font-semibold text-accent"
-                >
-                  {i + 1}
-                </span>
-                <p className="flex items-center justify-center font-serif text-lg font-semibold leading-snug text-text-primary">
-                  {regle}
-                </p>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        <QuestionReponse question={`Le trésor${NBSP}?`} reponse="Fabriquer des ponts.">
-          {/* TODO image : déposer le fichier dans public/images/voyage/ (ex. ponts.png), ajouter
-              `import Image from 'next/image'` puis afficher ici, sous « Fabriquer des ponts. » :
-              <div className="relative mt-8 aspect-[16/7] overflow-hidden rounded-2xl border border-gray-200">
-                <Image src="/images/voyage/ponts.png" alt="…" fill sizes="(min-width: 768px) 768px, 100vw" className="object-cover" />
-              </div> */}
-        </QuestionReponse>
-      </div>
-    </div>
-  )
+// Fichier absent ou en brouillon : titre seul, noindex, hors sitemap.
+export function generateMetadata() {
+  const voyage = getVoyage()
+  return vitrineMetadata({
+    path: '/voyage',
+    title: voyage?.titre ?? 'Voyage — Monstro',
+    description: voyage?.description ?? 'Monstro, la promesse de réussite. Apprendre à raisonner.',
+    indexable: voyage !== null,
+  })
 }
 
-function QuestionReponse({
-  question,
-  reponse,
-  children,
-}: {
-  question: string
-  reponse: string
-  children?: React.ReactNode
-}) {
+export default function VoyagePage() {
+  const voyage = getVoyage()
+
+  if (!voyage) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <VitrineTitre>Voyage</VitrineTitre>
+      </div>
+    )
+  }
+
   return (
-    <section className="space-y-2 py-12 first:pt-4">
-      <p className="text-sm font-medium text-accent">{question}</p>
-      <h2 className="font-serif text-3xl sm:text-4xl font-bold leading-tight text-text-primary">{reponse}</h2>
-      {children}
-    </section>
+    <article className="max-w-2xl mx-auto break-words">
+      <VitrineTitre>{voyage.titre}</VitrineTitre>
+
+      {/* HTML généré au build depuis notre propre fichier Markdown (le HTML brut du Markdown est ignoré).
+          h2 : filet et espace au-dessus, sauf en tête de texte. blockquote : exergue centré, sans bordure ni guillemets. */}
+      <div
+        className="prose prose-lg mt-12 max-w-none [--tw-prose-body:theme(colors.text.primary)] prose-a:text-accent prose-h2:mb-6 prose-h2:mt-14 prose-h2:border-t prose-h2:border-gray-200 prose-h2:pt-12 prose-h2:font-serif prose-h2:text-2xl prose-h2:font-bold prose-h2:text-text-primary sm:prose-h2:text-3xl [&>h2:first-child]:mt-0 [&>h2:first-child]:border-t-0 [&>h2:first-child]:pt-0 prose-blockquote:my-12 prose-blockquote:border-0 prose-blockquote:px-0 prose-blockquote:text-center prose-blockquote:font-serif prose-blockquote:text-2xl prose-blockquote:font-normal prose-blockquote:not-italic prose-blockquote:leading-snug prose-blockquote:text-accent sm:prose-blockquote:text-3xl [&_blockquote_p]:before:content-none [&_blockquote_p]:after:content-none [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden"
+        dangerouslySetInnerHTML={{ __html: voyage.html }}
+      />
+
+      {voyage.bouton && (
+        <div className="mt-10 flex justify-center">
+          <Link
+            href="/?mode=inscription"
+            className="rounded-xl bg-accent px-6 py-3 text-base font-semibold text-white hover:opacity-90 transition-opacity"
+          >
+            {voyage.bouton}
+          </Link>
+        </div>
+      )}
+    </article>
   )
 }

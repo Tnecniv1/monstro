@@ -4,7 +4,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import matter from 'gray-matter'
-import { unified } from 'unified'
+import { unified, type PluggableList } from 'unified'
 import remarkParse from 'remark-parse'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -17,6 +17,9 @@ import type { Image, Root, Text } from 'mdast'
 // Même liste que scripts/copy-article-images.mjs
 export const SECTIONS = ['philosophie', 'problemes'] as const
 export type Section = (typeof SECTIONS)[number]
+
+// Dossiers de content/ rendus par le pipeline : les sections d'articles et la page /voyage (lib/voyage.ts)
+type Dossier = Section | 'voyage'
 
 export const SECTION_LABELS: Record<Section, string> = {
   philosophie: 'Philosophie',
@@ -37,7 +40,7 @@ export type Article = {
 
 const CONTENT_DIR = path.join(process.cwd(), 'content')
 
-class ArticleError extends Error {
+export class ArticleError extends Error {
   constructor(fichier: string, message: string, ligne?: number) {
     const lieu = ligne ? `${fichier}:${ligne}` : fichier
     super(`[articles] ${lieu} — ${message}`)
@@ -69,7 +72,7 @@ export function formatDateLongue(date: string): string {
   })
 }
 
-function champTexte(data: Record<string, unknown>, champ: string, fichier: string): string {
+export function champTexte(data: Record<string, unknown>, champ: string, fichier: string): string {
   const valeur = data[champ]
   if (typeof valeur !== 'string' || !valeur.trim()) {
     throw new ArticleError(fichier, `champ obligatoire « ${champ} » manquant ou vide dans l'en-tête`)
@@ -99,7 +102,7 @@ function champDate(data: Record<string, unknown>, enteteBrut: string, fichier: s
 
 // Chemin relatif Obsidian (images/x.png, éventuellement encodé %20) → URL publique.
 // L'image doit exister et se trouver dans content/<section>/images/ (seul dossier copié dans public/).
-function urlImage(section: Section, cheminRelatif: string, fichier: string, ligne?: number): string {
+function urlImage(section: Dossier, cheminRelatif: string, fichier: string, ligne?: number): string {
   let decode: string
   try {
     decode = decodeURI(cheminRelatif)
@@ -125,7 +128,7 @@ function estCheminRelatif(url: string): boolean {
 
 // Plugin remark : refuse les wikilinks Obsidian et réécrit les images relatives du corps.
 // Travaille sur l'arbre Markdown, donc ignore le code et les formules (ex. $[[1,n]]$).
-function remarkObsidian(options: { section: Section; fichier: string; decalage: number }) {
+function remarkObsidian(options: { section: Dossier; fichier: string; decalage: number }) {
   const { section, fichier, decalage } = options
   return (tree: Root) => {
     visit(tree, 'text', (node: Text) => {
@@ -148,12 +151,10 @@ function remarkObsidian(options: { section: Section; fichier: string; decalage: 
   }
 }
 
-function lireArticle(section: Section, nomFichier: string): Article | null {
-  const fichier = `content/${section}/${nomFichier}`
-  const source = fs.readFileSync(path.join(CONTENT_DIR, section, nomFichier), 'utf8')
-  let parsed: matter.GrayMatterFile<string>
+// En-tête YAML et corps d'un fichier Markdown du coffre
+export function lireEntete(fichier: string, source: string): matter.GrayMatterFile<string> {
   try {
-    parsed = matter(source)
+    return matter(source)
   } catch (e) {
     // Erreur YAML : js-yaml numérote depuis la fin de la ligne « --- » d'ouverture (0), d'où le +1
     const err = e as { reason?: string; message?: string; mark?: { line: number } }
@@ -164,7 +165,37 @@ function lireArticle(section: Section, nomFichier: string): Article | null {
       err.mark ? err.mark.line + 1 : undefined,
     )
   }
-  const { data, content, matter: enteteBrut } = parsed
+}
+
+// Corps Markdown → HTML. `rehypeAvantKatex` : plugins appliqués à l'arbre HTML avant le rendu des
+// formules (à ce stade, maths et code sont encore des éléments <code>).
+export function rendreMarkdown(
+  section: Dossier,
+  fichier: string,
+  source: string,
+  content: string,
+  rehypeAvantKatex: PluggableList = [],
+): string {
+  // Numéro de ligne dans le fichier = ligne dans le corps + lignes de l'en-tête
+  const decalage = source.split('\n').length - content.split('\n').length
+
+  return unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkMath)
+    .use(remarkObsidian, { section, fichier, decalage })
+    .use(remarkRehype)
+    .use(rehypeAvantKatex)
+    .use(rehypeKatex)
+    .use(rehypeStringify)
+    .processSync(content)
+    .toString()
+}
+
+function lireArticle(section: Section, nomFichier: string): Article | null {
+  const fichier = `content/${section}/${nomFichier}`
+  const source = fs.readFileSync(path.join(CONTENT_DIR, section, nomFichier), 'utf8')
+  const { data, content, matter: enteteBrut } = lireEntete(fichier, source)
 
   // Brouillon : exclu du site, sans validation (il peut être incomplet)
   if (data.brouillon === true) return null
@@ -179,19 +210,7 @@ function lireArticle(section: Section, nomFichier: string): Article | null {
   const slug = data.slug ? slugify(String(data.slug)) : slugify(nomFichier.replace(/\.md$/i, ''))
   if (!slug) throw new ArticleError(fichier, 'slug vide (nom de fichier ou champ « slug » sans lettre ni chiffre)')
 
-  // Numéro de ligne dans le fichier = ligne dans le corps + lignes de l'en-tête
-  const decalage = source.split('\n').length - content.split('\n').length
-
-  const html = unified()
-    .use(remarkParse)
-    .use(remarkGfm)
-    .use(remarkMath)
-    .use(remarkObsidian, { section, fichier, decalage })
-    .use(remarkRehype)
-    .use(rehypeKatex)
-    .use(rehypeStringify)
-    .processSync(content)
-    .toString()
+  const html = rendreMarkdown(section, fichier, source, content)
 
   return { section, slug, titre, description, date, image, html }
 }
