@@ -1,34 +1,12 @@
 'use client'
 
+import Avatar from '@/app/components/Avatar'
+
 interface UserScore {
   id: string
   pseudo: string
   score: number
   avatar_url?: string | null
-}
-
-function Avatar({ url, pseudo, size }: { url?: string | null; pseudo: string; size: number }) {
-  const initial = pseudo ? pseudo[0].toUpperCase() : '?'
-  if (url) {
-    return (
-      <img
-        src={url}
-        alt={pseudo}
-        width={size}
-        height={size}
-        className="rounded-full object-cover"
-        style={{ width: size, height: size }}
-      />
-    )
-  }
-  return (
-    <div
-      className="rounded-full bg-surface-2 flex items-center justify-center font-semibold text-text-secondary"
-      style={{ width: size, height: size, fontSize: size * 0.4 }}
-    >
-      {initial}
-    </div>
-  )
 }
 
 interface Props {

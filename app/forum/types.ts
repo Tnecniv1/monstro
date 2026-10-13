@@ -57,9 +57,29 @@ export type ActiveTopic =
   | { kind: 'sens'; id: string; nom: string; displayMode: 'tickets' | 'resources' }
   | { kind: 'questions' }
 
-// Onglet de la page forum : Scripts (cartes des scripts), ou un panneau
-// ActiveTopic (topic de sens ou Questions).
-export type ForumOnglet = { kind: 'scripts' } | ActiveTopic
+// Onglet de la page forum : Scripts (cartes des scripts), un panneau
+// ActiveTopic (topic de sens ou Questions), ou Équipe (sessions en direct).
+export type ForumOnglet = { kind: 'scripts' } | ActiveTopic | { kind: 'equipe' }
+
+// Session en direct (visio) — ligne renvoyée par la RPC get_live_sessions().
+// lien : null tant que l'on n'est ni inscrit ni admin.
+// inscrits : liste des élèves pour un admin, null sinon.
+// inscrits_initiales / inscrits_avatars : les 5 premiers inscrits (initiale du
+// prénom, photo de profil ou null), dans le même ordre, visibles par tous.
+export type LiveSession = {
+  id: string
+  debut: string
+  duree_minutes: number
+  places: number
+  animateur_nom: string
+  animateur_avatar_url: string | null
+  nb_inscrits: number
+  inscrit: boolean
+  lien: string | null
+  inscrits: { prenom: string | null; nom: string | null; pseudo: string | null }[] | null
+  inscrits_initiales: string[]
+  inscrits_avatars: (string | null)[]
+}
 
 // Sujet d'une question — null pour un ticket de topic de sens.
 // probleme : feuille_id obligatoire (+ numero_exercice à la création).

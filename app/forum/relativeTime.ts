@@ -38,6 +38,17 @@ export function formatHeure(iso: string): string {
   return new Date(iso).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' })
 }
 
+// Jour et date à l'heure de Paris, sans l'année : "Jeudi 15 octobre" (sessions en direct).
+export function formatJourDate(iso: string): string {
+  const texte = new Date(iso).toLocaleDateString('fr-FR', {
+    timeZone: 'Europe/Paris',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+  return texte.charAt(0).toUpperCase() + texte.slice(1)
+}
+
 // Séparateur de jour : "Aujourd'hui", "Hier", puis la date ("3 octobre 2026").
 export function libelleJour(jour: string): string {
   const aujourdhui = jourParis(new Date().toISOString())

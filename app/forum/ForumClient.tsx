@@ -10,6 +10,7 @@ import ScriptTextModal from './ScriptTextModal'
 import ScriptPdfModal from './ScriptPdfModal'
 import ForumTabs from './ForumTabs'
 import TicketsPanel from './TicketsPanel'
+import EquipePanel from './EquipePanel'
 import { TICKET_COLUMNS } from './types'
 import type { ActiveTopic, Feuille, ForumOnglet, ForumResource, ForumScript, ForumTicket, ForumTopic, InitialTicket } from './types'
 
@@ -193,6 +194,10 @@ export default function ForumClient({
               variant="grid"
               emptyMessage="Aucune ressource pour l'instant."
             />
+          </div>
+        ) : activeTopic.kind === 'equipe' ? (
+          <div className="md:min-h-0 md:flex-1 md:overflow-y-auto">
+            <EquipePanel userId={userId} isAdmin={isAdmin} />
           </div>
         ) : (
           <TicketsPanel

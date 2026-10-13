@@ -9,7 +9,7 @@ interface Props {
 }
 
 // Barre d'onglets : Scripts, puis les topics "de sens" dans l'ordre de
-// forum_topics (Philosophie, Ressources…), puis Questions.
+// forum_topics (Philosophie, Ressources…), puis Questions et Équipe.
 export default function ForumTabs({ topicsSens, selected, onSelect }: Props) {
   const onglets: { key: string; label: string; active: boolean; topic: ForumOnglet }[] = [
     { key: 'scripts', label: 'Scripts', active: selected.kind === 'scripts', topic: { kind: 'scripts' } },
@@ -20,6 +20,7 @@ export default function ForumTabs({ topicsSens, selected, onSelect }: Props) {
       topic: { kind: 'sens', id: t.id, nom: t.nom, displayMode: t.display_mode } as ForumOnglet,
     })),
     { key: 'questions', label: 'Questions', active: selected.kind === 'questions', topic: { kind: 'questions' } },
+    { key: 'equipe', label: 'Équipe', active: selected.kind === 'equipe', topic: { kind: 'equipe' } },
   ]
 
   return (
