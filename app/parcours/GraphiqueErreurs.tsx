@@ -9,24 +9,23 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts'
+import { SECTIONS_ERREURS, type CompteursErreurs } from '@/lib/erreurs'
 
-export type ErreurRaw = {
-  c1: number; c2: number; c3: number; c4: number
-  s1: number; s2: number; s3: number; s4: number
-  r1: number; r2: number; r3: number; r4: number
-  entrainement: { date_creation: string }
-}
+export type ErreurRaw = CompteursErreurs & { entrainement: { date_creation: string } }
+
+// Couleur de chaque courbe, dans l'ordre de SECTIONS_ERREURS (Compréhension, Savoir, Rédaction).
+const COULEURS = ['#6D28D9', '#3B6E96', '#B45309']
 
 export default function GraphiqueErreurs({ erreurs }: { erreurs: ErreurRaw[] }) {
-  const blocs = []
+  const blocs: Record<string, string | number>[] = []
   for (let i = 0; i < erreurs.length; i += 50) {
     const bloc = erreurs.slice(i, i + 50)
-    blocs.push({
-      label: `#${Math.floor(i / 50) + 1}`,
-      comprehension: bloc.reduce((s, e) => s + e.c1 + e.c2 + e.c3 + e.c4, 0),
-      savoir: bloc.reduce((s, e) => s + e.s1 + e.s2 + e.s3 + e.s4, 0),
-      redaction: bloc.reduce((s, e) => s + e.r1 + e.r2 + e.r3 + e.r4, 0),
-    })
+    const point: Record<string, string | number> = { label: `#${Math.floor(i / 50) + 1}` }
+    // Total de chaque section sur le bloc (somme de ses quatre compteurs).
+    for (const s of SECTIONS_ERREURS) {
+      point[s.titre] = bloc.reduce((t, e) => t + s.items.reduce((u, item) => u + e[item.cle], 0), 0)
+    }
+    blocs.push(point)
   }
 
   if (blocs.length === 0) {
@@ -58,30 +57,17 @@ export default function GraphiqueErreurs({ erreurs }: { erreurs: ErreurRaw[] }) 
             itemStyle={{ color: '#1F2937' }}
           />
           <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8, color: '#69707D' }} />
-          <Line
-            type="monotone"
-            dataKey="comprehension"
-            name="Compréhension"
-            stroke="#6D28D9"
-            dot={false}
-            strokeWidth={2}
-          />
-          <Line
-            type="monotone"
-            dataKey="savoir"
-            name="Savoir"
-            stroke="#3B6E96"
-            dot={false}
-            strokeWidth={2}
-          />
-          <Line
-            type="monotone"
-            dataKey="redaction"
-            name="Rédaction"
-            stroke="#B45309"
-            dot={false}
-            strokeWidth={2}
-          />
+          {SECTIONS_ERREURS.map((s, i) => (
+            <Line
+              key={s.titre}
+              type="monotone"
+              dataKey={s.titre}
+              name={s.titre}
+              stroke={COULEURS[i]}
+              dot={false}
+              strokeWidth={2}
+            />
+          ))}
         </LineChart>
       </ResponsiveContainer>
     </div>

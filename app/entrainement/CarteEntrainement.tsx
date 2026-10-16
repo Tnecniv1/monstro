@@ -5,13 +5,9 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ErreurModal from './ErreurModal'
 import { getSignedPdfUrl } from '@/lib/getSignedPdfUrl'
+import type { CompteursErreurs } from '@/lib/erreurs'
 
 type Session = { temps_min: number; date: string }
-type ErreurCounts = {
-  c1: number; c2: number; c3: number; c4: number
-  s1: number; s2: number; s3: number; s4: number
-  r1: number; r2: number; r3: number; r4: number
-}
 type CorrectionTentative = { id: string; statut: string; date_creation: string }
 
 export type Entrainement = {
@@ -22,7 +18,7 @@ export type Entrainement = {
   feuille_entrainement: { titre: string; correction: { pdf_url: string } | null } | null
   observation: { etat: string } | null
   session: Session[]
-  erreur: ErreurCounts | ErreurCounts[] | null
+  erreur: CompteursErreurs | CompteursErreurs[] | null
   correction_tentative: CorrectionTentative[]
 }
 
@@ -432,6 +428,11 @@ export default function CarteEntrainement({
         <ErreurModal
           entrainementId={e.id}
           onClose={() => setShowErreurs(false)}
+          // Recharge les données de la page : le bouton E / total reflète la saisie.
+          onSaved={() => {
+            setShowErreurs(false)
+            router.refresh()
+          }}
         />
       )}
     </div>

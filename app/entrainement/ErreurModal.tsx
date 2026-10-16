@@ -2,46 +2,37 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { CLES_ERREURS, SECTIONS_ERREURS, compteursVides, type CleErreur, type CompteursErreurs } from '@/lib/erreurs'
 
-type Compteurs = {
-  c1: number; c2: number; c3: number; c4: number
-  s1: number; s2: number; s3: number; s4: number
-  r1: number; r2: number; r3: number; r4: number
-}
-
-const INITIAL: Compteurs = {
-  c1: 0, c2: 0, c3: 0, c4: 0,
-  s1: 0, s2: 0, s3: 0, s4: 0,
-  r1: 0, r2: 0, r3: 0, r4: 0,
-}
+const COMPTEUR_BTN =
+  'flex w-8 h-8 items-center justify-center rounded border border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-900 transition-colors text-sm font-medium'
 
 function Row({
-  label,
+  code,
+  description,
   value,
   onInc,
   onDec,
 }: {
-  label: string
+  code: string
+  description: string
   value: number
   onInc: () => void
   onDec: () => void
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="w-8 text-sm font-medium text-gray-700 uppercase">{label}</span>
-      <span className="w-6 text-center text-sm text-gray-900">{value}</span>
-      <button
-        onClick={onInc}
-        className="w-7 h-7 rounded border border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-900 transition-colors text-sm font-medium"
-      >
-        +
-      </button>
-      <button
-        onClick={onDec}
-        className="w-7 h-7 rounded border border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-900 transition-colors text-sm font-medium"
-      >
-        −
-      </button>
+    <div className="flex items-start gap-3">
+      <span className="w-7 shrink-0 pt-1.5 text-sm font-semibold text-gray-900">{code}</span>
+      <span className="min-w-0 flex-1 pt-1.5 text-sm text-gray-500">{description}</span>
+      <div className="flex shrink-0 items-center gap-1.5">
+        <button type="button" onClick={onDec} aria-label={`Retirer une erreur ${code}`} className={COMPTEUR_BTN}>
+          −
+        </button>
+        <span className="w-6 text-center text-sm tabular-nums text-gray-900">{value}</span>
+        <button type="button" onClick={onInc} aria-label={`Ajouter une erreur ${code}`} className={COMPTEUR_BTN}>
+          +
+        </button>
+      </div>
     </div>
   )
 }
@@ -49,44 +40,52 @@ function Row({
 export default function ErreurModal({
   entrainementId,
   onClose,
+  onSaved,
 }: {
   entrainementId: string
   onClose: () => void
+  // Enregistrement réussi : la carte se met à jour (bouton E / total).
+  onSaved: () => void
 }) {
   const supabase = createClient()
-  const [compteurs, setCompteurs] = useState<Compteurs>(INITIAL)
+  const [compteurs, setCompteurs] = useState<CompteursErreurs>(compteursVides)
   const [loading, setLoading] = useState(true)
+  // Lecture échouée : Enregistrer reste désactivé, pour ne pas écraser une
+  // ligne existante qu'on n'a pas pu lire.
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
+      // maybeSingle : pas de ligne → data null sans erreur (compteurs à 0).
+      const { data, error: err } = await supabase
         .from('erreur')
         .select('*')
         .eq('entrainement_id', entrainementId)
-        .single()
-      if (data) {
-        setCompteurs({
-          c1: data.c1 ?? 0, c2: data.c2 ?? 0, c3: data.c3 ?? 0, c4: data.c4 ?? 0,
-          s1: data.s1 ?? 0, s2: data.s2 ?? 0, s3: data.s3 ?? 0, s4: data.s4 ?? 0,
-          r1: data.r1 ?? 0, r2: data.r2 ?? 0, r3: data.r3 ?? 0, r4: data.r4 ?? 0,
-        })
+        .maybeSingle()
+      if (err) {
+        setLoadError(err.message)
+      } else if (data) {
+        const lus = compteursVides()
+        for (const k of CLES_ERREURS) lus[k] = data[k] ?? 0
+        setCompteurs(lus)
       }
       setLoading(false)
     }
     load()
   }, [entrainementId])
 
-  function inc(key: keyof Compteurs) {
+  function inc(key: CleErreur) {
     setCompteurs(prev => ({ ...prev, [key]: prev[key] + 1 }))
   }
 
-  function dec(key: keyof Compteurs) {
+  function dec(key: CleErreur) {
     setCompteurs(prev => ({ ...prev, [key]: Math.max(0, prev[key] - 1) }))
   }
 
   async function handleSave() {
+    if (loadError) return
     setSaving(true)
     setError(null)
     const { error: err } = await supabase
@@ -95,57 +94,72 @@ export default function ErreurModal({
     if (err) {
       setError(err.message)
     } else {
-      onClose()
+      onSaved()
     }
     setSaving(false)
   }
 
-  const section = (titre: string, keys: (keyof Compteurs)[]) => (
-    <div className="space-y-2">
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{titre}</p>
-      {keys.map(k => (
-        <Row
-          key={k}
-          label={k}
-          value={compteurs[k]}
-          onInc={() => inc(k)}
-          onDec={() => dec(k)}
-        />
-      ))}
-    </div>
-  )
-
+  // Sur téléphone : la modale tient dans l'écran, seule la liste défile ;
+  // en-tête et boutons restent visibles.
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="bg-white rounded-xl max-w-sm w-full mx-4 p-6 space-y-5 shadow-lg">
-        <div className="flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="flex max-h-full w-full max-w-md flex-col rounded-xl bg-white shadow-lg">
+        <div className="flex shrink-0 items-center justify-between px-6 pt-6 pb-4">
           <h2 className="text-sm font-semibold text-gray-900">Erreurs</h2>
-          <button onClick={onClose} className="text-xs text-gray-400 hover:text-gray-700">
+          <button type="button" onClick={onClose} aria-label="Fermer" className="text-xs text-gray-400 hover:text-gray-700">
             ✕
           </button>
         </div>
 
-        {loading ? (
-          <p className="text-sm text-gray-400 text-center py-4">Chargement…</p>
-        ) : (
-          <div className="space-y-5">
-            {section('Compréhension', ['c1', 'c2', 'c3', 'c4'])}
-            <div className="border-t border-gray-100" />
-            {section('Savoir', ['s1', 's2', 's3', 's4'])}
-            <div className="border-t border-gray-100" />
-            {section('Rédaction', ['r1', 'r2', 'r3', 'r4'])}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6">
+          {loading ? (
+            <p className="text-sm text-gray-400 text-center py-4">Chargement…</p>
+          ) : loadError ? (
+            <p className="text-sm text-red-600 py-4">Impossible de lire les erreurs : {loadError}</p>
+          ) : (
+            <div className="space-y-5 pb-2">
+              {SECTIONS_ERREURS.map((section, i) => (
+                <div key={section.titre} className="space-y-5">
+                  {i > 0 && <div className="border-t border-gray-100" />}
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{section.titre}</p>
+                    {section.items.map((item) => (
+                      <Row
+                        key={item.cle}
+                        code={item.code}
+                        description={item.description}
+                        value={compteurs[item.cle]}
+                        onInc={() => inc(item.cle)}
+                        onDec={() => dec(item.cle)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="shrink-0 space-y-3 border-t border-gray-100 px-6 pt-4 pb-6">
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-700 hover:border-gray-400 transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || loading || !!loadError}
+              className="flex-1 rounded-lg bg-black py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
           </div>
-        )}
-
-        {error && <p className="text-xs text-red-600">{error}</p>}
-
-        <button
-          onClick={handleSave}
-          disabled={saving || loading}
-          className="w-full rounded-lg bg-black py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50 transition-colors"
-        >
-          {saving ? 'Enregistrement…' : 'Enregistrer'}
-        </button>
+        </div>
       </div>
     </div>
   )
