@@ -24,6 +24,8 @@ interface Props {
   selectedTicketId: string | null
   onSelectTicket: (id: string | null) => void
   onTicketsChanged?: () => void
+  // Pastille Questions à recalculer (lecture ou résolution dans Conversation).
+  onCompteurChanged?: () => void
 }
 
 export default function TicketsPanel({
@@ -37,6 +39,7 @@ export default function TicketsPanel({
   selectedTicketId,
   onSelectTicket,
   onTicketsChanged,
+  onCompteurChanged,
 }: Props) {
   const supabase = createClient()
   const isQuestions = activeTopic.kind === 'questions'
@@ -289,6 +292,7 @@ export default function TicketsPanel({
             onBack={() => onSelectTicket(null)}
             onUpdated={(patch) => handleTicketUpdated(selectedTicket.id, patch)}
             onDeleted={() => handleTicketDeleted(selectedTicket.id)}
+            onCompteurChanged={onCompteurChanged}
           />
         ) : (
           <div className="flex flex-1 items-center justify-center p-8 text-sm text-text-muted">

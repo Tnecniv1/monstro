@@ -30,6 +30,8 @@ interface Props {
   // Remonte la modification au panneau pour mettre à jour la liste.
   onUpdated: (patch: Partial<Pick<ForumTicket, 'statut' | 'epingle'>>) => void
   onDeleted: () => void
+  // Lecture enregistrée ou question résolue : la pastille Questions se recalcule.
+  onCompteurChanged?: () => void
 }
 
 // Conversation d'un ticket, façon messagerie : en-tête fixe, messages qui
@@ -44,6 +46,7 @@ export default function Conversation({
   onBack,
   onUpdated,
   onDeleted,
+  onCompteurChanged,
 }: Props) {
   const supabase = createClient()
 
@@ -64,6 +67,20 @@ export default function Conversation({
   const canManageTicket = isAuthor || isAdmin
   const reference = isQuestion ? questionReference(ticket, feuilleById, scriptById) : null
 
+  // Marque le ticket comme lu (forum_lecture) puis recalcule la pastille.
+  // lu_le est imposé à now() par un trigger côté serveur ; la valeur envoyée
+  // est ignorée. Échec silencieux : la lecture n'est qu'une aide à l'affichage.
+  async function marquerLu() {
+    if (!userId) return
+    await supabase
+      .from('forum_lecture')
+      .upsert(
+        { user_id: userId, ticket_id: ticket.id, lu_le: new Date().toISOString() },
+        { onConflict: 'user_id,ticket_id' }
+      )
+    onCompteurChanged?.()
+  }
+
   // .select('id') : une mise à jour filtrée par la RLS ne renvoie pas
   // d'erreur, juste 0 ligne — on le détecte pour ne pas afficher un faux succès.
   async function handleResolve() {
@@ -81,6 +98,7 @@ export default function Conversation({
       setActionError("Tu n'as pas le droit de fermer ce ticket.")
     } else {
       onUpdated({ statut: 'ferme' })
+      onCompteurChanged?.()
     }
   }
 
@@ -147,6 +165,8 @@ export default function Conversation({
     }
 
     charger()
+    // Ouverture du ticket (clic dans la liste ou lien ?ticket=<id>).
+    marquerLu()
     return () => {
       cancelled = true
     }
@@ -189,6 +209,7 @@ export default function Conversation({
 
     setMessages((prev) => [...prev, newMessage as ForumMessage])
     setSending(false)
+    marquerLu()
     // Première réponse de l'utilisateur dans cette discussion : son pseudo
     // n'a pas encore été chargé — on le récupère au lieu d'afficher "—".
     if (!pseudos.has(userId)) {

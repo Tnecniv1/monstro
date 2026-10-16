@@ -11,6 +11,7 @@ import ScriptPdfModal from './ScriptPdfModal'
 import ForumTabs from './ForumTabs'
 import TicketsPanel from './TicketsPanel'
 import EquipePanel from './EquipePanel'
+import { useForumCompteur } from './useForumCompteur'
 import { TICKET_COLUMNS } from './types'
 import type { ActiveTopic, Feuille, ForumOnglet, ForumResource, ForumScript, ForumTicket, ForumTopic, InitialTicket } from './types'
 
@@ -130,6 +131,9 @@ export default function ForumClient({
     }
   }, [userId, monTicketVersion])
 
+  // Pastille de l'onglet Questions, rafraîchie après chaque lecture ou résolution.
+  const { count: compteurQuestions, refresh: refreshCompteur } = useForumCompteur()
+
   function refreshMonTicket() {
     setMonTicketVersion((v) => v + 1)
   }
@@ -179,7 +183,12 @@ export default function ForumClient({
           (seulement sur un écran très bas : 1366×768 tient sans défilement). */}
       <div className="flex flex-col gap-4 md:min-h-[20rem] md:flex-1">
         <div className="shrink-0">
-          <ForumTabs topicsSens={topicsSens} selected={activeTopic} onSelect={selectTopic} />
+          <ForumTabs
+            topicsSens={topicsSens}
+            selected={activeTopic}
+            onSelect={selectTopic}
+            compteurQuestions={compteurQuestions}
+          />
         </div>
 
         {activeTopic.kind === 'scripts' ? (
@@ -212,6 +221,7 @@ export default function ForumClient({
             selectedTicketId={selectedTicketId}
             onSelectTicket={setSelectedTicketId}
             onTicketsChanged={refreshMonTicket}
+            onCompteurChanged={refreshCompteur}
           />
         )}
       </div>

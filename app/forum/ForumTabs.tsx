@@ -6,12 +6,14 @@ interface Props {
   topicsSens: ForumTopic[]
   selected: ForumOnglet
   onSelect: (onglet: ForumOnglet) => void
+  // Questions en attente (pastille de l'onglet Questions, masquée à 0).
+  compteurQuestions: number
 }
 
 // Barre d'onglets : Scripts, puis les topics "de sens" dans l'ordre de
 // forum_topics (Philosophie, Ressources…), puis Questions et Équipe.
-export default function ForumTabs({ topicsSens, selected, onSelect }: Props) {
-  const onglets: { key: string; label: string; active: boolean; topic: ForumOnglet }[] = [
+export default function ForumTabs({ topicsSens, selected, onSelect, compteurQuestions }: Props) {
+  const onglets: { key: string; label: string; active: boolean; topic: ForumOnglet; badge?: number }[] = [
     { key: 'scripts', label: 'Scripts', active: selected.kind === 'scripts', topic: { kind: 'scripts' } },
     ...topicsSens.map((t) => ({
       key: t.id,
@@ -19,7 +21,7 @@ export default function ForumTabs({ topicsSens, selected, onSelect }: Props) {
       active: selected.kind === 'sens' && selected.id === t.id,
       topic: { kind: 'sens', id: t.id, nom: t.nom, displayMode: t.display_mode } as ForumOnglet,
     })),
-    { key: 'questions', label: 'Questions', active: selected.kind === 'questions', topic: { kind: 'questions' } },
+    { key: 'questions', label: 'Questions', active: selected.kind === 'questions', topic: { kind: 'questions' }, badge: compteurQuestions },
     { key: 'equipe', label: 'Équipe', active: selected.kind === 'equipe', topic: { kind: 'equipe' } },
   ]
 
@@ -38,7 +40,17 @@ export default function ForumTabs({ topicsSens, selected, onSelect }: Props) {
               : 'border-transparent text-text-muted hover:text-text-secondary'
           }`}
         >
-          {o.label}
+          {/* Pastille dans le padding du bouton : la barre (overflow-x-auto)
+              rognerait tout ce qui en déborde. */}
+          <span className="relative">
+            {o.label}
+            {o.badge != null && o.badge > 0 && (
+              <span className="absolute -right-3.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white">
+                {o.badge > 9 ? '9+' : o.badge}
+                <span className="sr-only"> en attente</span>
+              </span>
+            )}
+          </span>
         </button>
       ))}
     </div>
