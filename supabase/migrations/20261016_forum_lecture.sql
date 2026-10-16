@@ -58,15 +58,17 @@ as $$
     and (moi.admin or t.user_id = moi.uid)
     and (
       (moi.admin and not exists (
-         select 1 from forum_messages m where m.ticket_id = t.id))
+         select 1 from forum_messages m where m.ticket_id = t.id and m.user_id <> t.user_id))
       or exists (
          select 1 from forum_messages m
          where m.ticket_id = t.id
+           -- Admin : la réponse d'un autre admin compte aussi (accepté : un seul admin)
            and m.user_id <> moi.uid
            and m.created_at > coalesce(l.lu_le, '-infinity'::timestamptz))
     );
 $$;
 
+revoke execute on function public.forum_compteur_attente() from public, anon;
 grant execute on function public.forum_compteur_attente() to authenticated;
 
 notify pgrst, 'reload schema';
