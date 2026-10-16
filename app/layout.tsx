@@ -5,6 +5,7 @@ import "./globals.css";
 import "katex/dist/katex.min.css";
 import { SITE_URL } from "@/lib/site";
 import OnboardingGate from "./onboarding/OnboardingGate";
+import { ForumAttenteProvider } from "./components/ForumAttenteProvider";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -32,8 +33,10 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className={`${geistSans.variable} ${geistMono.variable} ${cinzel.variable} antialiased`}>
-        {children}
-        <OnboardingGate />
+        <ForumAttenteProvider>
+          {children}
+          <OnboardingGate />
+        </ForumAttenteProvider>
       </body>
     </html>
   );

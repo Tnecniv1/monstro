@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useForumAttente } from '../components/ForumAttenteProvider'
+import { PointAttente } from '../components/PastilleCompteur'
 import { fetchPseudoMap } from './profiles'
 import { formatRelative } from './relativeTime'
 import NouveauTicketModal from './NouveauTicketModal'
@@ -24,8 +26,6 @@ interface Props {
   selectedTicketId: string | null
   onSelectTicket: (id: string | null) => void
   onTicketsChanged?: () => void
-  // Pastille Questions à recalculer (lecture ou résolution dans Conversation).
-  onCompteurChanged?: () => void
 }
 
 export default function TicketsPanel({
@@ -39,9 +39,9 @@ export default function TicketsPanel({
   selectedTicketId,
   onSelectTicket,
   onTicketsChanged,
-  onCompteurChanged,
 }: Props) {
   const supabase = createClient()
+  const { ids: enAttente } = useForumAttente()
   const isQuestions = activeTopic.kind === 'questions'
 
   const [tickets, setTickets] = useState<ForumTicket[]>([])
@@ -260,7 +260,10 @@ export default function TicketsPanel({
                     </div>
                   )}
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-medium text-text-primary">{t.titre}</p>
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      {enAttente.has(t.id) && <PointAttente />}
+                      <p className="truncate text-sm font-medium text-text-primary">{t.titre}</p>
+                    </span>
                     {t.statut && (
                       <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUT_STYLE[t.statut] ?? 'bg-surface-2 text-text-secondary'}`}>
                         {STATUT_LABEL[t.statut] ?? t.statut}
@@ -292,7 +295,6 @@ export default function TicketsPanel({
             onBack={() => onSelectTicket(null)}
             onUpdated={(patch) => handleTicketUpdated(selectedTicket.id, patch)}
             onDeleted={() => handleTicketDeleted(selectedTicket.id)}
-            onCompteurChanged={onCompteurChanged}
           />
         ) : (
           <div className="flex flex-1 items-center justify-center p-8 text-sm text-text-muted">

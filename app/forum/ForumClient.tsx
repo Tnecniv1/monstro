@@ -11,7 +11,8 @@ import ScriptPdfModal from './ScriptPdfModal'
 import ForumTabs from './ForumTabs'
 import TicketsPanel from './TicketsPanel'
 import EquipePanel from './EquipePanel'
-import { useForumCompteur } from './useForumCompteur'
+import { useForumAttente } from '../components/ForumAttenteProvider'
+import { PointAttente } from '../components/PastilleCompteur'
 import { TICKET_COLUMNS } from './types'
 import type { ActiveTopic, Feuille, ForumOnglet, ForumResource, ForumScript, ForumTicket, ForumTopic, InitialTicket } from './types'
 
@@ -131,8 +132,8 @@ export default function ForumClient({
     }
   }, [userId, monTicketVersion])
 
-  // Pastille de l'onglet Questions, rafraîchie après chaque lecture ou résolution.
-  const { count: compteurQuestions, refresh: refreshCompteur } = useForumCompteur()
+  // Questions en attente (pastille de l'onglet Questions, point de « Ton ticket en cours »).
+  const { ids: enAttente, count: compteurQuestions } = useForumAttente()
 
   function refreshMonTicket() {
     setMonTicketVersion((v) => v + 1)
@@ -171,8 +172,11 @@ export default function ForumClient({
           onClick={openMonTicket}
           className="w-full shrink-0 flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/5 px-4 py-2.5 text-left hover:bg-accent/10 transition-colors"
         >
-          <span className="text-sm text-text-primary truncate">
-            <span className="font-medium">Ton ticket en cours</span> — {monTicket.titre}
+          <span className="flex min-w-0 items-center gap-2">
+            {enAttente.has(monTicket.id) && <PointAttente />}
+            <span className="text-sm text-text-primary truncate">
+              <span className="font-medium">Ton ticket en cours</span> — {monTicket.titre}
+            </span>
           </span>
           <span className="text-xs font-medium text-accent shrink-0">Ouvrir →</span>
         </button>
@@ -221,7 +225,6 @@ export default function ForumClient({
             selectedTicketId={selectedTicketId}
             onSelectTicket={setSelectedTicketId}
             onTicketsChanged={refreshMonTicket}
-            onCompteurChanged={refreshCompteur}
           />
         )}
       </div>

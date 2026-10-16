@@ -1,6 +1,7 @@
 'use client'
 
 import type { ForumOnglet, ForumTopic } from './types'
+import PastilleCompteur from '../components/PastilleCompteur'
 
 interface Props {
   topicsSens: ForumTopic[]
@@ -44,12 +45,7 @@ export default function ForumTabs({ topicsSens, selected, onSelect, compteurQues
               rognerait tout ce qui en déborde. */}
           <span className="relative">
             {o.label}
-            {o.badge != null && o.badge > 0 && (
-              <span className="absolute -right-3.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white">
-                {o.badge > 9 ? '9+' : o.badge}
-                <span className="sr-only"> en attente</span>
-              </span>
-            )}
+            {o.badge != null && <PastilleCompteur count={o.badge} className="absolute -right-3.5 -top-2" />}
           </span>
         </button>
       ))}

@@ -6,6 +6,7 @@ import PixelGrid from './components/PixelGrid'
 import StreakBadge from './components/StreakBadge'
 import LogoutButton from './components/LogoutButton'
 import LandingPage from './components/LandingPage'
+import EntreeForum from './components/EntreeForum'
 
 export const metadata: Metadata = {
   title: 'Monstro — Apprendre à raisonner.',
@@ -159,9 +160,7 @@ export default async function HomePage() {
         <Link href="/parcours" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
           Parcours
         </Link>
-        <Link href="/forum" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
-          Forum
-        </Link>
+        <EntreeForum />
         <Link href="/apprendre" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
           Défi
         </Link>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useForumAttente } from '../components/ForumAttenteProvider'
 import Composer from './Composer'
 import KebabMenu, { type KebabItem } from './KebabMenu'
 import MessageList from './MessageList'
@@ -30,8 +31,6 @@ interface Props {
   // Remonte la modification au panneau pour mettre à jour la liste.
   onUpdated: (patch: Partial<Pick<ForumTicket, 'statut' | 'epingle'>>) => void
   onDeleted: () => void
-  // Lecture enregistrée ou question résolue : la pastille Questions se recalcule.
-  onCompteurChanged?: () => void
 }
 
 // Conversation d'un ticket, façon messagerie : en-tête fixe, messages qui
@@ -46,9 +45,10 @@ export default function Conversation({
   onBack,
   onUpdated,
   onDeleted,
-  onCompteurChanged,
 }: Props) {
   const supabase = createClient()
+  // Lecture enregistrée ou question résolue : l'état « en attente » partagé se recalcule.
+  const { refresh: refreshAttente } = useForumAttente()
 
   const [messages, setMessages] = useState<ForumMessage[]>([])
   const [pseudos, setPseudos] = useState<Map<string, string>>(new Map())
@@ -78,7 +78,7 @@ export default function Conversation({
         { user_id: userId, ticket_id: ticket.id, lu_le: new Date().toISOString() },
         { onConflict: 'user_id,ticket_id' }
       )
-    onCompteurChanged?.()
+    refreshAttente()
   }
 
   // .select('id') : une mise à jour filtrée par la RLS ne renvoie pas
@@ -98,7 +98,7 @@ export default function Conversation({
       setActionError("Tu n'as pas le droit de fermer ce ticket.")
     } else {
       onUpdated({ statut: 'ferme' })
-      onCompteurChanged?.()
+      refreshAttente()
     }
   }
 
