@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUser } from '@/lib/supabase/getUser'
 import ForumClient from './ForumClient'
 import { isForumAdmin } from './adminGate'
+import { TOPICS_MASQUES } from './types'
 import type { Feuille, ForumResource, ForumScript, ForumTopic, InitialTicket } from './types'
 
 export default async function ForumPage({
@@ -22,6 +23,9 @@ export default async function ForumPage({
   // chargement. Son topic_id indique l'onglet à ouvrir.
   const ticketParam = Array.isArray(searchParams.ticket) ? searchParams.ticket[0] : searchParams.ticket
   const ticketId = ticketParam && /^[0-9a-f-]{36}$/i.test(ticketParam) ? ticketParam : null
+
+  // ?onglet=equipe (compteur de jetons ADN de l'accueil) : ouvre l'onglet Équipe.
+  const ouvrirEquipe = searchParams.onglet === 'equipe'
 
   const [
     { data: scriptsData },
@@ -69,7 +73,11 @@ export default async function ForumPage({
 
   const scripts = (scriptsData ?? []) as ForumScript[]
   const resources = (resourcesData ?? []) as ForumResource[]
-  const topicsSens = (topicsData ?? []) as ForumTopic[]
+  const topicsSens = ((topicsData ?? []) as ForumTopic[]).filter((t) => !TOPICS_MASQUES.includes(t.id))
+  // ?ticket= d'un topic masqué : ignoré, le Forum s'ouvre sur son onglet par défaut.
+  const ticketDemande = initialTicketData as InitialTicket | null
+  const initialTicket =
+    ticketDemande?.topic_id && TOPICS_MASQUES.includes(ticketDemande.topic_id) ? null : ticketDemande
   const feuilles = ((feuillesData ?? []) as Feuille[])
     .slice()
     .sort((a, b) => a.titre.localeCompare(b.titre, 'fr'))
@@ -91,7 +99,8 @@ export default async function ForumPage({
           focusIds={focusIds}
           script1Ouvert={onboardingData?.script1_ouvert_at != null}
           autoOpenScriptOrdre={autoOpenScriptOrdre}
-          initialTicket={(initialTicketData as InitialTicket | null) ?? null}
+          initialTicket={initialTicket ?? null}
+          ouvrirEquipe={ouvrirEquipe}
           userId={user.id}
           isAdmin={isForumAdmin(profile?.role)}
         />

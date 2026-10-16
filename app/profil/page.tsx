@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import ProfilClient from './ProfilClient'
 import AbonnementCard from './AbonnementCard'
+import SoldeJetons from '@/app/components/SoldeJetons'
 
 export default async function ProfilPage() {
   const supabase = createClient()
@@ -20,6 +21,9 @@ export default async function ProfilPage() {
     .eq('id', user.id)
     .single()
 
+  // Jetons ADN (lives de l'onglet Équipe) ; null tant que la migration n'est pas en place.
+  const { data: soldeJetons } = await supabase.rpc('token_solde', { p_user_id: user.id })
+
   const showAccessBanner =
     profile?.plan === 'gratuit' && profile?.role !== 'admin'
 
@@ -29,7 +33,10 @@ export default async function ProfilPage() {
         <Link href="/" className="text-sm text-text-muted hover:text-text-secondary transition-colors">
           ← Monstro
         </Link>
-        <h1 className="text-2xl font-bold text-text-primary">Profil</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold text-text-primary">Profil</h1>
+          {typeof soldeJetons === 'number' && <SoldeJetons solde={soldeJetons} />}
+        </div>
 
         {showAccessBanner && (
           <div className="bg-surface-2 rounded-xl px-5 py-4 border-l-[3px] border-accent">

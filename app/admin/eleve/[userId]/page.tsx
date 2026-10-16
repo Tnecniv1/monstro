@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/admin/requireAdmin'
 import { createClient } from '@/lib/supabase/server'
 import RapportCard from '@/app/profil/RapportCard'
 import { getUserStats } from '@/lib/stats/getUserStats'
+import JetonsAdmin from './JetonsAdmin'
 
 interface Props {
   params: { userId: string }
@@ -15,13 +16,14 @@ export default async function EleveProfilPage({ params }: Props) {
   const { userId } = params
   const supabase = createClient()
 
-  const [{ data: profile }, stats] = await Promise.all([
+  const [{ data: profile }, stats, { data: soldeJetons }] = await Promise.all([
     supabase
       .from('user_profile')
       .select('pseudo, nom, prenom, avatar_url, telephone')
       .eq('id', userId)
       .single(),
     getUserStats(userId),
+    supabase.rpc('token_solde', { p_user_id: userId }),
   ])
 
   if (!profile) notFound()
@@ -68,6 +70,8 @@ export default async function EleveProfilPage({ params }: Props) {
             )}
           </div>
         </div>
+
+        <JetonsAdmin userId={userId} soldeInitial={(soldeJetons as number | null) ?? 0} />
 
         {/* Stats */}
         <RapportCard {...stats} />

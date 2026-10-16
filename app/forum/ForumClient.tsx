@@ -13,7 +13,7 @@ import TicketsPanel from './TicketsPanel'
 import EquipePanel from './EquipePanel'
 import { useForumAttente } from '../components/ForumAttenteProvider'
 import { PointAttente } from '../components/PastilleCompteur'
-import { TICKET_COLUMNS } from './types'
+import { TICKET_COLUMNS, TOPICS_MASQUES } from './types'
 import type { ActiveTopic, Feuille, ForumOnglet, ForumResource, ForumScript, ForumTicket, ForumTopic, InitialTicket } from './types'
 
 interface Props {
@@ -25,6 +25,7 @@ interface Props {
   script1Ouvert: boolean
   autoOpenScriptOrdre: number | null
   initialTicket: InitialTicket | null
+  ouvrirEquipe: boolean
   userId: string
   isAdmin: boolean
 }
@@ -38,6 +39,7 @@ export default function ForumClient({
   script1Ouvert: initialScript1Ouvert,
   autoOpenScriptOrdre,
   initialTicket,
+  ouvrirEquipe,
   userId,
   isAdmin,
 }: Props) {
@@ -82,6 +84,8 @@ export default function ForumClient({
   // (Scripts), sinon Questions — admin compris.
   const [activeTopic, setActiveTopic] = useState<ForumOnglet>(() => {
     if (initialTicket) return topicDuTicket(initialTicket, topicsSens)
+    // ?onglet=equipe (compteur de jetons ADN de l'accueil)
+    if (ouvrirEquipe) return { kind: 'equipe' }
     if (autoOpenScriptOrdre != null) return { kind: 'scripts' }
     if (!initialScript1Ouvert && !isAdmin) return { kind: 'scripts' }
     return { kind: 'questions' }
@@ -104,7 +108,7 @@ export default function ForumClient({
   // Retire ?ticket= de l'URL (comme ?script=) : un rafraîchissement ne
   // force plus la sélection.
   useEffect(() => {
-    if (initialTicket) window.history.replaceState(null, '', '/forum')
+    if (initialTicket || ouvrirEquipe) window.history.replaceState(null, '', '/forum')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -125,7 +129,10 @@ export default function ForumClient({
       .order('created_at', { ascending: false })
       .limit(1)
       .then(({ data }) => {
-        if (!cancelled) setMonTicket(((data ?? [])[0] as ForumTicket) ?? null)
+        if (cancelled) return
+        const ticket = ((data ?? [])[0] as ForumTicket) ?? null
+        // Ticket d'un topic masqué : pas d'accès rapide (son onglet n'existe plus).
+        setMonTicket(ticket?.topic_id && TOPICS_MASQUES.includes(ticket.topic_id) ? null : ticket)
       })
     return () => {
       cancelled = true

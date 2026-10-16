@@ -14,6 +14,9 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
+// Jetons ADN crédités à chaque facture d'abonnement payée
+const JETONS_PAR_FACTURE = 12;
+
 // Hiérarchie de force des statuts : un statut fort ne doit jamais être
 // écrasé par un statut plus faible pour le MÊME abonnement.
 const RANG_STATUT: Record<string, number> = {
@@ -121,6 +124,40 @@ serve(async (req) => {
 
         if (resiliationError) {
           throw new Error(`resiliation_programmee non enregistrée: ${resiliationError.message}`);
+        }
+
+        break;
+      }
+      // Jetons ADN : chaque facture d'abonnement payée crédite l'élève
+      // (supabase/migrations/20261013_tokens_adn.sql).
+      case "invoice.paid": {
+        const invoice = event.data.object as Stripe.Invoice;
+
+        // Factures d'abonnement uniquement. Le champ a changé de place selon la
+        // version d'API de l'événement (subscription, puis parent.subscription_details).
+        const subscriptionId =
+          (invoice as any).subscription ??
+          (invoice as any).parent?.subscription_details?.subscription ??
+          null;
+        // Une facture à 0 € (essai, remise totale) est aussi « payée » : pas de jeton.
+        if (!subscriptionId || (invoice.amount_paid ?? 0) <= 0) break;
+
+        const customer = await stripe.customers.retrieve(invoice.customer as string);
+        const userId = (customer as Stripe.Customer).metadata?.user_id;
+        if (!userId) throw new Error("user_id absent des metadata du customer");
+
+        // Idempotent : la facture sert de référence, un événement rejoué par Stripe
+        // ne crédite pas deux fois. Le plafond de 15 est appliqué par la fonction SQL.
+        const { error: tokenError } = await supabase.rpc("token_appliquer", {
+          p_user_id: userId,
+          p_delta: JETONS_PAR_FACTURE,
+          p_motif: "abonnement",
+          p_reference: invoice.id,
+        });
+
+        // Échec → 500 → Stripe réessaiera l'événement.
+        if (tokenError) {
+          throw new Error(`token_appliquer a échoué: ${tokenError.message}`);
         }
 
         break;

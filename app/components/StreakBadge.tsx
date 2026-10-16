@@ -1,6 +1,19 @@
 'use client'
 
-export default function StreakBadge({ streak, pixels }: { streak: number; pixels: number }) {
+import Link from 'next/link'
+import IconeAdn from './IconeAdn'
+
+// Compteurs de l'accueil : pixels, série, jetons ADN.
+// jetons : null tant que le solde n'est pas disponible (compteur masqué).
+export default function StreakBadge({
+  streak,
+  pixels,
+  jetons = null,
+}: {
+  streak: number
+  pixels: number
+  jetons?: number | null
+}) {
   return (
     <div className="flex items-center justify-center gap-4">
       <span className="text-text-primary" style={{ fontSize: 20, fontWeight: 600 }}>
@@ -26,6 +39,20 @@ export default function StreakBadge({ streak, pixels }: { streak: number; pixels
           </>
         ) : ''}
       </span>
+      {/* Jetons ADN : ouvre l'onglet Équipe du Forum, où ils se dépensent */}
+      {jetons !== null && (
+        <Link
+          href="/forum?onglet=equipe"
+          aria-label={`${jetons} jeton${jetons > 1 ? 's' : ''} ADN : ouvrir l'onglet Équipe`}
+          className="text-text-primary hover:opacity-80 transition-opacity"
+          style={{ fontSize: 20, fontWeight: 600 }}
+        >
+          {jetons}{' '}
+          <span className="inline-flex items-center align-middle text-[#16784C]">
+            <IconeAdn size={20} />
+          </span>
+        </Link>
+      )}
     </div>
   )
 }

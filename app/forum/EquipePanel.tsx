@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus_Jakarta_Sans } from 'next/font/google'
 import { createClient } from '@/lib/supabase/client'
 import Avatar from '@/app/components/Avatar'
+import IconeAdn from '@/app/components/IconeAdn'
+import SoldeJetons from '@/app/components/SoldeJetons'
 import EquipeDetailModal from './EquipeDetailModal'
 import EquipeSessionModal from './EquipeSessionModal'
 import { formatHeure, formatJourDate, jourParis } from './relativeTime'
@@ -13,8 +16,6 @@ import type { LiveSession } from './types'
 // Design system MathBank, propre à cet onglet : Plus Jakarta Sans, texte
 // #1E2233, gris #8A8B9B, bordures #ECECEF, un seul accent (#6D28D9 = accent).
 const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'] })
-
-const OBJECTIF_LIVES = 3
 
 const BOUTON_GRIS = 'bg-[#EEEEF1] text-[#5A5C6E]'
 
@@ -29,6 +30,7 @@ interface Props {
 // heure de début, lien masqué) sont appliquées par la base
 // (supabase/migrations/20261012_live_sessions*.sql).
 export default function EquipePanel({ userId, isAdmin }: Props) {
+  const router = useRouter()
   // Lundi de la semaine en cours ('YYYY-MM-DD', heure de Paris)
   const [lundi] = useState(() => lundiDe(aujourdhuiParis()))
   const [sessions, setSessions] = useState<LiveSession[]>([])
@@ -38,6 +40,8 @@ export default function EquipePanel({ userId, isAdmin }: Props) {
   const [message, setMessage] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
+  // Solde de jetons ADN de l'élève ; null tant qu'il n'est pas chargé.
+  const [solde, setSolde] = useState<number | null>(null)
 
   // Modals admin : formulaire (nouvelle session ou modification) et détail.
   const [formulaire, setFormulaire] = useState<{ session: LiveSession | null } | null>(null)
@@ -45,7 +49,8 @@ export default function EquipePanel({ userId, isAdmin }: Props) {
 
   useEffect(() => {
     let cancelled = false
-    createClient()
+    const supabase = createClient()
+    supabase
       .rpc('get_live_sessions', { p_lundi: lundi })
       .then(({ data, error }) => {
         if (cancelled) return
@@ -54,10 +59,18 @@ export default function EquipePanel({ userId, isAdmin }: Props) {
         if (!error) setSessions((data ?? []) as LiveSession[])
         setCharge(true)
       })
+    // Jetons ADN : une inscription en coûte 1 (les admins n'en ont pas besoin).
+    if (!isAdmin) {
+      supabase.rpc('token_etat').then(({ data, error }) => {
+        if (cancelled || error) return
+        const etat = (Array.isArray(data) ? data[0] : data) as { solde: number } | null
+        if (etat) setSolde(etat.solde)
+      })
+    }
     return () => {
       cancelled = true
     }
-  }, [lundi, version])
+  }, [lundi, version, isAdmin])
 
   function recharger() {
     setVersion((v) => v + 1)
@@ -76,6 +89,9 @@ export default function EquipePanel({ userId, isAdmin }: Props) {
     if (error) setError(error.message)
     setBusyId(null)
     recharger()
+    // Le solde de jetons a changé : l'accueil (compteur ADN) ne doit pas
+    // resservir sa version en cache.
+    router.refresh()
   }
 
   async function supprimer(session: LiveSession) {
@@ -104,7 +120,6 @@ export default function EquipePanel({ userId, isAdmin }: Props) {
   const aVenir = sessions.filter((s) => new Date(s.debut).getTime() + s.duree_minutes * 60_000 > maintenant)
   const vedette = aVenir[0]
   const suivantes = aVenir.slice(1)
-  const mesInscriptions = sessions.filter((s) => s.inscrit).length
 
   // Titre : du lundi au vendredi, ou jusqu'au week-end s'il y a une session.
   const vendredi = ajouterJours(lundi, 4)
@@ -120,6 +135,7 @@ export default function EquipePanel({ userId, isAdmin }: Props) {
             Lives {libellePeriode(lundi, dernierJour > vendredi ? dernierJour : vendredi)}
           </h2>
         </div>
+        {!isAdmin && solde !== null && <SoldeJetons solde={solde} className="h-11 px-4 text-base" />}
         {isAdmin && (
           <button
             type="button"
@@ -166,8 +182,8 @@ export default function EquipePanel({ userId, isAdmin }: Props) {
 
             {!isAdmin && (
               <p className="rounded-[14px] bg-[#F3EEFD] p-4 text-sm">
-                <span className="font-bold">Objectif : au moins {OBJECTIF_LIVES} lives cette semaine.</span> Tu t&apos;es
-                inscrit à {mesInscriptions}.
+                <span className="font-bold">Chaque inscription coûte 1 jeton ADN</span>, remboursé si tu te désinscris
+                avant le début. Tu en gagnes 12 à chaque mois d&apos;abonnement et 1 tous les 25 QCM réussis.
               </p>
             )}
           </div>
@@ -323,11 +339,19 @@ function CarteVedette({ session, isAdmin, busy, onBasculer, onOuvrir }: CartePro
           type="button"
           onClick={onBasculer}
           disabled={busy || commencee || restantes === 0}
-          className={`mt-6 h-[52px] w-full rounded-xl text-base font-bold transition-opacity ${
+          className={`mt-6 flex h-[52px] w-full items-center justify-center gap-1.5 rounded-xl text-base font-bold transition-opacity ${
             commencee || restantes === 0 ? BOUTON_GRIS : 'bg-accent text-white hover:opacity-90 disabled:opacity-50'
           }`}
         >
-          {commencee ? 'Déjà commencé' : restantes === 0 ? 'Complet' : `Je viens ${quand}`}
+          {commencee ? (
+            'Déjà commencé'
+          ) : restantes === 0 ? (
+            'Complet'
+          ) : (
+            <>
+              Je viens {quand} · 1 <IconeAdn size={18} />
+            </>
+          )}
         </button>
       )}
     </div>
@@ -373,11 +397,17 @@ function CarteCompacte({ session, isAdmin, busy, onBasculer, onOuvrir }: CartePr
           type="button"
           onClick={onBasculer}
           disabled={busy || restantes === 0}
-          className={`h-11 shrink-0 rounded-xl px-4 text-sm font-bold transition-colors ${
+          className={`flex h-11 shrink-0 items-center gap-1 rounded-xl px-4 text-sm font-bold transition-colors ${
             restantes === 0 ? BOUTON_GRIS : 'border border-accent text-accent hover:bg-[#F3EEFD] disabled:opacity-50'
           }`}
         >
-          {restantes === 0 ? 'Complet' : 'Je viens'}
+          {restantes === 0 ? (
+            'Complet'
+          ) : (
+            <>
+              Je viens · 1 <IconeAdn size={15} />
+            </>
+          )}
         </button>
       )}
 

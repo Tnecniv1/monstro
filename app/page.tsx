@@ -49,7 +49,7 @@ export default async function HomePage() {
 
   const ids = entIds?.map((e) => e.id) ?? []
 
-  const [{ count }, { data: sessionDates }] = await Promise.all([
+  const [{ count }, { data: sessionDates }, { data: soldeJetons }] = await Promise.all([
     ids.length > 0
       ? supabase
           .from('observation')
@@ -64,6 +64,8 @@ export default async function HomePage() {
           .in('entrainement_id', ids)
           .order('date', { ascending: false })
       : Promise.resolve({ data: [] }),
+    // Jetons ADN : somme des mouvements, calculée en base (null si indisponible)
+    supabase.rpc('token_solde', { p_user_id: user.id }),
   ])
 
   const uniqueDates = Array.from(
@@ -144,7 +146,7 @@ export default async function HomePage() {
           <LogoutButton />
         </div>
       </div>
-      <StreakBadge streak={streak} pixels={count ?? 0} />
+      <StreakBadge streak={streak} pixels={count ?? 0} jetons={typeof soldeJetons === 'number' ? soldeJetons : null} />
 
       <div className="w-full max-w-sm rounded-2xl p-4">
         <PixelGrid count={count ?? 0} />

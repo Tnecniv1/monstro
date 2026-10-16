@@ -43,6 +43,14 @@ export type ForumTopic = {
   display_mode: 'tickets' | 'resources'
 }
 
+// Topics de sens masqués dans le Forum : plus d'onglet, et un lien vers l'un
+// de leurs tickets ramène à Questions. Rien n'est supprimé en base (topic et
+// tickets conservés) : retirer l'id de cette liste réactive l'onglet.
+// Même liste que monstro-expo/components/forum/types.ts.
+export const TOPICS_MASQUES: readonly string[] = [
+  '491256c0-c23b-4181-a039-d1a904f5dac6', // Philosophie
+]
+
 // Feuille d'entraînement — sert au formulaire de question (Problème) et à
 // afficher la référence d'une question dans la liste.
 export type Feuille = {

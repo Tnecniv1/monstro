@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import MathText from '../components/MathText'
+import JetonProgression from './JetonProgression'
 import type { Niveau } from './ApprendreClient'
 import type { Stats } from './QcmTab'
 
@@ -214,6 +215,9 @@ export default function QcmSession({ userId, niveau, statsInitial, onValidated, 
         <span>Niveau {niveau.niveau} - {niveau.nom}</span>
         <span>Vue: {stats.vues}/{stats.total} · Vrai: {stats.vrai} · Faux: {stats.faux} · Corrigé: {stats.corrige}</span>
       </div>
+
+      {/* Recharge après chaque réponse validée (l'un des compteurs change à chaque fois) */}
+      <JetonProgression version={stats.vues + stats.vrai + stats.faux + stats.corrige} />
 
       {niveauValideMsg && (
         <div className="rounded-xl bg-success/20 border border-success px-4 py-3 text-sm font-medium text-text-primary">
