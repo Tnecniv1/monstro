@@ -141,13 +141,21 @@ export default function ParcoursView({ eleves }: { eleves: EleveParcours[] }) {
         <p className="px-4 py-8 text-center text-sm text-text-muted">Aucun élève</p>
       ) : (
         // Seul le tableau défile horizontalement s'il dépasse la largeur.
-        // w-px sur les colonnes d'étapes : elles restent à la taille du
-        // carré, la colonne « Depuis » prend la place restante.
+        // table-fixed : largeurs fixes pour les noms et « Depuis » (padding
+        // compris), les 20 colonnes d'étapes se partagent le reste à parts
+        // égales ; en dessous de 900 px, défilement plutôt qu'écrasement.
         <div className="overflow-x-auto">
-          <table className="w-full border-separate border-spacing-0 text-sm">
+          <table className="w-full min-w-[900px] table-fixed border-separate border-spacing-0 text-sm">
+            <colgroup>
+              <col className="w-52" />
+              {ETAPES_PARCOURS.map((_, i) => (
+                <col key={i} />
+              ))}
+              <col className="w-20" />
+            </colgroup>
             <thead>
               <tr className="text-[11px] uppercase tracking-wide text-text-muted">
-                <th rowSpan={2} scope="col" className={`${COLONNE_NOM} w-px px-4`}>
+                <th rowSpan={2} scope="col" className={`${COLONNE_NOM} px-4`}>
                   <span className="sr-only">Élève</span>
                 </th>
                 {GROUPES_ETAPES.map((g, i) => (
@@ -160,7 +168,7 @@ export default function ParcoursView({ eleves }: { eleves: EleveParcours[] }) {
                     {g.libelle}
                   </th>
                 ))}
-                <th rowSpan={2} scope="col" className="px-4 pb-2 text-right align-bottom font-normal">
+                <th rowSpan={2} scope="col" className="pb-2 pl-2 pr-4 text-right align-bottom font-normal">
                   Depuis
                 </th>
               </tr>
@@ -170,7 +178,7 @@ export default function ParcoursView({ eleves }: { eleves: EleveParcours[] }) {
                     key={i}
                     scope="col"
                     title={libelle}
-                    className={`w-px px-1.5 pb-2 align-bottom text-xs font-normal text-text-secondary ${DEBUTS_GROUPES.has(i) ? SEPARATEUR : ''}`}
+                    className={`px-1.5 pb-2 align-bottom text-xs font-normal text-text-secondary ${DEBUTS_GROUPES.has(i) ? SEPARATEUR : ''}`}
                   >
                     {/* Lecture de bas en haut. */}
                     <span className="inline-block rotate-180 whitespace-nowrap [writing-mode:vertical-rl]">
@@ -199,7 +207,7 @@ function LigneEleve({ eleve }: { eleve: EleveParcours }) {
 
   return (
     <tr>
-      <th scope="row" className={`${COLONNE_NOM} ${CELLULE} px-4 py-3 text-left font-normal`}>
+      <th scope="row" className={`${COLONNE_NOM} ${CELLULE} px-4 py-4 text-left font-normal`}>
         <div className="w-44">
           <p className="truncate font-medium text-text-primary">{nomAffiche(eleve)}</p>
           <p className="text-xs text-text-muted">{PLAN_LABEL[eleve.plan]}</p>
@@ -211,7 +219,7 @@ function LigneEleve({ eleve }: { eleve: EleveParcours }) {
         </td>
       ))}
       <td
-        className={`${CELLULE} whitespace-nowrap px-4 text-right tabular-nums ${bloque ? 'font-medium text-warning' : 'text-text-muted'}`}
+        className={`${CELLULE} whitespace-nowrap pl-2 pr-4 text-right tabular-nums ${bloque ? 'font-medium text-warning' : 'text-text-muted'}`}
       >
         {termine ? 'terminé' : jours == null ? '—' : `${jours} j`}
       </td>
@@ -233,5 +241,5 @@ function Carre({ eleve, i, libelle, bloque }: { eleve: EleveParcours; i: number;
           ? 'border-2 border-warning'
           : 'border-2 border-accent'
         : 'border border-border-strong'
-  return <span title={titre} className={`mx-auto block h-3 w-3 rounded-sm ${etat}`} />
+  return <span title={titre} className={`mx-auto block h-4 w-4 rounded-sm ${etat}`} />
 }
