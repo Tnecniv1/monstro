@@ -5,9 +5,9 @@ import { toPng } from 'html-to-image'
 import { createClient } from '@/lib/supabase/client'
 import RapportCard from '@/app/profil/RapportCard'
 import { LIBELLES_BLOCAGE, type MotifBlocage } from '@/lib/agora/eligibilite'
-import { HEURES_ENVOI, JOURS_SEMAINE } from '@/lib/agora/planning'
+import { HEURES_ENVOI, JOURS_SEMAINE, decalerJours, lundiDerniereSemaine } from '@/lib/agora/planning'
 import { getRapportHebdoAction } from './agoraActions'
-import { envoyerRapportWhatsAppAction } from './whatsappActions'
+import { envoyerRapportWhatsAppAction, relancerEnvoiSemaineAction } from './whatsappActions'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -76,20 +76,6 @@ interface Props {
 
 // ── Helpers semaine ─────────────────────────────────────────────────────────
 
-/** Lundi ISO (YYYY-MM-DD) de la semaine précédant la semaine en cours. */
-function defaultLundi(): string {
-  const now = new Date()
-  const jour = now.getDay() // 0=dim..6=sam
-  const diffAuLundi = jour === 0 ? -6 : 1 - jour
-  const lundiCourant = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffAuLundi)
-  const lundiPrecedent = new Date(lundiCourant.getFullYear(), lundiCourant.getMonth(), lundiCourant.getDate() - 7)
-  return toISODate(lundiPrecedent)
-}
-
-function toISODate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 function formatSemaineCourt(lundi: string): string {
   const [, m, d] = lundi.split('-').map(Number)
   return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`
@@ -144,8 +130,9 @@ const STATUTS: Record<StatutEnvoi, { label: string; color: string; background: s
 export default function AgoraAdminView({ eleves }: Props) {
   const supabase = createClient()
 
-  // Semaine du rapport en cours (panneau) : toujours la dernière semaine écoulée, comme l'envoi automatique
-  const [lundi] = useState(defaultLundi)
+  // Semaine du rapport en cours (panneau) : dernière semaine terminée à l'heure de Paris (le dimanche,
+  // la semaine qui s'achève), comme l'envoi automatique
+  const [lundi] = useState(() => lundiDerniereSemaine())
 
   const [referentsMap, setReferentsMap] = useState<ReferentsMap>({})
   const [rapports, setRapports] = useState<Record<string, RapportRow>>({})
@@ -163,6 +150,11 @@ export default function AgoraAdminView({ eleves }: Props) {
   const [reglage, setReglage] = useState<Reglage | null>(null)
   const [reglageSaving, setReglageSaving] = useState(false)
   const [reglageMessage, setReglageMessage] = useState<{ ok: boolean; texte: string } | null>(null)
+
+  // Rattrapage : relance de l'envoi d'une semaine terminée, hors créneau
+  const [relanceLundi, setRelanceLundi] = useState(lundi)
+  const [relanceEnCours, setRelanceEnCours] = useState(false)
+  const [relanceMessage, setRelanceMessage] = useState<{ ok: boolean; texte: string } | null>(null)
 
   // Panneau latéral
   const [panneau, setPanneau] = useState<{ eleveId: string; pseudo: string } | null>(null)
@@ -308,6 +300,28 @@ export default function AgoraAdminView({ eleves }: Props) {
       .eq('id', true)
     setReglageMessage(error ? { ok: false, texte: error.message } : { ok: true, texte: 'Réglage enregistré.' })
     setReglageSaving(false)
+  }
+
+  async function relancerEnvoi() {
+    const semaine = formatSemaineLabel(relanceLundi).toLowerCase()
+    if (!confirm(`Envoyer le rapport de la ${semaine} à tous les suiveurs WhatsApp qui ne l'ont pas encore reçu ?`)) return
+    setRelanceEnCours(true)
+    setRelanceMessage(null)
+    const res = await relancerEnvoiSemaineAction(relanceLundi).catch(() => ({
+      ok: false as const,
+      erreur: 'Impossible de joindre le serveur : vérifie la connexion et réessaie.',
+    }))
+    if (res.ok) {
+      const { succes, echecs, dejaEnvoyes, smsSautes } = res.bilan
+      setRelanceMessage({
+        ok: echecs === 0,
+        texte: `${succes} envoyé${succes > 1 ? 's' : ''}, ${echecs} échec${echecs > 1 ? 's' : ''}, ${dejaEnvoyes} déjà reçu${dejaEnvoyes > 1 ? 's' : ''}, ${smsSautes} SMS à envoyer à la main.`,
+      })
+      charger()
+    } else {
+      setRelanceMessage({ ok: false, texte: res.erreur })
+    }
+    setRelanceEnCours(false)
   }
 
   // ── Historique des envois d'un élève (journal + anciens envois de rapport_envoi) ──
@@ -760,7 +774,8 @@ export default function AgoraAdminView({ eleves }: Props) {
               {reglageSaving ? 'Enregistrement…' : 'Enregistrer'}
             </button>
             <span style={{ color: '#9ca3af', fontSize: 12 }}>
-              Heure de Paris · rapport de la semaine précédente · dernier envoi auto :{' '}
+              Heure de Paris, puis reprise jusqu&apos;à minuit · rapport de la dernière semaine terminée (le
+              dimanche : la semaine qui s&apos;achève) · dernier envoi auto complet :{' '}
               {reglage.dernier_envoi_auto ? formatSemaineLabel(reglage.dernier_envoi_auto).toLowerCase() : 'jamais'}
             </span>
             {reglageMessage && (
@@ -769,6 +784,57 @@ export default function AgoraAdminView({ eleves }: Props) {
           </>
         ) : (
           <span style={{ color: '#9ca3af' }}>{migrationManquante ? 'Indisponible (migration à appliquer).' : 'Chargement…'}</span>
+        )}
+      </div>
+
+      {/* Rattrapage : même logique que l'envoi automatique, pour une semaine terminée au choix */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: 10,
+          padding: '12px 16px',
+          marginBottom: 20,
+          borderRadius: 12,
+          border: '1px solid #e5e7eb',
+          background: '#fff',
+          fontSize: 13,
+        }}
+      >
+        <span style={{ fontWeight: 700, color: '#111827' }}>Rattrapage</span>
+        <select
+          value={relanceLundi}
+          onChange={(e) => { setRelanceLundi(e.target.value); setRelanceMessage(null) }}
+          aria-label="Semaine à relancer"
+          disabled={relanceEnCours}
+          style={{ ...inputStyle, flex: '0 0 auto' }}
+        >
+          {Array.from({ length: 8 }, (_, i) => decalerJours(lundi, -7 * i)).map((l) => (
+            <option key={l} value={l}>{formatSemaineLabel(l)}</option>
+          ))}
+        </select>
+        <button
+          onClick={relancerEnvoi}
+          disabled={relanceEnCours}
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            padding: '6px 14px',
+            borderRadius: 8,
+            border: 'none',
+            background: relanceEnCours ? '#9ca3af' : '#111827',
+            color: '#fff',
+            cursor: relanceEnCours ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {relanceEnCours ? 'Envoi en cours…' : `Relancer l'envoi de la ${formatSemaineLabel(relanceLundi).toLowerCase()}`}
+        </button>
+        <span style={{ color: '#9ca3af', fontSize: 12 }}>Seuls les suiveurs WhatsApp qui n&apos;ont pas reçu ce rapport</span>
+        {relanceMessage && (
+          <span role={relanceMessage.ok ? 'status' : 'alert'} style={{ fontSize: 12, color: relanceMessage.ok ? '#16a34a' : '#dc2626' }}>
+            {relanceMessage.texte}
+          </span>
         )}
       </div>
 
