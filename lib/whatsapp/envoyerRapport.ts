@@ -3,6 +3,7 @@
 // Les identifiants Twilio ne quittent jamais le serveur.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import twilio from 'twilio'
+import { normaliserTelephone } from '@/lib/telephone'
 
 export type EnvoiWhatsAppResult = { ok: true; sid: string } | { ok: false; erreur: string }
 
@@ -52,10 +53,10 @@ async function tenterEnvoi(
   if (!referent) return { ok: false, erreur: "Ce suiveur n'est pas rattaché à cet élève." }
   if (referent.mode === 'sms') return { ok: false, erreur: 'Ce suiveur est configuré pour les SMS, pas WhatsApp.' }
 
-  // Téléphone stocké en chiffres sans « + » (normalizePhone) → E.164
-  const chiffres = (referent.telephone ?? '').replace(/\D/g, '')
-  if (!/^[1-9]\d{7,14}$/.test(chiffres)) {
-    return { ok: false, erreur: `Numéro du suiveur invalide (« ${referent.telephone ?? ''} ») : format international attendu, ex. 33612345678.` }
+  // Garde-fou : même règle que les formulaires (lib/telephone.ts), stocké 33 + 9 chiffres → E.164
+  const tel = normaliserTelephone(referent.telephone ?? '')
+  if (!tel.ok) {
+    return { ok: false, erreur: `Suiveur « ${referent.telephone ?? ''} » : ${tel.erreur}` }
   }
 
   const { data: eleve } = await supabase
@@ -82,7 +83,7 @@ async function tenterEnvoi(
   try {
     const message = await twilio(config.accountSid, config.authToken).messages.create({
       from,
-      to: `whatsapp:+${chiffres}`,
+      to: `whatsapp:+${tel.numero}`,
       contentSid: config.contentSid,
       // {{1}} = prénom, {{2}} = nom du fichier dans le bucket public « rapports »
       contentVariables: JSON.stringify({ '1': prenom, '2': rapport.image_path }),

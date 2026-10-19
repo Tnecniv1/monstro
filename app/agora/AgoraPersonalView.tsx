@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { formaterTelephone, normaliserTelephone } from '@/lib/telephone'
 
 export interface PersonalReferent {
   linkId: string   // referent_eleve.id
@@ -74,13 +75,6 @@ export default function AgoraPersonalView({ eleveId, initial, profil }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  function normalizePhone(raw: string): string {
-    const digits = raw.replace(/[^\d+]/g, '')
-    if (digits.startsWith('+')) return digits.slice(1)
-    if (digits.startsWith('0')) return '33' + digits.slice(1)
-    return digits
-  }
-
   // « Moi » : pré-remplit avec le profil de l'élève les champs encore vides (modifiables ensuite)
   function changerRelation(valeur: Relation) {
     setRelation(valeur)
@@ -116,6 +110,11 @@ export default function AgoraPersonalView({ eleveId, initial, profil }: Props) {
       setError('Nom et téléphone requis.')
       return
     }
+    const tel = normaliserTelephone(telephone)
+    if (!tel.ok) {
+      setError(tel.erreur)
+      return
+    }
     setLoading(true)
     setError(null)
 
@@ -125,7 +124,7 @@ export default function AgoraPersonalView({ eleveId, initial, profil }: Props) {
         prenom: prenom.trim() || null,
         nom: nom.trim(),
         relation,
-        telephone: normalizePhone(telephone.trim()),
+        telephone: tel.numero,
         mode: 'whatsapp',
       })
       .select('id')
@@ -219,7 +218,7 @@ export default function AgoraPersonalView({ eleveId, initial, profil }: Props) {
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{referentLabel(r)}</div>
             <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
-              {RELATION_LABELS[r.relation] ?? r.relation} · {r.telephone}
+              {RELATION_LABELS[r.relation] ?? r.relation} · {formaterTelephone(r.telephone)}
             </div>
           </div>
           <button
@@ -322,13 +321,13 @@ export default function AgoraPersonalView({ eleveId, initial, profil }: Props) {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Téléphone (format international sans +)
+              Téléphone (numéro français)
             </label>
             <input
               type="tel"
               value={telephone}
               onChange={(e) => setTelephone(e.target.value)}
-              placeholder="33612345678"
+              placeholder="06 12 34 56 78"
               style={{
                 fontSize: 14,
                 color: '#111827',

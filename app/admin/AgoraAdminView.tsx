@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import RapportCard from '@/app/profil/RapportCard'
 import { LIBELLES_BLOCAGE, type MotifBlocage } from '@/lib/agora/eligibilite'
 import { HEURES_ENVOI, JOURS_SEMAINE, decalerJours, lundiDerniereSemaine } from '@/lib/agora/planning'
+import { formaterTelephone, normaliserTelephone } from '@/lib/telephone'
 import { getRapportHebdoAction } from './agoraActions'
 import { envoyerRapportWhatsAppAction, relancerEnvoiSemaineAction } from './whatsappActions'
 
@@ -87,13 +88,6 @@ function formatSemaineLabel(lundi: string): string {
 
 function referentLabel(r: { prenom?: string | null; nom?: string | null }): string {
   return [r.prenom, r.nom].filter(Boolean).join(' ') || '—'
-}
-
-function normalizePhone(raw: string): string {
-  const digits = raw.replace(/[^\d+]/g, '')
-  if (digits.startsWith('+')) return digits.slice(1)
-  if (digits.startsWith('0')) return '33' + digits.slice(1)
-  return digits
 }
 
 function nomEleve(e: EleveAgora): string {
@@ -412,6 +406,11 @@ export default function AgoraAdminView({ eleves }: Props) {
       setFormError('Nom et téléphone requis.')
       return
     }
+    const tel = normaliserTelephone(formTelephone)
+    if (!tel.ok) {
+      setFormError(tel.erreur)
+      return
+    }
     setFormSaving(true)
     setFormError(null)
 
@@ -420,7 +419,7 @@ export default function AgoraAdminView({ eleves }: Props) {
       .insert({
         prenom: formPrenom.trim() || null,
         nom: formNom.trim(),
-        telephone: normalizePhone(formTelephone.trim()),
+        telephone: tel.numero,
         mode: formMode,
       })
       .select('id')
@@ -1113,7 +1112,7 @@ export default function AgoraAdminView({ eleves }: Props) {
                               <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
                                 {referentLabel(ref)}
                               </div>
-                              <div style={{ fontSize: 12, color: '#9ca3af' }}>{ref.telephone}</div>
+                              <div style={{ fontSize: 12, color: '#9ca3af' }}>{formaterTelephone(ref.telephone)}</div>
                             </div>
 
                             <button
@@ -1170,7 +1169,7 @@ export default function AgoraAdminView({ eleves }: Props) {
                   style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#374151' }}
                 >
                   <span style={{ fontWeight: 600 }}>{referentLabel(r)}</span>
-                  <span style={{ color: '#9ca3af' }}>{r.telephone}</span>
+                  <span style={{ color: '#9ca3af' }}>{formaterTelephone(r.telephone)}</span>
                   <span
                     style={{
                       fontSize: 10,
@@ -1211,7 +1210,7 @@ export default function AgoraAdminView({ eleves }: Props) {
                   <div style={{ display: 'flex', gap: 6 }}>
                     <input
                       type="tel"
-                      placeholder="33698815992 — format international sans +"
+                      placeholder="Téléphone (06 12 34 56 78)"
                       value={formTelephone}
                       onChange={(e) => setFormTelephone(e.target.value)}
                       style={inputStyle}
