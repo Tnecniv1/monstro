@@ -12,8 +12,25 @@ export const ETAPES_PARCOURS: string[] = [
   ...Array.from({ length: 12 }, (_, i) => `Niveau ${i + 1} gagné`),
 ]
 
-// Étapes 1 à 8 : bloc « Onboarding » ; 9 à 20 : bloc « Niveaux 1 à 12 ».
-export const NB_ETAPES_ONBOARDING = 8
+// Libellés courts, même ordre : en-têtes de colonnes de la matrice du suivi.
+export const ETAPES_PARCOURS_COURTES: string[] = [
+  'Charte',
+  'Focus',
+  'Modal 2',
+  'Modal 3',
+  'Script 1',
+  '1er entraînement',
+  '1re session',
+  '1er terminé',
+  ...Array.from({ length: 12 }, (_, i) => `Niveau ${i + 1}`),
+]
+
+// Groupes de colonnes, dans l'ordre : nb étapes consécutives chacun (5 + 3 + 12 = 20).
+export const GROUPES_ETAPES: { libelle: string; nb: number }[] = [
+  { libelle: 'Onboarding', nb: 5 },
+  { libelle: 'Démarrage', nb: 3 },
+  { libelle: 'Niveaux', nb: 12 },
+]
 
 // Valeur de etape_courante une fois les 20 étapes franchies.
 export const PARCOURS_TERMINE = 21

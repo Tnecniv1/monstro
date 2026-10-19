@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ETAPES_PARCOURS, NB_ETAPES_ONBOARDING, PARCOURS_TERMINE } from './etapes'
+import { ETAPES_PARCOURS, ETAPES_PARCOURS_COURTES, GROUPES_ETAPES, PARCOURS_TERMINE } from './etapes'
 
 // Ligne renvoyée par la RPC get_parcours_admin() (lève une exception hors admin).
 // etapes[N-1] est la date de l'étape N, ou null si elle n'est pas faite ;
@@ -41,10 +41,18 @@ const PLAN_LABEL: Record<EleveParcours['plan'], string> = {
 // Au-delà, l'élève est considéré bloqué sur son étape courante (orange).
 const SEUIL_BLOCAGE_JOURS = 7
 
-// Largeurs communes aux blocs de carrés et à leurs mentions, pour que
-// « Onboarding » et « Niveaux 1 à 12 » restent alignés au-dessus.
-const LARGEUR_ONBOARDING = 'w-[94px] sm:w-[110px]'
-const LARGEUR_NIVEAUX = 'w-[142px] sm:w-[166px]'
+// Indices (0-based) des étapes qui ouvrent un groupe, sauf le premier :
+// trait vertical à leur gauche, sur toute la hauteur du tableau.
+const DEBUTS_GROUPES = new Set(
+  GROUPES_ETAPES.slice(1).map((_, i) => GROUPES_ETAPES.slice(0, i + 1).reduce((t, g) => t + g.nb, 0))
+)
+const SEPARATEUR = 'border-l border-border'
+
+// Colonne des noms figée à gauche pendant le défilement horizontal.
+const COLONNE_NOM = 'sticky left-0 z-10 bg-surface'
+
+// Trait fin entre deux élèves.
+const CELLULE = 'border-t border-border'
 
 // Jours calendaires écoulés, comptés à l'heure de Paris (même règle que
 // formatJoursDepuis dans ../relativeTime.ts).
@@ -132,20 +140,53 @@ export default function ParcoursView({ eleves }: { eleves: EleveParcours[] }) {
       {affiches.length === 0 ? (
         <p className="px-4 py-8 text-center text-sm text-text-muted">Aucun élève</p>
       ) : (
-        <>
-          <div className="flex items-center gap-x-4 px-4 pt-3 text-[11px] uppercase tracking-wide text-text-muted">
-            <span className="hidden sm:block sm:w-44 sm:shrink-0" />
-            <div className="flex gap-3">
-              <span className={LARGEUR_ONBOARDING}>Onboarding</span>
-              <span className={LARGEUR_NIVEAUX}>Niveaux 1 à 12</span>
-            </div>
-          </div>
-          <ul className="divide-y divide-border">
-            {affiches.map((e) => (
-              <LigneEleve key={e.id} eleve={e} />
-            ))}
-          </ul>
-        </>
+        // Seul le tableau défile horizontalement s'il dépasse la largeur.
+        // w-px sur les colonnes d'étapes : elles restent à la taille du
+        // carré, la colonne « Depuis » prend la place restante.
+        <div className="overflow-x-auto">
+          <table className="w-full border-separate border-spacing-0 text-sm">
+            <thead>
+              <tr className="text-[11px] uppercase tracking-wide text-text-muted">
+                <th rowSpan={2} scope="col" className={`${COLONNE_NOM} w-px px-4`}>
+                  <span className="sr-only">Élève</span>
+                </th>
+                {GROUPES_ETAPES.map((g, i) => (
+                  <th
+                    key={g.libelle}
+                    colSpan={g.nb}
+                    scope="colgroup"
+                    className={`px-1.5 pb-1 pt-3 text-left font-normal ${i > 0 ? SEPARATEUR : ''}`}
+                  >
+                    {g.libelle}
+                  </th>
+                ))}
+                <th rowSpan={2} scope="col" className="px-4 pb-2 text-right align-bottom font-normal">
+                  Depuis
+                </th>
+              </tr>
+              <tr>
+                {ETAPES_PARCOURS.map((libelle, i) => (
+                  <th
+                    key={i}
+                    scope="col"
+                    title={libelle}
+                    className={`w-px px-1.5 pb-2 align-bottom text-xs font-normal text-text-secondary ${DEBUTS_GROUPES.has(i) ? SEPARATEUR : ''}`}
+                  >
+                    {/* Lecture de bas en haut. */}
+                    <span className="inline-block rotate-180 whitespace-nowrap [writing-mode:vertical-rl]">
+                      {`${i + 1} · ${ETAPES_PARCOURS_COURTES[i]}`}
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {affiches.map((e) => (
+                <LigneEleve key={e.id} eleve={e} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   )
@@ -157,41 +198,40 @@ function LigneEleve({ eleve }: { eleve: EleveParcours }) {
   const bloque = !termine && jours != null && jours > SEUIL_BLOCAGE_JOURS
 
   return (
-    <li className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 text-sm">
-      <div className="w-full min-w-0 sm:w-44 sm:shrink-0">
-        <p className="truncate font-medium text-text-primary">{nomAffiche(eleve)}</p>
-        <p className="text-xs text-text-muted">{PLAN_LABEL[eleve.plan]}</p>
-      </div>
-      <Carres eleve={eleve} bloque={bloque} />
-      <span className={`ml-auto shrink-0 tabular-nums ${bloque ? 'font-medium text-warning' : 'text-text-muted'}`}>
+    <tr>
+      <th scope="row" className={`${COLONNE_NOM} ${CELLULE} px-4 py-3 text-left font-normal`}>
+        <div className="w-44">
+          <p className="truncate font-medium text-text-primary">{nomAffiche(eleve)}</p>
+          <p className="text-xs text-text-muted">{PLAN_LABEL[eleve.plan]}</p>
+        </div>
+      </th>
+      {ETAPES_PARCOURS.map((libelle, i) => (
+        <td key={i} className={`${CELLULE} px-1.5 ${DEBUTS_GROUPES.has(i) ? SEPARATEUR : ''}`}>
+          <Carre eleve={eleve} i={i} libelle={libelle} bloque={bloque} />
+        </td>
+      ))}
+      <td
+        className={`${CELLULE} whitespace-nowrap px-4 text-right tabular-nums ${bloque ? 'font-medium text-warning' : 'text-text-muted'}`}
+      >
         {termine ? 'terminé' : jours == null ? '—' : `${jours} j`}
-      </span>
-    </li>
+      </td>
+    </tr>
   )
 }
 
 // Plein = faite, vide = non faite ; encadré = étape courante, c'est-à-dire la
 // première non faite (orange si bloqué).
-function Carres({ eleve, bloque }: { eleve: EleveParcours; bloque: boolean }) {
-  const carres = ETAPES_PARCOURS.map((libelle, i) => {
-    const n = i + 1
-    const franchieLe = eleve.etapes?.[i] ?? null
-    const titre = `${n} · ${libelle}${franchieLe ? ` — franchie le ${formatDate(franchieLe)}` : ''}`
-    const etat =
-      eleve.faites[i]
-        ? 'bg-accent border border-accent'
-        : n === eleve.etape_courante
-          ? bloque
-            ? 'border-2 border-warning'
-            : 'border-2 border-accent'
-          : 'border border-border-strong'
-    return <span key={n} title={titre} className={`h-2.5 w-2.5 shrink-0 rounded-sm sm:h-3 sm:w-3 ${etat}`} />
-  })
-
-  return (
-    <div className="flex shrink-0 items-center gap-3">
-      <div className={`flex justify-between ${LARGEUR_ONBOARDING}`}>{carres.slice(0, NB_ETAPES_ONBOARDING)}</div>
-      <div className={`flex justify-between ${LARGEUR_NIVEAUX}`}>{carres.slice(NB_ETAPES_ONBOARDING)}</div>
-    </div>
-  )
+function Carre({ eleve, i, libelle, bloque }: { eleve: EleveParcours; i: number; libelle: string; bloque: boolean }) {
+  const n = i + 1
+  const franchieLe = eleve.etapes?.[i] ?? null
+  const titre = `${n} · ${libelle}${franchieLe ? ` — franchie le ${formatDate(franchieLe)}` : ''}`
+  const etat =
+    eleve.faites[i]
+      ? 'bg-accent border border-accent'
+      : n === eleve.etape_courante
+        ? bloque
+          ? 'border-2 border-warning'
+          : 'border-2 border-accent'
+        : 'border border-border-strong'
+  return <span title={titre} className={`mx-auto block h-3 w-3 rounded-sm ${etat}`} />
 }
