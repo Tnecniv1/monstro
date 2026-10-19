@@ -1,12 +1,19 @@
 // Rendu serveur de l'image du rapport hebdomadaire (satori → SVG, puis sharp → PNG), pour l'envoi automatique.
 // satori est le moteur de next/og ; appelé directement car next/og (Next 14.2) plante sous Windows
 // en résolvant le chemin de sa police par défaut.
-// Réplique en flexbox de RapportCard en mode capture (captureWidth=1080, pixelRatio 2) : satori ne
-// gère pas la grille CSS et le cron n'a pas de navigateur pour genererPng(). Garder les deux alignés.
+// Réplique en flexbox de RapportCard en mode capture (captureWidth=1080) : satori ne gère pas la
+// grille CSS et le cron n'a pas de navigateur pour genererPng(). Garder les deux alignés.
+// Rendu à l'échelle 1 (1080 px de large) et grille de cases en SVG direct, pour limiter la mémoire
+// native consommée par image (crash du serveur lors de l'envoi automatique du 18/10).
 import fs from 'node:fs'
 import path from 'node:path'
 import satori from 'satori'
 import sharp from 'sharp'
+
+// Pas de cache libvips ni de threads parallèles : les images sont rendues une à une, et la mémoire
+// native doit être rendue entre deux élèves plutôt que gardée en cache.
+sharp.cache(false)
+sharp.concurrency(1)
 
 export type DonneesRapport = {
   problemesTravailles: number
@@ -34,8 +41,8 @@ const OBJECTIF_EXERCICES = 1000
 const GRID_COLS = 40
 const GRID_ROWS = OBJECTIF_EXERCICES / GRID_COLS
 
-// Mise en page en « pixels CSS » de la capture (1080 de large), rendue à l'échelle 2
-const S = 2
+// Mise en page en « pixels CSS » de la capture (1080 de large), rendue à l'échelle 1
+const S = 1
 const px = (n: number) => n * S
 const LARGEUR = 1080
 const PADDING = 48
@@ -77,6 +84,22 @@ function chargerRessources() {
     logo: `data:image/png;base64,${logo}`,
   }
   return ressources
+}
+
+// Grille des 1000 cases en un seul SVG (data URI) plutôt qu'en 1000 <div> mis en page par satori.
+// Même géométrie : case de 0,8 × PAS, marge de 0,1 × PAS de chaque côté, coins de 0,18 × PAS.
+function grilleSvg(remplies: number): string {
+  const cote = px(PAS * 0.8)
+  const rayon = px(PAS * 0.18)
+  const cases: string[] = []
+  for (let i = 0; i < OBJECTIF_EXERCICES; i++) {
+    const x = px((i % GRID_COLS) * PAS + PAS * 0.1)
+    const y = px(Math.floor(i / GRID_COLS) * PAS + PAS * 0.1)
+    const fond = i < remplies ? COLORS.accent : COLORS.caseVide
+    cases.push(`<rect x="${x}" y="${y}" width="${cote}" height="${cote}" rx="${rayon}" fill="${fond}"/>`)
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${px(GRID_COLS * PAS)}" height="${px(GRID_ROWS * PAS)}">${cases.join('')}</svg>`
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
 }
 
 function Delta({ value, prevValue, suffix = '' }: { value: number; prevValue: number; suffix?: string }) {
@@ -131,31 +154,14 @@ function Carte({ d, lundi, logo }: { d: DonneesRapport; lundi: string; logo: str
           <span style={{ color: COLORS.encre, fontWeight: 700, marginRight: px(6) }}>{`${d.problemesReussis}`}</span>
           <span>{`/ ${OBJECTIF_EXERCICES} exercices réussis`}</span>
         </div>
-        {Array.from({ length: GRID_ROWS }, (_, ligne) => (
-          <div key={ligne} style={{ display: 'flex' }}>
-            {Array.from({ length: GRID_COLS }, (_, col) => {
-              const i = ligne * GRID_COLS + col
-              return (
-                <div
-                  key={col}
-                  style={{
-                    width: px(PAS * 0.8),
-                    height: px(PAS * 0.8),
-                    margin: px(PAS * 0.1),
-                    borderRadius: px(PAS * 0.18),
-                    background: i < remplies ? COLORS.accent : COLORS.caseVide,
-                  }}
-                />
-              )
-            })}
-          </div>
-        ))}
+        {/* eslint-disable-next-line @next/next/no-img-element -- rendu satori, pas du DOM */}
+        <img src={grilleSvg(remplies)} width={px(GRID_COLS * PAS)} height={px(GRID_ROWS * PAS)} alt="" />
       </div>
     </div>
   )
 }
 
-/** PNG du rapport (2160 px de large, comme genererPng()), prêt à être envoyé dans le bucket. */
+/** PNG du rapport (1080 px de large), prêt à être envoyé dans le bucket. */
 export async function genererImageRapport(donnees: DonneesRapport, lundi: string): Promise<Buffer> {
   const { fonts, logo } = chargerRessources()
   const svg = await satori(<Carte d={donnees} lundi={lundi} logo={logo} />, {
