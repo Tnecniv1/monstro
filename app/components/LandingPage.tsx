@@ -3,17 +3,19 @@ import AuthForm from './AuthForm'
 import VitrineShell, { VitrineTitre } from './VitrineShell'
 
 // Grille 3x3 : les GIF animés passent par un <img> natif (next/image n'en
-// garderait que la première frame), les PNG statiques 1500px par next/image
-// pour le redimensionnement/la compression.
+// garderait que la première frame), les images statiques par next/image
+// pour le redimensionnement/la compression. Illustrations en WebP 600px
+// (tuiles de 200px au plus, écrans 3x compris) : décodage léger pour
+// l'optimiseur, qui tourne dans le process du serveur.
 const TILES: { src: string; bg: string }[] = [
   { src: '/images/gif_1.gif', bg: 'bg-white' },
-  { src: '/images/gif_3.png', bg: 'bg-violet-100' },
+  { src: '/images/gif_3.webp', bg: 'bg-violet-100' },
   { src: '/images/gif_2.gif', bg: 'bg-orange-100' },
-  { src: '/images/gif_4.png', bg: 'bg-green-100' },
+  { src: '/images/gif_4.webp', bg: 'bg-green-100' },
   { src: '/images/logo.png', bg: 'bg-white' },
-  { src: '/images/gif_5.png', bg: 'bg-gray-100' },
+  { src: '/images/gif_5.webp', bg: 'bg-gray-100' },
   { src: '/images/gif_6.gif', bg: 'bg-orange-100' },
-  { src: '/images/gif_7.png', bg: 'bg-green-100' },
+  { src: '/images/gif_7.webp', bg: 'bg-green-100' },
   { src: '/images/gif_8.gif', bg: 'bg-violet-100' },
 ]
 

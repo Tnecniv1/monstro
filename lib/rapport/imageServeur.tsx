@@ -8,12 +8,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import satori from 'satori'
+// sharp sans cache libvips ni threads parallèles : réglé au démarrage du serveur (instrumentation.ts).
 import sharp from 'sharp'
-
-// Pas de cache libvips ni de threads parallèles : les images sont rendues une à une, et la mémoire
-// native doit être rendue entre deux élèves plutôt que gardée en cache.
-sharp.cache(false)
-sharp.concurrency(1)
 
 export type DonneesRapport = {
   problemesTravailles: number
