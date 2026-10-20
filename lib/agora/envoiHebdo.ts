@@ -172,9 +172,9 @@ async function traiter(
       // SMS, afin de pouvoir les signaler dans le journal)
       if (!rapport) {
         rapport = await creerRapport(supabase, eleveId, lundiRapport)
-      } else if (whatsapp.length > 0 && !rapport.image_path && deja.size === 0) {
-        // Rapport créé à l'ouverture du panneau, peut-être avant la fin de la semaine (dimanche) :
-        // stats recalculées tant qu'aucune image n'a été validée ni aucun envoi fait
+      } else if (whatsapp.length > 0 && deja.size === 0) {
+        // Personne n'a encore reçu ce rapport : stats recalculées au moment de l'envoi. Un rapport
+        // créé, ou une image générée, plus tôt depuis le panneau peut avoir des stats partielles.
         const stats = statsEnColonnes(await getUserStatsForWeek(eleveId, lundiRapport, supabase))
         const { error } = await supabase.from('rapport_mensuel').update(stats).eq('id', rapport.id)
         if (error) throw new Error(`mise à jour des stats impossible : ${error.message}`)
@@ -183,8 +183,10 @@ async function traiter(
       rapportId = rapport.id
 
       if (whatsapp.length > 0) {
-        // Image : générée côté serveur seulement si l'admin ne l'a pas déjà fait (même nommage que genererPng)
-        if (!rapport.image_path) {
+        // Image : régénérée avec ces stats tant que personne n'a reçu le rapport, même si le panneau
+        // en a déjà produit une. Dès qu'un suiveur l'a reçu (WhatsApp ou SMS), l'image existante est
+        // gardée pour que tous reçoivent la même.
+        if (deja.size === 0 || !rapport.image_path) {
           const png = await genererImageRapport(
             {
               problemesTravailles: rapport.problemes_travailles ?? 0,
@@ -197,7 +199,8 @@ async function traiter(
             },
             lundiRapport,
           )
-          const chemin = `progression_${randomUUID().replace(/-/g, '').slice(0, 12)}.png`
+          // Nom existant réutilisé (comme genererPng) : pas de fichier orphelin dans le bucket
+          const chemin = rapport.image_path ?? `progression_${randomUUID().replace(/-/g, '').slice(0, 12)}.png`
           const { error: errUpload } = await supabase.storage
             .from('rapports')
             .upload(chemin, png, { upsert: true, contentType: 'image/png', cacheControl: '0' })
