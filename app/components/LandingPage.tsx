@@ -1,6 +1,8 @@
 import Image from 'next/image'
 import AuthForm from './AuthForm'
 import VitrineShell, { VitrineTitre } from './VitrineShell'
+import CommentCaMarche from './accueil/CommentCaMarche'
+import LienCommentCaMarche from './accueil/LienCommentCaMarche'
 
 // Grille 3x3 : les GIF animés passent par un <img> natif (next/image n'en
 // garderait que la première frame), les images statiques par next/image
@@ -23,7 +25,7 @@ export default function LandingPage() {
   return (
     <VitrineShell>
       {/* Hero centré verticalement dans l'espace sous la pilule */}
-      <div className="flex flex-1 items-center py-6">
+      <div className="flex flex-1 items-center py-6 md:min-h-[calc(100svh-6rem)]">
         <div className="w-full max-w-7xl mx-auto grid items-center gap-10 md:grid-cols-[auto_minmax(0,42rem)] md:justify-center">
           <section className="w-full max-w-md mx-auto md:max-w-none md:mx-0 space-y-4">
             <div className="space-y-3">
@@ -34,8 +36,9 @@ export default function LandingPage() {
                 à&nbsp;raisonner.
               </VitrineTitre>
             </div>
-            <div className="max-w-sm">
+            <div className="max-w-sm space-y-3">
               <AuthForm />
+              <LienCommentCaMarche />
             </div>
           </section>
 
@@ -59,6 +62,8 @@ export default function LandingPage() {
           </section>
         </div>
       </div>
+
+      <CommentCaMarche />
     </VitrineShell>
   )
 }
