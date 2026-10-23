@@ -7,13 +7,13 @@ interface Props {
   topicsSens: ForumTopic[]
   selected: ForumOnglet
   onSelect: (onglet: ForumOnglet) => void
-  // Questions en attente (pastille de l'onglet Questions, masquée à 0).
+  // Questions en attente (pastille de l'onglet Problèmes, masquée à 0).
   compteurQuestions: number
 }
 
 // Barre d'onglets : Scripts, puis les topics "de sens" dans l'ordre de
 // forum_topics (Ressources… ; sans les TOPICS_MASQUES, filtrés par la page),
-// puis Questions et Équipe.
+// puis Problèmes (questions du forum) et Équipe.
 export default function ForumTabs({ topicsSens, selected, onSelect, compteurQuestions }: Props) {
   const onglets: { key: string; label: string; active: boolean; topic: ForumOnglet; badge?: number }[] = [
     { key: 'scripts', label: 'Scripts', active: selected.kind === 'scripts', topic: { kind: 'scripts' } },
@@ -23,12 +23,18 @@ export default function ForumTabs({ topicsSens, selected, onSelect, compteurQues
       active: selected.kind === 'sens' && selected.id === t.id,
       topic: { kind: 'sens', id: t.id, nom: t.nom, displayMode: t.display_mode } as ForumOnglet,
     })),
-    { key: 'questions', label: 'Questions', active: selected.kind === 'questions', topic: { kind: 'questions' }, badge: compteurQuestions },
+    { key: 'questions', label: 'Problèmes', active: selected.kind === 'questions', topic: { kind: 'questions' }, badge: compteurQuestions },
     { key: 'equipe', label: 'Équipe', active: selected.kind === 'equipe', topic: { kind: 'equipe' } },
   ]
 
+  // Contrôle segmenté : piste grise, onglet actif en carte blanche. La piste
+  // défile horizontalement si l'écran est trop étroit (axe vertical masqué :
+  // la pastille tient dans le padding de l'onglet).
   return (
-    <div role="tablist" className="flex gap-1 overflow-x-auto border-b border-border">
+    <div
+      role="tablist"
+      className="flex max-w-full gap-1 overflow-x-auto overflow-y-hidden rounded-xl bg-surface-2 p-1"
+    >
       {onglets.map((o) => (
         <button
           key={o.key}
@@ -36,13 +42,13 @@ export default function ForumTabs({ topicsSens, selected, onSelect, compteurQues
           role="tab"
           aria-selected={o.active}
           onClick={() => onSelect(o.topic)}
-          className={`-mb-px shrink-0 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+          className={`shrink-0 rounded-[9px] border px-[18px] py-2.5 text-sm transition-colors ${
             o.active
-              ? 'border-accent text-accent'
-              : 'border-transparent text-text-muted hover:text-text-secondary'
+              ? 'border-border bg-surface font-bold text-accent'
+              : 'border-transparent font-semibold text-text-primary hover:bg-surface/60'
           }`}
         >
-          {/* Pastille dans le padding du bouton : la barre (overflow-x-auto)
+          {/* Pastille dans le padding du bouton : la piste (overflow-x-auto)
               rognerait tout ce qui en déborde. */}
           <span className="relative">
             {o.label}

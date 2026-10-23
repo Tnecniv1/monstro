@@ -8,13 +8,24 @@ interface Props {
   error: string | null
   // Renvoie true si l'envoi a réussi (le champ est alors vidé).
   onSend: (texte: string, image: File | null) => Promise<boolean>
+  placeholder?: string
+  // 'barre' : barre fixée en bas d'une conversation (par défaut) ;
+  // 'fil' : champ sous une question du fil (hauteur 44 px, rayon 10 px).
+  variante?: 'barre' | 'fil'
 }
 
 // Hauteur max du champ (~5 lignes), au-delà il défile.
 const HAUTEUR_MAX_PX = 120
 
 // Barre de saisie fixée en bas de la conversation.
-export default function Composer({ sending, error, onSend }: Props) {
+export default function Composer({
+  sending,
+  error,
+  onSend,
+  placeholder = 'Écris ta réponse… ($...$ pour les maths)',
+  variante = 'barre',
+}: Props) {
+  const fil = variante === 'fil'
   const [input, setInput] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
@@ -69,7 +80,7 @@ export default function Composer({ sending, error, onSend }: Props) {
   }
 
   return (
-    <div className="shrink-0 border-t border-border bg-surface px-3 py-2.5 sm:px-4">
+    <div className={fil ? 'min-w-0 flex-1' : 'shrink-0 border-t border-border bg-surface px-3 py-2.5 sm:px-4'}>
       {input.includes('$') && (
         <div className="mb-2 max-h-24 overflow-y-auto rounded-xl bg-surface-2 px-3 py-1.5 text-sm text-text-primary whitespace-pre-wrap break-words">
           <MathText text={input} />
@@ -95,7 +106,9 @@ export default function Composer({ sending, error, onSend }: Props) {
 
       <div className="flex items-end gap-2">
         <label
-          className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-text-muted hover:bg-surface-2 hover:text-text-secondary transition-colors"
+          className={`flex shrink-0 cursor-pointer items-center justify-center text-text-muted hover:bg-surface-2 hover:text-text-secondary transition-colors ${
+            fil ? 'h-11 w-11 rounded-[10px] border border-border' : 'h-10 w-10 rounded-full'
+          }`}
           aria-label="Ajouter une image"
           title="Ajouter une image"
         >
@@ -121,8 +134,10 @@ export default function Composer({ sending, error, onSend }: Props) {
           onKeyDown={handleKeyDown}
           disabled={sending}
           rows={1}
-          placeholder="Écris ta réponse… ($...$ pour les maths)"
-          className="min-h-[40px] flex-1 resize-none overflow-y-hidden rounded-[20px] border border-border bg-surface-2 px-4 py-2.5 text-sm leading-5 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50"
+          placeholder={placeholder}
+          className={`flex-1 resize-none overflow-y-hidden border border-border px-4 text-sm leading-5 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 ${
+            fil ? 'min-h-[44px] rounded-[10px] bg-surface py-3' : 'min-h-[40px] rounded-[20px] bg-surface-2 py-2.5'
+          }`}
         />
 
         <button
@@ -131,7 +146,9 @@ export default function Composer({ sending, error, onSend }: Props) {
           disabled={sending || !input.trim()}
           aria-label="Envoyer"
           title="Envoyer"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-white hover:opacity-90 disabled:opacity-40 transition-opacity"
+          className={`flex shrink-0 items-center justify-center bg-accent text-white hover:opacity-90 disabled:opacity-40 transition-opacity ${
+            fil ? 'h-11 w-11 rounded-[10px]' : 'h-10 w-10 rounded-full'
+          }`}
         >
           {sending ? (
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />

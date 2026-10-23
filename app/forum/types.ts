@@ -51,11 +51,54 @@ export const TOPICS_MASQUES: readonly string[] = [
   '491256c0-c23b-4181-a039-d1a904f5dac6', // Philosophie
 ]
 
-// Feuille d'entraînement — sert au formulaire de question (Problème) et à
-// afficher la référence d'une question dans la liste.
+// Feuille d'entraînement — sert au formulaire de question, à la référence
+// d'une question et à la grille des problèmes (numéros 1 à volume).
 export type Feuille = {
   id: string
   titre: string
+  volume: number | null
+}
+
+// Filtre de la grille des problèmes, gardé dans l'URL de /forum (?filtre=) :
+// 'mes' (problèmes où l'utilisateur a posé une question), 'toutes' (problèmes
+// qui ont au moins une question) ou l'id d'une feuille en Focus.
+export type FiltreProblemes = string
+
+export const FILTRE_PROBLEMES_DEFAUT: FiltreProblemes = 'mes'
+
+// /forum avec ce filtre (le filtre par défaut est omis).
+export function forumProblemesHref(filtre: FiltreProblemes): string {
+  return filtre === FILTRE_PROBLEMES_DEFAUT ? '/forum' : `/forum?filtre=${encodeURIComponent(filtre)}`
+}
+
+// Page d'un problème (feuille + numéro) : énoncé, question, fil. `depuis` :
+// filtre de la grille d'où l'on vient, pour le lien retour.
+export function problemeHref(feuilleId: string, numero: number, depuis?: FiltreProblemes): string {
+  const base = `/forum/probleme/${feuilleId}/${numero}`
+  return depuis && depuis !== FILTRE_PROBLEMES_DEFAUT ? `${base}?depuis=${encodeURIComponent(depuis)}` : base
+}
+
+// FAQ (/forum/faq) : toutes les questions du forum hors grille des problèmes,
+// c'est-à-dire Méthode, Application et questions Problème sans numéro.
+export function estQuestionFaq(t: Pick<ForumTicket, 'sujet' | 'feuille_id' | 'numero_exercice'>): boolean {
+  return !(t.sujet === 'probleme' && t.feuille_id && t.numero_exercice != null)
+}
+
+// Page FAQ ; `depuis` : filtre de la grille d'où l'on vient, pour le lien retour.
+export function faqHref(depuis?: FiltreProblemes): string {
+  return depuis && depuis !== FILTRE_PROBLEMES_DEFAUT ? `/forum/faq?depuis=${encodeURIComponent(depuis)}` : '/forum/faq'
+}
+
+// Filtre de grille passé en ?depuis= (page problème, FAQ) : mes, toutes ou un
+// id de feuille ; « Mes questions » à défaut. /forum revalide le filtre.
+export function filtreDepuis(param: string | string[] | undefined): FiltreProblemes {
+  const valeur = Array.isArray(param) ? param[0] : param
+  return valeur === 'toutes' || (valeur && /^[0-9a-f-]{36}$/i.test(valeur)) ? valeur : FILTRE_PROBLEMES_DEFAUT
+}
+
+// Titre donné automatiquement à une question posée depuis la page d'un problème.
+export function titreQuestionProbleme(feuilleTitre: string, numero: number): string {
+  return `${feuilleTitre} · n° ${numero}`
 }
 
 // Le panneau actif dans l'UI : un topic de sens (tickets topic_id renseigné)

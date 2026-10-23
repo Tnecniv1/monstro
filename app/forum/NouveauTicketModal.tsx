@@ -14,6 +14,9 @@ interface Props {
   // Pré-remplissage (ex. onboarding : ouvrir directement "Méthode, Script #1").
   initialSujet?: QuestionSujet
   initialScriptId?: string
+  // Sujets proposés (tous par défaut). « Autres questions » : Méthode et
+  // Application, les questions Problème se posant depuis la page du problème.
+  sujets?: QuestionSujet[]
   onClose: () => void
   onCreated: (ticket: ForumTicket) => void
 }
@@ -25,7 +28,7 @@ const FIELD_CLASS =
 // au vouvoiement quand l'utilisateur a déjà un ticket ouvert — reformulée
 // ici au tutoiement pour matcher le reste du forum, plutôt que de laisser
 // passer une erreur générique.
-function friendlyTicketError(message: string | undefined): string {
+export function friendlyTicketError(message: string | undefined): string {
   if (!message) return 'Erreur lors de la création du ticket.'
   if (message.toLowerCase().includes('ticket ouvert')) {
     return 'Tu as déjà un ticket ouvert. Ferme-le avant d’en ouvrir un nouveau.'
@@ -41,6 +44,7 @@ export default function NouveauTicketModal({
   scripts,
   initialSujet,
   initialScriptId,
+  sujets = Object.keys(SUJET_LABEL) as QuestionSujet[],
   onClose,
   onCreated,
 }: Props) {
@@ -142,8 +146,8 @@ export default function NouveauTicketModal({
             <>
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-text-secondary">Sujet</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(Object.keys(SUJET_LABEL) as QuestionSujet[]).map((s) => (
+                <div className={`grid gap-2 ${sujets.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                  {sujets.map((s) => (
                     <button
                       key={s}
                       type="button"

@@ -10,11 +10,12 @@ import ScriptTextModal from './ScriptTextModal'
 import ScriptPdfModal from './ScriptPdfModal'
 import ForumTabs from './ForumTabs'
 import TicketsPanel from './TicketsPanel'
+import ProblemesGrille from './ProblemesGrille'
 import EquipePanel from './EquipePanel'
 import { useForumAttente } from '../components/ForumAttenteProvider'
 import { PointAttente } from '../components/PastilleCompteur'
-import { TICKET_COLUMNS, TOPICS_MASQUES } from './types'
-import type { ActiveTopic, Feuille, ForumOnglet, ForumResource, ForumScript, ForumTicket, ForumTopic, InitialTicket } from './types'
+import { FILTRE_PROBLEMES_DEFAUT, TICKET_COLUMNS, TOPICS_MASQUES, forumProblemesHref, problemeHref } from './types'
+import type { ActiveTopic, Feuille, FiltreProblemes, ForumOnglet, ForumResource, ForumScript, ForumTicket, ForumTopic, InitialTicket } from './types'
 
 interface Props {
   scripts: ForumScript[]
@@ -26,6 +27,7 @@ interface Props {
   autoOpenScriptOrdre: number | null
   initialTicket: InitialTicket | null
   ouvrirEquipe: boolean
+  initialFiltre: FiltreProblemes | null
   userId: string
   isAdmin: boolean
 }
@@ -40,6 +42,7 @@ export default function ForumClient({
   autoOpenScriptOrdre,
   initialTicket,
   ouvrirEquipe,
+  initialFiltre,
   userId,
   isAdmin,
 }: Props) {
@@ -87,10 +90,21 @@ export default function ForumClient({
     // ?onglet=equipe (compteur de jetons ADN de l'accueil)
     if (ouvrirEquipe) return { kind: 'equipe' }
     if (autoOpenScriptOrdre != null) return { kind: 'scripts' }
+    // ?filtre= (retour depuis la page d'un problème)
+    if (initialFiltre) return { kind: 'questions' }
     if (!initialScript1Ouvert && !isAdmin) return { kind: 'scripts' }
     return { kind: 'questions' }
   })
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(initialTicket?.id ?? null)
+
+  // Filtre de la grille des problèmes (« Mes questions » par défaut), gardé
+  // ici pour survivre aux changements d'onglet, et dans l'URL (?filtre=) sans
+  // nouvel aller-retour serveur.
+  const [filtre, setFiltre] = useState<FiltreProblemes>(initialFiltre ?? FILTRE_PROBLEMES_DEFAUT)
+  function changerFiltre(nouveau: FiltreProblemes) {
+    setFiltre(nouveau)
+    window.history.replaceState(null, '', forumProblemesHref(nouveau))
+  }
 
   // ?script=N : ouvre le script d'ordre N une seule fois, puis retire le
   // paramètre de l'URL pour qu'un rafraîchissement ne le rouvre pas
@@ -160,68 +174,89 @@ export default function ForumClient({
 
   const showResources = activeTopic.kind === 'sens' && activeTopic.displayMode === 'resources'
 
+  // Question du forum : le bandeau mène à la page de son problème (question
+  // Problème numérotée) ou à celle de la question ; ticket d'un topic de
+  // sens : il s'ouvre dans son onglet.
+  const monTicketHref = !monTicket || monTicket.topic_id != null
+    ? null
+    : monTicket.sujet === 'probleme' && monTicket.feuille_id && monTicket.numero_exercice != null
+      ? problemeHref(monTicket.feuille_id, monTicket.numero_exercice)
+      : `/forum/question/${monTicket.id}`
+  const monTicketContenu = monTicket && (
+    <>
+      <span className="flex min-w-0 items-center gap-2">
+        {enAttente.has(monTicket.id) && <PointAttente />}
+        <span className="text-sm text-text-primary truncate">
+          <span className="font-medium">Ton ticket en cours</span> — {monTicket.titre}
+        </span>
+      </span>
+      <span className="text-xs font-medium text-accent shrink-0">Ouvrir →</span>
+    </>
+  )
+  const monTicketClass =
+    'w-full shrink-0 flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/5 px-4 py-2.5 text-left hover:bg-accent/10 transition-colors'
+
   return (
-    <div className="flex flex-col gap-4 md:min-h-0 md:flex-1">
-      <div className="flex shrink-0 items-center gap-3">
-        <h1 className="text-2xl font-bold text-text-primary">Forum</h1>
-        {isAdmin && (
-          <Link
-            href="/forum/suivi"
-            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-2 transition-colors"
-          >
-            Suivi
-          </Link>
-        )}
+    <div className="flex flex-col gap-7">
+      {/* Titre (+ Suivi) à gauche, onglets à droite ; passe à la ligne sur
+          petit écran. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        <div className="flex items-center gap-3">
+          <h1 className="text-[28px] font-extrabold tracking-[-0.02em] text-text-primary">Forum</h1>
+          {isAdmin && (
+            <Link
+              href="/forum/suivi"
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-2 transition-colors"
+            >
+              Suivi
+            </Link>
+          )}
+        </div>
+        <ForumTabs
+          topicsSens={topicsSens}
+          selected={activeTopic}
+          onSelect={selectTopic}
+          compteurQuestions={compteurQuestions}
+        />
       </div>
 
-      {monTicket && (
-        <button
-          onClick={openMonTicket}
-          className="w-full shrink-0 flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/5 px-4 py-2.5 text-left hover:bg-accent/10 transition-colors"
-        >
-          <span className="flex min-w-0 items-center gap-2">
-            {enAttente.has(monTicket.id) && <PointAttente />}
-            <span className="text-sm text-text-primary truncate">
-              <span className="font-medium">Ton ticket en cours</span> — {monTicket.titre}
-            </span>
-          </span>
-          <span className="text-xs font-medium text-accent shrink-0">Ouvrir →</span>
-        </button>
-      )}
+      {monTicket &&
+        (monTicketHref ? (
+          <Link href={monTicketHref} className={monTicketClass}>
+            {monTicketContenu}
+          </Link>
+        ) : (
+          <button onClick={openMonTicket} className={monTicketClass}>
+            {monTicketContenu}
+          </button>
+        ))}
 
-      {/* Onglets + panneau : la messagerie prend la hauteur restante (≥ md),
-          avec une hauteur minimale au-delà de laquelle la page défile
-          (seulement sur un écran très bas : 1366×768 tient sans défilement). */}
-      <div className="flex flex-col gap-4 md:min-h-[20rem] md:flex-1">
-        <div className="shrink-0">
-          <ForumTabs
-            topicsSens={topicsSens}
-            selected={activeTopic}
-            onSelect={selectTopic}
-            compteurQuestions={compteurQuestions}
-          />
-        </div>
-
+      {/* Contenu de l'onglet, à sa hauteur naturelle : c'est la page qui défile. */}
+      <div>
         {activeTopic.kind === 'scripts' ? (
-          <div className="md:min-h-0 md:flex-1 md:overflow-y-auto">
-            <ScriptsRow items={scripts} onSelect={selectScript} variant="grid" showNumber />
-          </div>
+          <ScriptsRow items={scripts} onSelect={selectScript} variant="grid" showNumber />
         ) : showResources ? (
-          <div className="md:min-h-0 md:flex-1 md:overflow-y-auto">
-            <ScriptsRow
-              items={resources}
-              onSelect={setOpenResource}
-              variant="grid"
-              emptyMessage="Aucune ressource pour l'instant."
-            />
-          </div>
+          <ScriptsRow
+            items={resources}
+            onSelect={setOpenResource}
+            variant="grid"
+            emptyMessage="Aucune ressource pour l'instant."
+          />
         ) : activeTopic.kind === 'equipe' ? (
-          <div className="md:min-h-0 md:flex-1 md:overflow-y-auto">
-            <EquipePanel userId={userId} isAdmin={isAdmin} />
-          </div>
+          <EquipePanel userId={userId} isAdmin={isAdmin} />
+        ) : activeTopic.kind === 'questions' ? (
+          // Problèmes : grille des problèmes, la carte FAQ en tête (Méthode,
+          // Application, anciennes questions sans numéro).
+          <ProblemesGrille
+            feuilles={feuilles}
+            focusIds={focusIds}
+            userId={userId}
+            filtre={filtre}
+            onFiltre={changerFiltre}
+          />
         ) : (
           <TicketsPanel
-            key={activeTopic.kind === 'sens' ? `sens:${activeTopic.id}` : 'questions'}
+            key={`sens:${activeTopic.id}`}
             activeTopic={activeTopic}
             userId={userId}
             isAdmin={isAdmin}
