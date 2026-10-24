@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import MathText from '../components/MathText'
+import { CATEGORIES_COURS, CATEGORIE_COURS_LABEL, type CategorieCours } from '../bibliotheque/cours'
 
 // Même normalisation que AdminClient.tsx (FormulaireFeuille) — évite les
 // caractères spéciaux dans le chemin de stockage.
@@ -18,9 +19,10 @@ function sanitizeFileName(name: string): string {
 type CardEtape = { titre: string; description: string }
 
 // Forme commune à forum_scripts et forum_resources (colonnes partagées).
-// citation/etapes n'existent que sur forum_scripts, pdf_url que sur
-// forum_resources (côté formulaire — la colonne pdf_url existe toujours en
-// base sur forum_scripts mais n'est plus lue/écrite depuis cet écran).
+// citation/etapes n'existent que sur forum_scripts, pdf_url et categorie
+// (cours de la Bibliothèque) que sur forum_resources (côté formulaire — la
+// colonne pdf_url existe toujours en base sur forum_scripts mais n'est plus
+// lue/écrite depuis cet écran).
 type CardItem = {
   id: string
   titre: string
@@ -28,6 +30,7 @@ type CardItem = {
   citation?: string | null
   etapes?: CardEtape[]
   pdf_url?: string | null
+  categorie?: CategorieCours
   cover_url: string | null
   ordre: number
 }
@@ -86,6 +89,7 @@ function CardForm({
   const [citation, setCitation] = useState(initial?.citation ?? '')
   const [etapes, setEtapes] = useState<CardEtape[]>(initial?.etapes ?? [])
   const [pdfUrl, setPdfUrl] = useState(initial?.pdf_url ?? '')
+  const [categorie, setCategorie] = useState<CategorieCours>(initial?.categorie ?? 'introduction')
   const [coverUrl, setCoverUrl] = useState(initial?.cover_url ?? '')
   const [ordre, setOrdre] = useState(initial?.ordre ?? 1)
   const [loading, setLoading] = useState(false)
@@ -207,6 +211,7 @@ function CardForm({
         .filter((et) => et.titre || et.description)
     } else {
       payload.pdf_url = pdfUrl.trim() || null
+      payload.categorie = categorie
     }
 
     const { error } = initial
@@ -376,41 +381,59 @@ function CardForm({
           <EtapePreview citation={citation} etapes={etapes} />
         </>
       ) : (
-        <div className="space-y-1.5">
-          <label className="block text-xs font-medium text-text-secondary">PDF</label>
+        <>
+          {/* Catégorie — pastille et filtre de la vue « Cours » de la Bibliothèque. */}
+          <div className="space-y-1">
+            <label className="block text-xs font-medium text-text-secondary">Catégorie</label>
+            <select
+              value={categorie}
+              onChange={(e) => setCategorie(e.target.value as CategorieCours)}
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              {CATEGORIES_COURS.map((c) => (
+                <option key={c} value={c}>
+                  {CATEGORIE_COURS_LABEL[c]}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <label
-            onDragOver={(e) => { e.preventDefault(); setDragOverPdf(true) }}
-            onDragLeave={() => setDragOverPdf(false)}
-            onDrop={handleDropPdf}
-            className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-5 text-center cursor-pointer transition-colors ${
-              dragOverPdf ? 'border-accent bg-accent/5' : 'border-border hover:border-border-strong hover:bg-surface'
-            }`}
-          >
-            <input type="file" accept=".pdf" onChange={handleFileInputPdf} className="sr-only" />
-            {uploadingPdf ? (
-              <p className="text-xs text-text-muted">Upload en cours…</p>
-            ) : fichierNom ? (
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-success">✓ {fichierNom}</p>
-                <p className="text-xs text-text-muted">Cliquer pour changer</p>
-              </div>
-            ) : (
-              <p className="text-sm text-text-muted">
-                Glissez un PDF ici ou <span className="underline">cliquez pour sélectionner</span>
-              </p>
-            )}
-          </label>
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-text-secondary">PDF</label>
 
-          <input
-            type="text"
-            value={pdfUrl}
-            onChange={(e) => setPdfUrl(e.target.value)}
-            required
-            placeholder="https://… (rempli automatiquement après upload)"
-            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
-          />
-        </div>
+            <label
+              onDragOver={(e) => { e.preventDefault(); setDragOverPdf(true) }}
+              onDragLeave={() => setDragOverPdf(false)}
+              onDrop={handleDropPdf}
+              className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-5 text-center cursor-pointer transition-colors ${
+                dragOverPdf ? 'border-accent bg-accent/5' : 'border-border hover:border-border-strong hover:bg-surface'
+              }`}
+            >
+              <input type="file" accept=".pdf" onChange={handleFileInputPdf} className="sr-only" />
+              {uploadingPdf ? (
+                <p className="text-xs text-text-muted">Upload en cours…</p>
+              ) : fichierNom ? (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-success">✓ {fichierNom}</p>
+                  <p className="text-xs text-text-muted">Cliquer pour changer</p>
+                </div>
+              ) : (
+                <p className="text-sm text-text-muted">
+                  Glissez un PDF ici ou <span className="underline">cliquez pour sélectionner</span>
+                </p>
+              )}
+            </label>
+
+            <input
+              type="text"
+              value={pdfUrl}
+              onChange={(e) => setPdfUrl(e.target.value)}
+              required
+              placeholder="https://… (rempli automatiquement après upload)"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+          </div>
+        </>
       )}
 
       {error && <p className="text-sm text-danger">{error}</p>}
@@ -454,7 +477,7 @@ export default function ForumCardManager({ table, createLabel, itemLabelSingular
     setLoading(true)
     const columns = isScript
       ? 'id, titre, description, citation, etapes, cover_url, ordre'
-      : 'id, titre, description, pdf_url, cover_url, ordre'
+      : 'id, titre, description, pdf_url, categorie, cover_url, ordre'
     const { data } = await supabase.from(table).select(columns).order('ordre')
     setItems((data as unknown as CardItem[]) ?? [])
     setLoading(false)
@@ -511,7 +534,10 @@ export default function ForumCardManager({ table, createLabel, itemLabelSingular
                 )}
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-text-primary truncate">#{item.ordre} — {item.titre}</p>
-                  <p className="text-xs text-text-muted truncate">{item.description}</p>
+                  <p className="text-xs text-text-muted truncate">
+                    {item.categorie && `${CATEGORIE_COURS_LABEL[item.categorie]} · `}
+                    {item.description}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0 text-xs">

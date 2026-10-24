@@ -5,7 +5,7 @@ import { getUser } from '@/lib/supabase/getUser'
 import ForumClient from './ForumClient'
 import { isForumAdmin } from './adminGate'
 import { TOPICS_MASQUES, problemeHref } from './types'
-import type { Feuille, FiltreProblemes, ForumResource, ForumScript, ForumTicket, ForumTopic, InitialTicket } from './types'
+import type { Feuille, FiltreProblemes, ForumScript, ForumTicket, ForumTopic, InitialTicket } from './types'
 
 export default async function ForumPage({
   searchParams,
@@ -30,12 +30,15 @@ export default async function ForumPage({
   // = mes) ; présent et valide, il ouvre l'onglet Problèmes.
   const filtreParam = Array.isArray(searchParams.filtre) ? searchParams.filtre[0] : searchParams.filtre
 
+  // ?onglet=ressources (ancien onglet Ressources) : les ressources sont
+  // devenues les cours de la Bibliothèque.
+  if (searchParams.onglet === 'ressources') redirect('/bibliotheque?vue=cours')
+
   // ?onglet=equipe (compteur de jetons ADN de l'accueil) : ouvre l'onglet Équipe.
   const ouvrirEquipe = searchParams.onglet === 'equipe'
 
   const [
     { data: scriptsData },
-    { data: resourcesData },
     { data: topicsData },
     { data: feuillesData },
     { data: focusData },
@@ -45,12 +48,6 @@ export default async function ForumPage({
     supabase
       .from('forum_scripts')
       .select('id, titre, description, citation, etapes, cover_url, ordre')
-      .order('ordre'),
-    // Ressources — affichées à la place des tickets pour tout topic "de sens"
-    // avec display_mode === 'resources' (aujourd'hui : le topic Ressources).
-    supabase
-      .from('forum_resources')
-      .select('id, titre, description, cover_url, pdf_url, ordre')
       .order('ordre'),
     supabase
       .from('forum_topics')
@@ -83,9 +80,13 @@ export default async function ForumPage({
   ])
 
   const scripts = (scriptsData ?? []) as ForumScript[]
-  const resources = (resourcesData ?? []) as ForumResource[]
-  const topicsSens = ((topicsData ?? []) as ForumTopic[]).filter((t) => !TOPICS_MASQUES.includes(t.id))
-  // ?ticket= d'un topic masqué : ignoré, le Forum s'ouvre sur son onglet par défaut.
+  // Sans les topics masqués ni ceux en display_mode 'resources' (le topic
+  // Ressources, dont les fiches sont les cours de la Bibliothèque). Rien n'est
+  // supprimé en base : monstro-expo affiche encore l'onglet Ressources.
+  const topicsSens = ((topicsData ?? []) as ForumTopic[]).filter(
+    (t) => !TOPICS_MASQUES.includes(t.id) && t.display_mode !== 'resources'
+  )
+  // ?ticket= d'un topic sans onglet : ignoré, le Forum s'ouvre sur son onglet par défaut.
   const ticketDemande = initialTicketData as
     | (InitialTicket & Pick<ForumTicket, 'sujet' | 'feuille_id' | 'numero_exercice'>)
     | null
@@ -97,7 +98,7 @@ export default async function ForumPage({
     )
   }
   const initialTicket =
-    ticketDemande?.topic_id && TOPICS_MASQUES.includes(ticketDemande.topic_id) ? null : ticketDemande
+    ticketDemande?.topic_id && !topicsSens.some((t) => t.id === ticketDemande.topic_id) ? null : ticketDemande
   const feuilles = ((feuillesData ?? []) as Feuille[])
     .slice()
     .sort((a, b) => a.titre.localeCompare(b.titre, 'fr'))
@@ -119,7 +120,6 @@ export default async function ForumPage({
 
         <ForumClient
           scripts={scripts}
-          resources={resources}
           topicsSens={topicsSens}
           feuilles={feuilles}
           focusIds={focusIds}

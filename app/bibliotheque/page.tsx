@@ -2,9 +2,15 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { estEnEtapeFocus } from '../onboarding/focus'
-import BibliothequeClient, { type Feuille } from './BibliothequeClient'
+import type { Feuille } from './BibliothequeClient'
+import BibliothequeVues from './BibliothequeVues'
+import { estCategorieCours, type Cours } from './cours'
 
-export default async function BibliothequePage() {
+export default async function BibliothequePage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined }
+}) {
   const supabase = createClient()
 
   const {
@@ -13,7 +19,11 @@ export default async function BibliothequePage() {
 
   if (!user) redirect('/login')
 
-  const [{ data }, { data: focusData }, { data: terminesData }, { data: profile }] = await Promise.all([
+  // ?vue=cours (absent = problèmes) et, en vue Cours, ?categorie=introduction|exploration.
+  const vueParam = Array.isArray(searchParams.vue) ? searchParams.vue[0] : searchParams.vue
+  const categorieParam = Array.isArray(searchParams.categorie) ? searchParams.categorie[0] : searchParams.categorie
+
+  const [{ data }, { data: focusData }, { data: terminesData }, { data: profile }, { data: coursData }] = await Promise.all([
     supabase
       .from('feuille_entrainement')
       .select(`
@@ -42,6 +52,11 @@ export default async function BibliothequePage() {
       .select('role, plan, charte_acceptee_at, script1_ouvert_at, focus_valide_at, date_naissance')
       .eq('id', user.id)
       .single(),
+    // Cours (vue « Cours ») — anciennes ressources du Forum.
+    supabase
+      .from('forum_resources')
+      .select('id, titre, description, pdf_url, categorie')
+      .order('ordre'),
   ])
 
   const focusIds = new Set(focusData?.map((f) => f.feuille_id) ?? [])
@@ -58,6 +73,13 @@ export default async function BibliothequePage() {
   )
 
   const feuilles = (data ?? []) as unknown as Feuille[]
+  const cours = (coursData ?? []) as Cours[]
+
+  // Onboarding : pendant l'étape Focus, la page reste sur la vue Problèmes
+  // (choix des feuilles) et le toggle est masqué (BibliothequeVues).
+  const etapeFocus = estEnEtapeFocus(profile) ? { dateNaissance: profile?.date_naissance ?? null } : null
+  const initialVue = vueParam === 'cours' && !etapeFocus ? 'cours' : 'problemes'
+  const initialCategorie = initialVue === 'cours' && estCategorieCours(categorieParam) ? categorieParam : null
 
   return (
     <div className="min-h-screen bg-bg">
@@ -66,12 +88,17 @@ export default async function BibliothequePage() {
         <Link href="/" className="text-sm text-text-muted hover:text-text-secondary transition-colors">← Monstro</Link>
         <h1 className="text-2xl font-bold text-text-primary">Bibliothèque</h1>
 
-        <BibliothequeClient
-          feuilles={feuilles}
-          focusIds={focusIds}
-          termineIds={termineIds}
-          userId={user.id}
-          etapeFocus={estEnEtapeFocus(profile) ? { dateNaissance: profile?.date_naissance ?? null } : null}
+        <BibliothequeVues
+          initialVue={initialVue}
+          initialCategorie={initialCategorie}
+          cours={cours}
+          problemes={{
+            feuilles,
+            focusIds,
+            termineIds,
+            userId: user.id,
+            etapeFocus,
+          }}
         />
       </div>
     </div>

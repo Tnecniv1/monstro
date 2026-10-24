@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getSignedPdfUrl } from '@/lib/getSignedPdfUrl'
@@ -73,9 +73,11 @@ interface Props {
   userId: string
   // Onboarding : non nul pendant l'étape Focus (bandeau en haut de la page).
   etapeFocus: { dateNaissance: string | null } | null
+  // Toggle « Problèmes | Cours », à droite de la pastille « • Focus ».
+  toggleVue: ReactNode
 }
 
-export default function BibliothequeClient({ feuilles, focusIds: initialFocusIds, termineIds, userId, etapeFocus }: Props) {
+export default function BibliothequeClient({ feuilles, focusIds: initialFocusIds, termineIds, userId, etapeFocus, toggleVue }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -203,17 +205,20 @@ export default function BibliothequeClient({ feuilles, focusIds: initialFocusIds
         className="w-full rounded-lg bg-surface border border-border px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
       />
 
-      {/* Filtre Focus */}
-      <button
-        onClick={() => setShowFocusOnly((v) => !v)}
-        className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-          showFocusOnly
-            ? 'bg-surface-2 ring-1 ring-border-strong text-text-primary'
-            : 'bg-surface ring-1 ring-border text-text-secondary hover:bg-surface-2'
-        }`}
-      >
-        • Focus
-      </button>
+      {/* Filtre Focus, toggle de vue à droite */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <button
+          onClick={() => setShowFocusOnly((v) => !v)}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            showFocusOnly
+              ? 'bg-surface-2 ring-1 ring-border-strong text-text-primary'
+              : 'bg-surface ring-1 ring-border text-text-secondary hover:bg-surface-2'
+          }`}
+        >
+          • Focus
+        </button>
+        {toggleVue}
+      </div>
 
       {/* Filtres en cascade */}
       {depth0Options.length > 0 && (

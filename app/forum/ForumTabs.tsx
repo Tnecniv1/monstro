@@ -12,7 +12,7 @@ interface Props {
 }
 
 // Barre d'onglets : Scripts, puis les topics "de sens" dans l'ordre de
-// forum_topics (Ressources… ; sans les TOPICS_MASQUES, filtrés par la page),
+// forum_topics (sans les TOPICS_MASQUES ni le topic Ressources, filtrés par la page),
 // puis Problèmes (questions du forum) et Équipe.
 export default function ForumTabs({ topicsSens, selected, onSelect, compteurQuestions }: Props) {
   const onglets: { key: string; label: string; active: boolean; topic: ForumOnglet; badge?: number }[] = [

@@ -7,19 +7,17 @@ import { markScript1Ouvert } from '../onboarding/profileWrites'
 import AvantScript1Modal from './AvantScript1Modal'
 import ScriptsRow from './ScriptsRow'
 import ScriptTextModal from './ScriptTextModal'
-import ScriptPdfModal from './ScriptPdfModal'
 import ForumTabs from './ForumTabs'
 import TicketsPanel from './TicketsPanel'
 import ProblemesGrille from './ProblemesGrille'
 import EquipePanel from './EquipePanel'
 import { useForumAttente } from '../components/ForumAttenteProvider'
 import { PointAttente } from '../components/PastilleCompteur'
-import { FILTRE_PROBLEMES_DEFAUT, TICKET_COLUMNS, TOPICS_MASQUES, forumProblemesHref, problemeHref } from './types'
-import type { ActiveTopic, Feuille, FiltreProblemes, ForumOnglet, ForumResource, ForumScript, ForumTicket, ForumTopic, InitialTicket } from './types'
+import { FILTRE_PROBLEMES_DEFAUT, TICKET_COLUMNS, forumProblemesHref, problemeHref } from './types'
+import type { ActiveTopic, Feuille, FiltreProblemes, ForumOnglet, ForumScript, ForumTicket, ForumTopic, InitialTicket } from './types'
 
 interface Props {
   scripts: ForumScript[]
-  resources: ForumResource[]
   topicsSens: ForumTopic[]
   feuilles: Feuille[]
   focusIds: string[]
@@ -34,7 +32,6 @@ interface Props {
 
 export default function ForumClient({
   scripts,
-  resources,
   topicsSens,
   feuilles,
   focusIds,
@@ -46,10 +43,7 @@ export default function ForumClient({
   userId,
   isAdmin,
 }: Props) {
-  // Scripts (citation + étapes) et ressources (PDF) ouvrent deux modals
-  // différents — ScriptPdfModal reste inchangé, dédié aux ressources.
   const [openScript, setOpenScript] = useState<ForumScript | null>(null)
-  const [openResource, setOpenResource] = useState<ForumResource | null>(null)
 
   // Onboarding (modal 3) : avant la toute première ouverture du Script 1
   // (ordre = 1) par un élève, un court modal s'intercale.
@@ -145,13 +139,13 @@ export default function ForumClient({
       .then(({ data }) => {
         if (cancelled) return
         const ticket = ((data ?? [])[0] as ForumTicket) ?? null
-        // Ticket d'un topic masqué : pas d'accès rapide (son onglet n'existe plus).
-        setMonTicket(ticket?.topic_id && TOPICS_MASQUES.includes(ticket.topic_id) ? null : ticket)
+        // Ticket d'un topic sans onglet (masqué, Ressources) : pas d'accès rapide.
+        setMonTicket(ticket?.topic_id && !topicsSens.some((t) => t.id === ticket.topic_id) ? null : ticket)
       })
     return () => {
       cancelled = true
     }
-  }, [userId, monTicketVersion])
+  }, [userId, monTicketVersion, topicsSens])
 
   // Questions en attente (pastille de l'onglet Questions, point de « Ton ticket en cours »).
   const { ids: enAttente, count: compteurQuestions } = useForumAttente()
@@ -171,8 +165,6 @@ export default function ForumClient({
     setActiveTopic((prev) => (sameTopic(prev, topic) ? prev : topic))
     setSelectedTicketId(monTicket.id)
   }
-
-  const showResources = activeTopic.kind === 'sens' && activeTopic.displayMode === 'resources'
 
   // Question du forum : le bandeau mène à la page de son problème (question
   // Problème numérotée) ou à celle de la question ; ticket d'un topic de
@@ -235,13 +227,6 @@ export default function ForumClient({
       <div>
         {activeTopic.kind === 'scripts' ? (
           <ScriptsRow items={scripts} onSelect={selectScript} variant="grid" showNumber />
-        ) : showResources ? (
-          <ScriptsRow
-            items={resources}
-            onSelect={setOpenResource}
-            variant="grid"
-            emptyMessage="Aucune ressource pour l'instant."
-          />
         ) : activeTopic.kind === 'equipe' ? (
           <EquipePanel userId={userId} isAdmin={isAdmin} />
         ) : activeTopic.kind === 'questions' ? (
@@ -275,7 +260,6 @@ export default function ForumClient({
         <AvantScript1Modal saving={savingScript1} error={script1Error} onOk={confirmScript1} />
       )}
       {openScript && <ScriptTextModal script={openScript} onClose={() => setOpenScript(null)} />}
-      {openResource && <ScriptPdfModal script={openResource} onClose={() => setOpenResource(null)} />}
     </div>
   )
 }
