@@ -6,6 +6,7 @@ import "katex/dist/katex.min.css";
 import { SITE_URL } from "@/lib/site";
 import OnboardingGate from "./onboarding/OnboardingGate";
 import { ForumAttenteProvider } from "./components/ForumAttenteProvider";
+import AppDownloadBanner from "./components/AppDownloadBanner";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -23,6 +24,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "Monstro",
   description: "Application d'entraînement Monstro",
+  itunes: { appId: "6768066030" },
 };
 
 export default function RootLayout({
@@ -34,6 +36,7 @@ export default function RootLayout({
     <html lang="fr">
       <body className={`${geistSans.variable} ${geistMono.variable} ${cinzel.variable} antialiased`}>
         <ForumAttenteProvider>
+          <AppDownloadBanner />
           {children}
           <OnboardingGate />
         </ForumAttenteProvider>
