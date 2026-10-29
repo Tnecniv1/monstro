@@ -1,13 +1,13 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { PUBLIC_PATHS, hasAppAccess, isVitrine } from '@/lib/access'
+import { PUBLIC_PATHS, RECUPERATION_PATHS, hasAppAccess, isVitrine } from '@/lib/access'
 import { SITE_URL } from '@/lib/site'
 
 // Ancien sous-domaine Render, que Render ne sait pas rediriger lui-même.
 const ANCIEN_HOST = 'monstro.onrender.com'
 
 // Routes accessibles sans plan payant (+ /login déjà géré en-dessous)
-const WHITELIST = new Set(['/', '/profil', '/login', '/mentions-legales', '/privacy'])
+const WHITELIST = new Set(['/', '/profil', '/login', '/mentions-legales', '/privacy', ...RECUPERATION_PATHS])
 
 export async function middleware(request: NextRequest) {
   // Routes cron : pas de session, authentifiées par CRON_SECRET dans la route elle-même

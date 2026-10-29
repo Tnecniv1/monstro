@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { resolveLoginEmail } from '@/lib/auth/resolveLoginEmail'
@@ -106,6 +107,12 @@ export default function AuthForm() {
         <form onSubmit={handleSignIn} className="space-y-3">
           <Field label="Pseudo ou Email" type="text" value={email} onChange={setEmail} placeholder="pseudo ou toi@exemple.com" />
           <Field label="Mot de passe" type="password" value={password} onChange={setPassword} placeholder="••••••••" />
+          <Link
+            href="/identifiants-oublies"
+            className="inline-block text-xs font-medium text-accent underline-offset-4 hover:underline"
+          >
+            Identifiants oubliés&nbsp;?
+          </Link>
           {/* Message applicatif — ne dépend pas de la bulle de validation
               native du navigateur (peu visible, notamment sur mobile Safari). */}
           {!error && (!email.trim() || !password) && (
@@ -141,7 +148,7 @@ export default function AuthForm() {
   )
 }
 
-function Field({
+export function Field({
   label,
   type,
   value,
@@ -169,7 +176,7 @@ function Field({
   )
 }
 
-function SubmitButton({
+export function SubmitButton({
   loading,
   label,
   disabled = false,
