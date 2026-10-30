@@ -3,10 +3,16 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { FunctionsHttpError } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { resolveLoginEmail } from '@/lib/auth/resolveLoginEmail'
 
 type Tab = 'connexion' | 'inscription'
+
+// Même message pour un pseudo inconnu, un email inconnu ou un mauvais mot de
+// passe : la connexion ne doit pas révéler quels comptes existent.
+const MESSAGE_IDENTIFIANTS_INVALIDES = 'Identifiant ou mot de passe incorrect.'
+const MESSAGE_TROP_DE_TENTATIVES = 'Trop de tentatives, réessaie dans quelques minutes.'
+const MESSAGE_ERREUR = 'Une erreur est survenue. Réessaie.'
 
 export default function AuthForm() {
   const router = useRouter()
@@ -36,23 +42,58 @@ export default function AuthForm() {
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault()
-    if (!email.trim() || !password) return
+    const identifiant = email.trim()
+    if (!identifiant || !password) return
     setLoading(true)
     setError(null)
-    const { email: loginEmail, error: resolveError } = await resolveLoginEmail(supabase, email)
-    if (resolveError || !loginEmail) {
-      setError(resolveError ?? 'Pseudo introuvable')
-      setLoading(false)
-      return
-    }
-    const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password })
-    if (error) {
-      setError(error.message)
+    const erreur = identifiant.includes('@')
+      ? await connexionParEmail(identifiant)
+      : await connexionParPseudo(identifiant)
+    if (erreur) {
+      setError(erreur)
     } else {
       router.push('/')
       router.refresh()
     }
     setLoading(false)
+  }
+
+  // Renvoie le message d'erreur à afficher, ou null si la session est ouverte.
+  async function connexionParEmail(adresse: string): Promise<string | null> {
+    const { error } = await supabase.auth.signInWithPassword({ email: adresse, password })
+    if (!error) return null
+    if (error.code === 'invalid_credentials') return MESSAGE_IDENTIFIANTS_INVALIDES
+    if (error.status === 429) return MESSAGE_TROP_DE_TENTATIVES
+    return error.message
+  }
+
+  // L'Edge Function auth-pseudo résout le pseudo côté serveur et renvoie les
+  // jetons de session, sans jamais exposer l'email.
+  async function connexionParPseudo(identifiant: string): Promise<string | null> {
+    const { data, error } = await supabase.functions.invoke<{ access_token: string; refresh_token: string }>(
+      'auth-pseudo',
+      { body: { action: 'connexion', identifiant, password } },
+    )
+    if (error) {
+      const status = error instanceof FunctionsHttpError ? (error.context as Response).status : null
+      if (status === 401) return MESSAGE_IDENTIFIANTS_INVALIDES
+      if (status === 429) return MESSAGE_TROP_DE_TENTATIVES
+      console.error('auth-pseudo connexion a échoué', error)
+      return MESSAGE_ERREUR
+    }
+    if (!data) {
+      console.error('auth-pseudo connexion : réponse vide')
+      return MESSAGE_ERREUR
+    }
+    const { error: sessionError } = await supabase.auth.setSession({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+    })
+    if (sessionError) {
+      console.error('setSession a échoué', sessionError)
+      return MESSAGE_ERREUR
+    }
+    return null
   }
 
   async function handleSignUp(e: React.FormEvent) {

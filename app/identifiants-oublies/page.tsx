@@ -4,7 +4,6 @@ import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { resolveLoginEmail } from '@/lib/auth/resolveLoginEmail'
 import { Field, SubmitButton } from '@/app/components/AuthForm'
 import VitrineShell from '@/app/components/VitrineShell'
 
@@ -47,14 +46,11 @@ function Formulaire() {
     if (!identifiant.trim() || envoye) return
     setLoading(true)
     try {
-      const supabase = createClient()
-      const { email, error: resolveError } = await resolveLoginEmail(supabase, identifiant)
-      if (email) {
-        const { error } = await supabase.auth.resetPasswordForEmail(email)
-        if (error) console.error('resetPasswordForEmail a échoué', error)
-      } else {
-        console.error('Identifiants oubliés : aucun email résolu', resolveError)
-      }
+      // auth-pseudo résout pseudo ou email côté serveur et répond toujours 200.
+      const { error } = await createClient().functions.invoke('auth-pseudo', {
+        body: { action: 'oubli', identifiant: identifiant.trim() },
+      })
+      if (error) console.error('Identifiants oubliés : auth-pseudo a échoué', error)
     } catch (err) {
       console.error('Identifiants oubliés : erreur inattendue', err)
     }

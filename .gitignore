@@ -41,3 +41,6 @@ next-env.d.ts
 # coffre Obsidian : seuls les réglages de liens/pièces jointes sont versionnés
 /content/.obsidian/*
 !/content/.obsidian/app.json
+
+# fichiers locaux de la CLI Supabase
+/supabase/.temp/
