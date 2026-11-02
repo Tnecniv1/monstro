@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getSignedPdfUrl } from '@/lib/getSignedPdfUrl'
 import MathText from '../components/MathText'
 import { CATEGORIES_COURS, CATEGORIE_COURS_LABEL, type CategorieCours } from '../bibliotheque/cours'
 
@@ -16,13 +17,37 @@ function sanitizeFileName(name: string): string {
     .replace(/[^a-zA-Z0-9._-]/g, '_')
 }
 
+// Chemin dans le bucket pdfs d'une URL enregistrée (même extraction que
+// CorrectionsClient) ; null pour une URL externe, jamais supprimée.
+function cheminPdf(url: string | null | undefined): string | null {
+  return url?.match(/\/storage\/v1\/object\/public\/pdfs\/(.+)/)?.[1] ?? null
+}
+
+// Nom lisible du fichier : dernier segment du chemin, sans le préfixe horodaté.
+function nomPdf(url: string): string {
+  const nom = (cheminPdf(url) ?? url).split('/').pop() ?? url
+  return decodeURIComponent(nom).replace(/^\d+_/, '')
+}
+
+// Renvoie le message d'erreur du Storage, ou null.
+async function supprimerPdf(supabase: ReturnType<typeof createClient>, url: string | null | undefined): Promise<string | null> {
+  const path = cheminPdf(url)
+  if (!path) return null
+  const { error } = await supabase.storage.from('pdfs').remove([path])
+  return error?.message ?? null
+}
+
+function formatDateAjout(iso: string): string {
+  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
 type CardEtape = { titre: string; description: string }
 
 // Forme commune à forum_scripts et forum_resources (colonnes partagées).
 // citation/etapes n'existent que sur forum_scripts, pdf_url et categorie
 // (cours de la Bibliothèque) que sur forum_resources (côté formulaire — la
 // colonne pdf_url existe toujours en base sur forum_scripts mais n'est plus
-// lue/écrite depuis cet écran).
+// lue/écrite depuis cet écran). created_at n'est lu que pour les cours.
 type CardItem = {
   id: string
   titre: string
@@ -33,6 +58,7 @@ type CardItem = {
   categorie?: CategorieCours
   cover_url: string | null
   ordre: number
+  created_at?: string
 }
 
 type CardTable = 'forum_scripts' | 'forum_resources'
@@ -118,6 +144,8 @@ function CardForm({
       setUploadingPdf(false)
       return
     }
+    // PDF déposé plus tôt dans ce formulaire, jamais enregistré : remplacé, donc retiré.
+    if (pdfUrl && pdfUrl !== initial?.pdf_url) void supprimerPdf(supabase, pdfUrl)
     const { data: urlData } = supabase.storage.from('pdfs').getPublicUrl(path)
     setPdfUrl(urlData.publicUrl)
     setFichierNom(file.name)
@@ -193,35 +221,55 @@ function CardForm({
     setEtapes((prev) => prev.map((e, idx) => (idx === i ? { ...e, [field]: value } : e)))
   }
 
+  // Annuler un cours : le PDF déposé mais pas enregistré ne sert à aucune ligne.
+  function annuler() {
+    if (!isScript && pdfUrl && pdfUrl !== initial?.pdf_url) void supprimerPdf(supabase, pdfUrl)
+    onCancel()
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!isScript && !pdfUrl) {
+      setError('Dépose le PDF du cours.')
+      return
+    }
     setLoading(true)
     setError(null)
 
     const payload: Record<string, unknown> = {
       titre: titre.trim(),
-      description: description.trim(),
-      cover_url: coverUrl.trim() || null,
       ordre,
     }
     if (isScript) {
+      payload.description = description.trim()
+      payload.cover_url = coverUrl.trim() || null
       payload.citation = citation.trim() || null
       payload.etapes = etapes
         .map((et) => ({ titre: et.titre.trim(), description: et.description.trim() }))
         .filter((et) => et.titre || et.description)
     } else {
-      payload.pdf_url = pdfUrl.trim() || null
+      // Cours : pas de couverture (la Bibliothèque ne l'affiche pas), description facultative.
+      payload.description = description.trim() || null
+      payload.pdf_url = pdfUrl
       payload.categorie = categorie
     }
 
-    const { error } = initial
-      ? await supabase.from(table).update(payload).eq('id', initial.id)
-      : await supabase.from(table).insert(payload)
+    const requete = initial
+      ? supabase.from(table).update(payload).eq('id', initial.id)
+      : supabase.from(table).insert(payload)
+    // Cours : on vérifie qu'une ligne a bien été écrite avant de toucher au Storage.
+    const { data, error } = isScript ? await requete : await requete.select('id')
 
-    if (error) {
-      setError(error.message)
+    if (error || (!isScript && !data?.length)) {
+      setError(error?.message ?? 'Aucune ligne enregistrée (droits insuffisants ?).')
       setLoading(false)
       return
+    }
+
+    // Remplacement du PDF : l'ancien fichier n'est retiré qu'une fois la ligne à jour.
+    if (!isScript && initial?.pdf_url && initial.pdf_url !== pdfUrl) {
+      const erreurFichier = await supprimerPdf(supabase, initial.pdf_url)
+      if (erreurFichier) alert(`Cours enregistré, mais l'ancien PDF n'a pas pu être supprimé du Storage : ${erreurFichier}`)
     }
 
     onSaved()
@@ -255,45 +303,49 @@ function CardForm({
       </div>
 
       <div className="space-y-1">
-        <label className="block text-xs font-medium text-text-secondary">Description courte</label>
+        <label className="block text-xs font-medium text-text-secondary">
+          Description courte{!isScript && ' (optionnel)'}
+        </label>
         <input
           type="text"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          required
+          required={isScript}
           className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
         />
       </div>
 
       {/* Cover — optionnelle, affichée en image de fond de carte (ScriptsRow). */}
-      <div className="space-y-1.5">
-        <label className="block text-xs font-medium text-text-secondary">Image de couverture (optionnel)</label>
+      {isScript && (
+        <div className="space-y-1.5">
+          <label className="block text-xs font-medium text-text-secondary">Image de couverture (optionnel)</label>
 
-        <label
-          onDragOver={(e) => { e.preventDefault(); setDragOverCover(true) }}
-          onDragLeave={() => setDragOverCover(false)}
-          onDrop={handleDropCover}
-          className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-5 text-center cursor-pointer transition-colors ${
-            dragOverCover ? 'border-accent bg-accent/5' : 'border-border hover:border-border-strong hover:bg-surface'
-          }`}
-        >
-          <input type="file" accept="image/*" onChange={handleFileInputCover} className="sr-only" />
-          {uploadingCover ? (
-            <p className="text-xs text-text-muted">Upload en cours…</p>
-          ) : coverUrl ? (
-            <div className="space-y-1">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={coverUrl} alt="" className="mx-auto h-16 rounded-md object-cover" />
-              {coverNom && <p className="text-xs font-medium text-success">✓ {coverNom}</p>}
-              <p className="text-xs text-text-muted">Cliquer pour changer</p>
-            </div>
-          ) : (
-            <p className="text-sm text-text-muted">
-              Glissez une image ici ou <span className="underline">cliquez pour sélectionner</span>
-            </p>
-          )}
-        </label>
-      </div>
+          <label
+            onDragOver={(e) => { e.preventDefault(); setDragOverCover(true) }}
+            onDragLeave={() => setDragOverCover(false)}
+            onDrop={handleDropCover}
+            className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-5 text-center cursor-pointer transition-colors ${
+              dragOverCover ? 'border-accent bg-accent/5' : 'border-border hover:border-border-strong hover:bg-surface'
+            }`}
+          >
+            <input type="file" accept="image/*" onChange={handleFileInputCover} className="sr-only" />
+            {uploadingCover ? (
+              <p className="text-xs text-text-muted">Upload en cours…</p>
+            ) : coverUrl ? (
+              <div className="space-y-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={coverUrl} alt="" className="mx-auto h-16 rounded-md object-cover" />
+                {coverNom && <p className="text-xs font-medium text-success">✓ {coverNom}</p>}
+                <p className="text-xs text-text-muted">Cliquer pour changer</p>
+              </div>
+            ) : (
+              <p className="text-sm text-text-muted">
+                Glissez une image ici ou <span className="underline">cliquez pour sélectionner</span>
+              </p>
+            )}
+          </label>
+        </div>
+      )}
 
       {isScript ? (
         <>
@@ -417,21 +469,17 @@ function CardForm({
                   <p className="text-xs font-medium text-success">✓ {fichierNom}</p>
                   <p className="text-xs text-text-muted">Cliquer pour changer</p>
                 </div>
+              ) : pdfUrl ? (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-text-secondary">PDF actuel : {nomPdf(pdfUrl)}</p>
+                  <p className="text-xs text-text-muted">Cliquer pour remplacer</p>
+                </div>
               ) : (
                 <p className="text-sm text-text-muted">
                   Glissez un PDF ici ou <span className="underline">cliquez pour sélectionner</span>
                 </p>
               )}
             </label>
-
-            <input
-              type="text"
-              value={pdfUrl}
-              onChange={(e) => setPdfUrl(e.target.value)}
-              required
-              placeholder="https://… (rempli automatiquement après upload)"
-              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
-            />
           </div>
         </>
       )}
@@ -441,14 +489,14 @@ function CardForm({
       <div className="flex gap-2">
         <button
           type="button"
-          onClick={onCancel}
+          onClick={annuler}
           className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-text-secondary hover:bg-surface transition-colors"
         >
           Annuler
         </button>
         <button
           type="submit"
-          disabled={loading || uploadingPdf || uploadingCover}
+          disabled={loading || uploadingPdf || uploadingCover || (!isScript && !pdfUrl)}
           className="rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
         >
           {loading ? 'Enregistrement…' : initial ? 'Enregistrer' : 'Créer'}
@@ -462,9 +510,11 @@ interface Props {
   table: CardTable
   createLabel: string
   itemLabelSingular: string
+  // Accord des messages : « le cours », « Aucun cours » (par défaut : « la fiche »).
+  masculin?: boolean
 }
 
-export default function ForumCardManager({ table, createLabel, itemLabelSingular }: Props) {
+export default function ForumCardManager({ table, createLabel, itemLabelSingular, masculin = false }: Props) {
   const supabase = createClient()
   const isScript = table === 'forum_scripts'
 
@@ -477,7 +527,7 @@ export default function ForumCardManager({ table, createLabel, itemLabelSingular
     setLoading(true)
     const columns = isScript
       ? 'id, titre, description, citation, etapes, cover_url, ordre'
-      : 'id, titre, description, pdf_url, categorie, cover_url, ordre'
+      : 'id, titre, description, pdf_url, categorie, cover_url, ordre, created_at'
     const { data } = await supabase.from(table).select(columns).order('ordre')
     setItems((data as unknown as CardItem[]) ?? [])
     setLoading(false)
@@ -489,13 +539,37 @@ export default function ForumCardManager({ table, createLabel, itemLabelSingular
   }, [table])
 
   async function handleDelete(item: CardItem) {
-    if (!confirm(`Supprimer la ${itemLabelSingular} "${item.titre}" ? Cette action est irréversible.`)) return
-    const { error } = await supabase.from(table).delete().eq('id', item.id)
+    if (!confirm(`Supprimer ${masculin ? 'le' : 'la'} ${itemLabelSingular} "${item.titre}" ? Cette action est irréversible.`)) return
+    const requete = supabase.from(table).delete().eq('id', item.id)
+    const { data, error } = isScript ? await requete : await requete.select('id')
     if (error) {
       alert('Erreur : ' + error.message)
       return
     }
+    // Cours : le PDF n'est supprimé qu'une fois la ligne effacée, jamais de ligne vers un fichier absent.
+    if (!isScript) {
+      if (!data?.length) {
+        alert('Erreur : cours non supprimé (droits insuffisants ?).')
+        return
+      }
+      const erreurFichier = await supprimerPdf(supabase, item.pdf_url)
+      if (erreurFichier) alert(`Cours supprimé, mais le PDF n'a pas pu être retiré du Storage : ${erreurFichier}`)
+    }
     charger()
+  }
+
+  // Bucket privé : URL signée (1 h) générée au clic. L'onglet est ouvert avant
+  // l'attente pour ne pas être bloqué par le navigateur.
+  async function ouvrirPdf(url: string) {
+    const onglet = window.open('', '_blank')
+    const signed = await getSignedPdfUrl(url)
+    if (signed && onglet) {
+      onglet.opener = null
+      onglet.location.href = signed
+    } else {
+      onglet?.close()
+      alert("Impossible d'ouvrir le PDF.")
+    }
   }
 
   return (
@@ -520,7 +594,7 @@ export default function ForumCardManager({ table, createLabel, itemLabelSingular
       {loading && <p className="text-sm text-text-muted">Chargement…</p>}
 
       {!loading && items.length === 0 && !showCreate && (
-        <p className="text-sm text-text-muted">Aucune {itemLabelSingular} pour l&apos;instant.</p>
+        <p className="text-sm text-text-muted">{masculin ? 'Aucun' : 'Aucune'} {itemLabelSingular} pour l&apos;instant.</p>
       )}
 
       <div className="space-y-2">
@@ -535,12 +609,27 @@ export default function ForumCardManager({ table, createLabel, itemLabelSingular
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-text-primary truncate">#{item.ordre} — {item.titre}</p>
                   <p className="text-xs text-text-muted truncate">
-                    {item.categorie && `${CATEGORIE_COURS_LABEL[item.categorie]} · `}
-                    {item.description}
+                    {isScript
+                      ? item.description
+                      : [
+                          item.categorie && CATEGORIE_COURS_LABEL[item.categorie],
+                          item.created_at && `ajouté le ${formatDateAjout(item.created_at)}`,
+                          item.description,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0 text-xs">
+                {!isScript && item.pdf_url && (
+                  <button
+                    onClick={() => ouvrirPdf(item.pdf_url!)}
+                    className="text-text-secondary hover:text-accent transition-colors"
+                  >
+                    Ouvrir le PDF
+                  </button>
+                )}
                 <button
                   onClick={() => { setEditingId((id) => (id === item.id ? null : item.id)); setShowCreate(false) }}
                   className="text-text-secondary hover:text-accent transition-colors"

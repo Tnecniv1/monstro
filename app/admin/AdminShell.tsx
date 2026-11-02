@@ -8,12 +8,14 @@ import AgoraAdminView, { type EleveAgora } from './AgoraAdminView'
 import GlobalView from './GlobalView'
 import UtilisateursView from './UtilisateursView'
 import ForumScriptsView from './ForumScriptsView'
+import ForumCardManager from './ForumCardManager'
 
-type Onglet = 'scope' | 'correction' | 'abonnements' | 'utilisateurs' | 'agora' | 'global' | 'forum'
+type Onglet = 'scope' | 'correction' | 'cours' | 'abonnements' | 'utilisateurs' | 'agora' | 'global' | 'forum'
 
 const TABS: { id: Onglet; label: string }[] = [
   { id: 'scope', label: 'Scope' },
   { id: 'correction', label: 'Correction' },
+  { id: 'cours', label: 'Cours' },
   { id: 'abonnements', label: 'Abonnements' },
   { id: 'utilisateurs', label: 'Utilisateurs' },
   { id: 'agora', label: 'Agora' },
@@ -68,6 +70,13 @@ export default function AdminShell({
 
       {onglet === 'scope' && <AdminClient noeuds={noeuds} />}
       {onglet === 'correction' && <CorrectionsClient feuilles={feuilles} />}
+      {/* Cours de la Bibliothèque (table forum_resources), web et mobile. */}
+      {onglet === 'cours' && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-text-primary">Cours</h2>
+          <ForumCardManager table="forum_resources" createLabel="+ Nouveau cours" itemLabelSingular="cours" masculin />
+        </div>
+      )}
       {onglet === 'abonnements' && <AbonnementsView />}
       {onglet === 'utilisateurs' && <UtilisateursView />}
       {onglet === 'agora' && <AgoraAdminView eleves={eleves} />}
