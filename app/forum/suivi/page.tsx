@@ -7,7 +7,6 @@ import { formatJoursDepuis } from '../relativeTime'
 import { etapeCourante, etapesFaites } from './etapes'
 import ParcoursView, { type EleveParcours, type LigneParcours } from './ParcoursView'
 import SuiviTabs from './SuiviTabs'
-import TicketsView from './TicketsView'
 
 // Ligne renvoyée par la RPC get_regularite_admin() (lève une exception hors admin).
 type EleveRegularite = {
@@ -27,9 +26,11 @@ export default async function SuiviPage() {
   if (!isForumAdmin(profile?.role)) redirect('/forum')
 
   const supabase = createClient()
-  const [{ data, error }, { data: parcoursData, error: parcoursError }] = await Promise.all([
+  const [{ data, error }, { data: parcoursData, error: parcoursError }, { count: nonLus }] = await Promise.all([
     supabase.rpc('get_regularite_admin'),
     supabase.rpc('get_parcours_admin'),
+    // Pastille du toggle Conversation : messages WhatsApp reçus non lus
+    supabase.from('whatsapp_message').select('id', { count: 'exact', head: true }).eq('sens', 'entrant').is('lu_le', null),
   ])
   const eleves = (data ?? []) as EleveRegularite[]
 
@@ -66,7 +67,7 @@ export default async function SuiviPage() {
             )
           }
           parcours={parcoursError ? <Erreur message={parcoursError.message} /> : <ParcoursView eleves={elevesParcours} />}
-          tickets={<TicketsView />}
+          nonLus={nonLus ?? 0}
         />
       </div>
     </div>

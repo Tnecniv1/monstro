@@ -12,7 +12,7 @@ import TicketsPanel from './TicketsPanel'
 import ProblemesGrille from './ProblemesGrille'
 import EquipePanel from './EquipePanel'
 import { useForumAttente } from '../components/ForumAttenteProvider'
-import { PointAttente } from '../components/PastilleCompteur'
+import PastilleCompteur, { PointAttente } from '../components/PastilleCompteur'
 import { FILTRE_PROBLEMES_DEFAUT, TICKET_COLUMNS, forumProblemesHref, problemeHref } from './types'
 import type { ActiveTopic, Feuille, FiltreProblemes, ForumOnglet, ForumScript, ForumTicket, ForumTopic, InitialTicket } from './types'
 
@@ -28,6 +28,8 @@ interface Props {
   initialFiltre: FiltreProblemes | null
   userId: string
   isAdmin: boolean
+  // Messages WhatsApp reçus non lus (pastille du bouton Suivi, admins seulement)
+  nonLusWhatsApp: number
 }
 
 export default function ForumClient({
@@ -42,6 +44,7 @@ export default function ForumClient({
   initialFiltre,
   userId,
   isAdmin,
+  nonLusWhatsApp,
 }: Props) {
   const [openScript, setOpenScript] = useState<ForumScript | null>(null)
 
@@ -200,7 +203,10 @@ export default function ForumClient({
               href="/forum/suivi"
               className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-2 transition-colors"
             >
-              Suivi
+              <span className="relative">
+                Suivi
+                <PastilleCompteur count={nonLusWhatsApp} className="absolute -right-3.5 -top-2" />
+              </span>
             </Link>
           )}
         </div>

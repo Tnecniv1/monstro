@@ -3,9 +3,14 @@
 // Les identifiants Twilio ne quittent jamais le serveur.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import twilio from 'twilio'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { normaliserTelephone } from '@/lib/telephone'
+import { normaliserTelephone as normaliserTelTwilio } from '@/lib/twilio/telephone'
+import { insererMessageWhatsApp } from '@/lib/twilio/whatsappMessage'
 
 export type EnvoiWhatsAppResult = { ok: true; sid: string } | { ok: false; erreur: string }
+// Interne : le numéro sert à l'historique mais n'est pas renvoyé au navigateur
+type TentativeEnvoi = { ok: true; sid: string; telephone: string } | { ok: false; erreur: string }
 
 // Messages lisibles pour les erreurs Twilio courantes (https://www.twilio.com/docs/api/errors).
 // Les autres codes sont affichés avec le message d'origine de Twilio.
@@ -30,7 +35,7 @@ async function tenterEnvoi(
   supabase: SupabaseClient,
   rapportId: string,
   referentId: string,
-): Promise<EnvoiWhatsAppResult> {
+): Promise<TentativeEnvoi> {
   const { data: rapport } = await supabase
     .from('rapport_mensuel')
     .select('eleve_id, image_path')
@@ -88,7 +93,7 @@ async function tenterEnvoi(
       // {{1}} = prénom, {{2}} = nom du fichier dans le bucket public « rapports »
       contentVariables: JSON.stringify({ '1': prenom, '2': rapport.image_path }),
     })
-    return { ok: true, sid: message.sid }
+    return { ok: true, sid: message.sid, telephone: tel.numero }
   } catch (e) {
     const err = e as { code?: number; status?: number; message?: string }
     console.error('[whatsapp] échec Twilio', { code: err.code, status: err.status, message: err.message })
@@ -130,7 +135,26 @@ export async function envoyerRapportWhatsApp(
       .from('rapport_envoi')
       .upsert({ rapport_id: rapportId, referent_id: referentId, envoye_le }, { onConflict: 'rapport_id,referent_id' })
     await supabase.from('rapport_mensuel').update({ envoye_le }).eq('id', rapportId)
+
+    // Historique de conversation : client service role (l'envoi manuel passe par la session admin).
+    // Même format de numéro que le webhook, pour que rapport et réponse tombent dans la même conversation.
+    // Comme le journal, ne doit jamais faire échouer un envoi déjà parti.
+    try {
+      await insererMessageWhatsApp(createAdminClient(), {
+        telephone: normaliserTelTwilio(res.telephone),
+        referent_id: referentId,
+        sens: 'sortant',
+        contenu: 'Rapport hebdomadaire envoyé',
+        media_path: null,
+        media_type: null,
+        rapport_id: rapportId,
+        twilio_sid: res.sid,
+        lu_le: envoye_le,
+      })
+    } catch (e) {
+      console.error('[whatsapp] historique non enregistré', (e as Error).message)
+    }
   }
 
-  return res
+  return res.ok ? { ok: true, sid: res.sid } : res
 }

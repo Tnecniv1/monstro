@@ -10,8 +10,10 @@ const ANCIEN_HOST = 'monstro.onrender.com'
 const WHITELIST = new Set(['/', '/profil', '/login', '/mentions-legales', '/privacy', ...RECUPERATION_PATHS])
 
 export async function middleware(request: NextRequest) {
-  // Routes cron : pas de session, authentifiées par CRON_SECRET dans la route elle-même
-  if (request.nextUrl.pathname.startsWith('/api/cron/')) return NextResponse.next()
+  // Routes cron et webhooks Twilio : pas de session, authentifiées dans la route elle-même
+  // (CRON_SECRET, signature X-Twilio-Signature)
+  const { pathname: chemin } = request.nextUrl
+  if (chemin.startsWith('/api/cron/') || chemin.startsWith('/api/twilio/')) return NextResponse.next()
 
   // Ancien domaine → domaine personnalisé, en 301 avec chemin et query conservés.
   // GET et HEAD seulement : les autres méthodes passent (une 301 changerait un

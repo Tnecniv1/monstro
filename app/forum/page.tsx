@@ -14,6 +14,7 @@ export default async function ForumPage({
 }) {
   const { user, profile } = await getUser()
   const supabase = createClient()
+  const isAdmin = isForumAdmin(profile?.role)
 
   // ?script=N (ex. lien "Voir le Script 1" de l'onboarding) : ouvre le
   // script d'ordre N au chargement.
@@ -44,6 +45,7 @@ export default async function ForumPage({
     { data: focusData },
     { data: onboardingData },
     { data: initialTicketData },
+    { count: nonLusWhatsApp },
   ] = await Promise.all([
     supabase
       .from('forum_scripts')
@@ -77,6 +79,10 @@ export default async function ForumPage({
           .eq('id', ticketId)
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    // Pastille du bouton Suivi : messages WhatsApp reçus non lus (admins seulement)
+    isAdmin
+      ? supabase.from('whatsapp_message').select('id', { count: 'exact', head: true }).eq('sens', 'entrant').is('lu_le', null)
+      : Promise.resolve({ count: 0 }),
   ])
 
   const scripts = (scriptsData ?? []) as ForumScript[]
@@ -129,7 +135,8 @@ export default async function ForumPage({
           ouvrirEquipe={ouvrirEquipe}
           initialFiltre={initialFiltre}
           userId={user.id}
-          isAdmin={isForumAdmin(profile?.role)}
+          isAdmin={isAdmin}
+          nonLusWhatsApp={nonLusWhatsApp ?? 0}
         />
       </div>
     </div>
