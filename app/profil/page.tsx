@@ -17,7 +17,7 @@ export default async function ProfilPage() {
 
   const { data: profile } = await supabase
     .from('user_profile')
-    .select('pseudo, nom, prenom, avatar_url, telephone, date_naissance, ville, niveau_scolaire, niveau, plan, role')
+    .select('pseudo, nom, prenom, avatar_url, telephone, date_naissance, ville, niveau_scolaire, niveau, confidentiel, plan, role')
     .eq('id', user.id)
     .single()
 
@@ -62,6 +62,7 @@ export default async function ProfilPage() {
           ville={profile?.ville ?? ''}
           niveauScolaire={profile?.niveau_scolaire ?? ''}
           niveau={profile?.niveau ?? ''}
+          confidentiel={profile?.confidentiel === true}
         />
         <Suspense fallback={null}>
           <AbonnementCard />

@@ -22,6 +22,7 @@ interface Props {
   // '' quand la valeur est null en base (comptes créés avant ces champs)
   niveauScolaire: string
   niveau: string
+  confidentiel: boolean
 }
 
 interface CommuneSuggestion {
@@ -58,6 +59,7 @@ export default function ProfilClient({
   avatarUrl: initAvatarUrl, telephone: initTelephone,
   dateNaissance: initDateNaissance, ville: initVille,
   niveauScolaire: initNiveauScolaire, niveau: initNiveau,
+  confidentiel: initConfidentiel,
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -71,6 +73,9 @@ export default function ProfilClient({
   const [ville, setVille] = useState(initVille)
   const [niveauScolaire, setNiveauScolaire] = useState(initNiveauScolaire)
   const [niveau, setNiveau] = useState(initNiveau)
+  const [confidentiel, setConfidentiel] = useState(initConfidentiel)
+  const [confidentielLoading, setConfidentielLoading] = useState(false)
+  const [confidentielError, setConfidentielError] = useState<string | null>(null)
   const [suggestionsVille, setSuggestionsVille] = useState<CommuneSuggestion[]>([])
   const [showSuggestionsVille, setShowSuggestionsVille] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -183,6 +188,31 @@ export default function ProfilClient({
       router.refresh()
     }
     setLoading(false)
+  }
+
+  // Enregistré dès le clic, indépendamment du bouton « Enregistrer ».
+  // .select('id') : une mise à jour bloquée par la RLS renvoie 0 ligne sans
+  // erreur ; on la traite comme un échec et l'interrupteur revient en arrière.
+  async function handleToggleConfidentiel() {
+    const valeur = !confidentiel
+    setConfidentiel(valeur)
+    setConfidentielLoading(true)
+    setConfidentielError(null)
+
+    const { data, error: err } = await supabase
+      .from('user_profile')
+      .update({ confidentiel: valeur })
+      .eq('id', userId)
+      .select('id')
+
+    if (err || !data || data.length === 0) {
+      setConfidentiel(!valeur)
+      setConfidentielError(err?.message ?? "Le réglage n'a pas pu être enregistré.")
+    } else {
+      showToast(valeur ? 'Confidentialité activée' : 'Confidentialité désactivée')
+      router.refresh()
+    }
+    setConfidentielLoading(false)
   }
 
   async function handleChangeEmail(ev: React.FormEvent) {
@@ -344,6 +374,36 @@ export default function ProfilClient({
           {loading ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       </form>
+
+      {/* Confidentialité */}
+      <div className="border-t border-border pt-6 space-y-2">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <p id="confidentialite-label" className="text-sm font-medium text-text-primary">Confidentialité</p>
+            <p className="text-xs text-text-muted">
+              Tu n&apos;apparais plus dans le classement ni sur le Forum. Seuls les admins voient tes questions.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={confidentiel}
+            aria-labelledby="confidentialite-label"
+            onClick={handleToggleConfidentiel}
+            disabled={confidentielLoading}
+            className={`relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+              confidentiel ? 'bg-accent' : 'bg-surface-2'
+            }`}
+          >
+            <span
+              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-text-primary shadow transition-transform ${
+                confidentiel ? 'translate-x-4' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+        {confidentielError && <p className="text-xs text-red-600">{confidentielError}</p>}
+      </div>
 
       {/* Changement d'email */}
       <div className="border-t border-border pt-6">

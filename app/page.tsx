@@ -35,13 +35,15 @@ export default async function HomePage() {
 
   const { data } = await supabase
     .from('user_profile')
-    .select('pseudo, role, avatar_url')
+    .select('pseudo, role, avatar_url, confidentiel')
     .eq('id', user.id)
     .single()
-  const profile = data as UserProfile | null
+  const profile = data as (UserProfile & { confidentiel: boolean | null }) | null
 
   const pseudo = profile?.pseudo ?? user.email ?? ''
   const isAdmin = profile?.role === 'admin'
+  // Élève confidentiel : ni bouton Classement ni bandeau (les admins voient tout).
+  const masquerClassement = profile?.confidentiel === true && !isAdmin
   const avatarUrl = profile?.avatar_url ?? null
 
   const { data: entIds } = await supabase
@@ -157,7 +159,7 @@ export default async function HomePage() {
         <PixelGrid count={count ?? 0} />
       </div>
 
-      {laureats.length > 0 && <BandeauEtudiantSemaine laureats={laureats} />}
+      {!masquerClassement && laureats.length > 0 && <BandeauEtudiantSemaine laureats={laureats} />}
 
       <div className="w-full max-w-sm space-y-3">
         <Link href="/entrainement" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-accent text-bg hover:opacity-90 transition-opacity">
@@ -170,9 +172,11 @@ export default async function HomePage() {
           Parcours
         </Link>
         <EntreeForum />
-        <Link href="/classement" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
-          Classement
-        </Link>
+        {!masquerClassement && (
+          <Link href="/classement" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
+            Classement
+          </Link>
+        )}
         {/* Mission désactivée temporairement (refonte visuelle en cours) —
             code et route conservés intacts sous app/mission/**, entrée
             masquée ici uniquement. À réactiver en retirant ce commentaire. */}

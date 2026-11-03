@@ -59,6 +59,14 @@ export default async function ClassementPage({
 
   if (!user) redirect('/login')
 
+  // Élève confidentiel : pas d'accès au classement (les admins gardent l'accès).
+  const { data: profil } = await supabase
+    .from('user_profile')
+    .select('role, confidentiel')
+    .eq('id', user.id)
+    .single()
+  if (profil?.confidentiel === true && profil.role !== 'admin') redirect('/')
+
   const vueParam = Array.isArray(searchParams.vue) ? searchParams.vue[0] : searchParams.vue
   const vue: NomVue = vueParam === 'global' ? 'global' : 'semaine'
 

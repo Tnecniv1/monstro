@@ -131,17 +131,28 @@ async function surNouveauMessage(record: Record<string, unknown>) {
   console.log(`${logPrefix} après retrait de l'expéditeur : ${ids.size}`);
   if (ids.size === 0) return sortie(logPrefix, "aucun destinataire hors expéditeur (ex. premier message de l'auteur)");
 
-  const [{ data: profils, error: profilsError }, { data: expediteur }] = await Promise.all([
+  const [{ data: profils, error: profilsError }, { data: expediteur, error: expediteurError }] = await Promise.all([
     supabase
       .from("user_profile")
-      .select("id, notifications_actives, push_token")
+      .select("id, notifications_actives, push_token, role")
       .in("id", Array.from(ids)),
-    supabase.from("user_profile").select("pseudo").eq("id", expediteurId).maybeSingle(),
+    supabase.from("user_profile").select("pseudo, confidentiel").eq("id", expediteurId).maybeSingle(),
   ]);
   if (profilsError) throw profilsError;
+  // Sans le profil de l'expéditeur, on ne sait pas s'il est confidentiel :
+  // on n'envoie rien plutôt que de risquer de l'exposer.
+  if (expediteurError) throw expediteurError;
   console.log(`${logPrefix} profils trouvés dans user_profile : ${(profils ?? []).length}`);
 
-  const destinataires = filtrerDestinataires((profils ?? []) as ProfilPush[], logPrefix);
+  // Expéditeur confidentiel : son message n'est visible que des admins, seuls
+  // eux sont notifiés.
+  let candidats = (profils ?? []) as (ProfilPush & { role: string | null })[];
+  if (expediteur?.confidentiel === true) {
+    candidats = candidats.filter((p) => p.role === "admin");
+    console.log(`${logPrefix} expéditeur confidentiel, après filtre role=admin : ${candidats.length}`);
+  }
+
+  const destinataires = filtrerDestinataires(candidats, logPrefix);
   if (destinataires.length === 0) return sortie(logPrefix, "aucun destinataire avec notifications actives et token");
 
   const pseudo = (expediteur?.pseudo as string | null) || "Quelqu'un";
