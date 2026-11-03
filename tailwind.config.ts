@@ -23,6 +23,10 @@ const config: Config = {
           muted: '#69707D',
         },
         accent: '#6D28D9',
+        // Fond violet léger et piste grise : valeurs déjà utilisées en dur
+        // dans le Forum (EquipePanel), nommées ici pour le Classement.
+        'accent-soft': '#F3EEFD',
+        track: '#EEEEF1',
         warning: '#B45309',
         success: '#15803D',
         danger: '#DC2626',
