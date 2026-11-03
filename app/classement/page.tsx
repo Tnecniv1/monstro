@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import ClassementClient from './ClassementClient'
+import ClassementClient, { type LigneClassement } from './ClassementClient'
 
 export default async function ClassementPage() {
   const supabase = createClient()
@@ -12,51 +12,20 @@ export default async function ClassementPage() {
 
   if (!user) redirect('/login')
 
-  const { data: profiles } = await supabase
-    .from('user_profile')
-    .select('id, pseudo, avatar_url')
+  // Semaine en cours (lundi-dimanche, heure de Paris). Éligibilité, pixels,
+  // jours actifs, rang et départage des ex-aequo sont calculés en base.
+  const { data, error } = await supabase.rpc('classement_semaine')
 
-  const { data: observations } = await supabase
-    .from('observation')
-    .select('etat, entrainement!inner(user_id)')
+  if (error) throw new Error(`classement_semaine : ${error.message}`)
 
-  const { data: correctionsReussies } = await supabase
-    .from('correction_tentative')
-    .select('entrainement_id, entrainement!inner(user_id)')
-    .eq('statut', 'succes')
-
-  type Profile = { id: string; pseudo: string | null; avatar_url: string | null }
-  type ObsRow = { etat: string; entrainement: { user_id: string } }
-  type CorrRow = { entrainement_id: string; entrainement: { user_id: string } }
-
-  const scores = (profiles ?? [] as Profile[]).map((profile) => {
-    const userObs = (observations ?? [] as ObsRow[]).filter(
-      (o) => (o.entrainement as { user_id: string }).user_id === profile.id
-    )
-    const obsScore = userObs.reduce((acc, o) => {
-      if (o.etat === 'succes') return acc + 1
-      if (o.etat === 'corrige') return acc + 1
-      if (o.etat === 'echec') return acc - 1
-      return acc
-    }, 0)
-
-    const userCorrs = (correctionsReussies ?? [] as CorrRow[]).filter(
-      (c) => (c.entrainement as { user_id: string }).user_id === profile.id
-    )
-    const entrainementsCorrigesUniques = new Set(userCorrs.map((c) => c.entrainement_id))
-    const correctionBonus = entrainementsCorrigesUniques.size * 2
-
-    return { id: profile.id, pseudo: profile.pseudo ?? '—', avatar_url: profile.avatar_url ?? null, score: obsScore + correctionBonus }
-  })
-
-  scores.sort((a, b) => b.score - a.score)
+  const classement = (data ?? []) as LigneClassement[]
 
   return (
     <div className="min-h-screen bg-bg">
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
         <Link href="/" className="text-sm text-text-muted hover:text-text-secondary transition-colors">← Monstro</Link>
         <h1 className="text-2xl font-bold text-text-primary">Classement</h1>
-        <ClassementClient classement={scores} userId={user.id} />
+        <ClassementClient classement={classement} userId={user.id} />
       </div>
     </div>
   )
