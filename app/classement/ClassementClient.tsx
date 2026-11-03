@@ -1,20 +1,13 @@
 'use client'
 
 import Avatar from '@/app/components/Avatar'
-
-// Une ligne renvoyée par la RPC classement_semaine, déjà triée par rang.
-export interface LigneClassement {
-  rang: number
-  user_id: string
-  pseudo: string | null
-  avatar_url: string | null
-  pixels: number
-  jours_actifs: number
-  atteint_le: string | null
-}
+import type { Laureat, NomVue, SemaineParis, VueClassement } from '@/lib/classement'
 
 interface Props {
-  classement: LigneClassement[]
+  vue: NomVue
+  vues: Record<NomVue, VueClassement>
+  etudiants: Laureat[]
+  semaine: SemaineParis
   userId: string
 }
 
@@ -33,9 +26,10 @@ const podiumOrder = [1, 0, 2] // gauche=2e, centre=1er, droite=3e
 const podiumSize = ['h-24 w-24', 'h-20 w-20', 'h-16 w-16']
 const podiumText = ['text-base', 'text-sm', 'text-sm']
 
-export default function ClassementClient({ classement, userId }: Props) {
-  const top3 = classement.slice(0, 3)
-  const rest = classement.slice(3)
+export default function ClassementClient({ vue, vues, userId }: Props) {
+  const top3 = vues[vue].podium
+  const rest = vues[vue].liste
+  const classement = [...top3, ...rest]
 
   return (
     <div className="space-y-8">
