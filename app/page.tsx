@@ -7,6 +7,8 @@ import StreakBadge from './components/StreakBadge'
 import LogoutButton from './components/LogoutButton'
 import LandingPage from './components/LandingPage'
 import EntreeForum from './components/EntreeForum'
+import BandeauEtudiantSemaine from './components/BandeauEtudiantSemaine'
+import type { Laureat } from '@/lib/classement'
 
 export const metadata: Metadata = {
   title: 'Monstro — Apprendre à raisonner.',
@@ -49,7 +51,7 @@ export default async function HomePage() {
 
   const ids = entIds?.map((e) => e.id) ?? []
 
-  const [{ count }, { data: sessionDates }, { data: soldeJetons }] = await Promise.all([
+  const [{ count }, { data: sessionDates }, { data: soldeJetons }, etudiantsSemaine] = await Promise.all([
     ids.length > 0
       ? supabase
           .from('observation')
@@ -66,7 +68,10 @@ export default async function HomePage() {
       : Promise.resolve({ data: [] }),
     // Jetons ADN : somme des mouvements, calculée en base (null si indisponible)
     supabase.rpc('token_solde', { p_user_id: user.id }),
+    // Lauréat(s) de la semaine précédente ; bandeau masqué si aucun ou en cas d'erreur
+    supabase.rpc('etudiant_de_la_semaine'),
   ])
+  const laureats = etudiantsSemaine.error ? [] : ((etudiantsSemaine.data ?? []) as Laureat[])
 
   const uniqueDates = Array.from(
     new Set((sessionDates ?? []).map((s: { date: string }) => s.date))
@@ -151,6 +156,8 @@ export default async function HomePage() {
       <div className="w-full max-w-sm rounded-2xl p-4">
         <PixelGrid count={count ?? 0} />
       </div>
+
+      {laureats.length > 0 && <BandeauEtudiantSemaine laureats={laureats} />}
 
       <div className="w-full max-w-sm space-y-3">
         <Link href="/entrainement" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-accent text-bg hover:opacity-90 transition-opacity">
