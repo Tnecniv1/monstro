@@ -17,6 +17,13 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      // Ancienne page Défi (QCM), supprimée : le Classement a pris sa place sur l'accueil.
+      // Temporaire (307) plutôt que 308, pour ne pas figer la cible dans le cache des navigateurs.
+      { source: '/apprendre', destination: '/classement', permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;
