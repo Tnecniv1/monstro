@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
+import { NIVEAUX, NIVEAUX_SCOLAIRES } from '@/lib/niveaux'
+import SelectListe from './SelectListe'
 
 type Tab = 'connexion' | 'inscription'
 
@@ -34,6 +36,12 @@ export default function AuthForm() {
   const [pseudo, setPseudo] = useState('')
   const [signUpEmail, setSignUpEmail] = useState('')
   const [signUpPassword, setSignUpPassword] = useState('')
+  const [niveauScolaire, setNiveauScolaire] = useState('')
+  const [niveau, setNiveau] = useState('')
+
+  const inscriptionIncomplete =
+    !prenom.trim() || !nom.trim() || !pseudo.trim() || !signUpEmail.trim() || !signUpPassword ||
+    !niveauScolaire || !niveau
 
   function switchTab(t: Tab) {
     setTab(t)
@@ -98,14 +106,15 @@ export default function AuthForm() {
 
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault()
-    if (!prenom.trim() || !nom.trim() || !pseudo.trim() || !signUpEmail.trim() || !signUpPassword) return
+    if (inscriptionIncomplete) return
     setLoading(true)
     setError(null)
+    // Le trigger handle_new_user recopie ces métadonnées dans user_profile.
     const { error } = await supabase.auth.signUp({
       email: signUpEmail,
       password: signUpPassword,
       options: {
-        data: { prenom, nom, pseudo },
+        data: { prenom, nom, pseudo, niveau_scolaire: niveauScolaire, niveau },
       },
     })
     if (error) {
@@ -174,20 +183,44 @@ export default function AuthForm() {
           <Field label="Pseudo" type="text" value={pseudo} onChange={setPseudo} placeholder="@jdupont" />
           <Field label="Email" type="email" value={signUpEmail} onChange={setSignUpEmail} placeholder="toi@exemple.com" />
           <Field label="Mot de passe" type="password" value={signUpPassword} onChange={setSignUpPassword} placeholder="••••••••" />
-          {!error && (!prenom.trim() || !nom.trim() || !pseudo.trim() || !signUpEmail.trim() || !signUpPassword) && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Classe</label>
+              <SelectListe
+                options={NIVEAUX_SCOLAIRES}
+                value={niveauScolaire}
+                onChange={setNiveauScolaire}
+                placeholder="Choisir…"
+                required
+                className={CLASSE_SELECT_INSCRIPTION}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Niveau</label>
+              <SelectListe
+                options={NIVEAUX}
+                value={niveau}
+                onChange={setNiveau}
+                placeholder="Choisir…"
+                required
+                className={CLASSE_SELECT_INSCRIPTION}
+              />
+            </div>
+          </div>
+          {!error && inscriptionIncomplete && (
             <p className="text-xs text-amber-600">Remplis tous les champs pour créer ton compte.</p>
           )}
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <SubmitButton
-            loading={loading}
-            label="Créer mon compte"
-            disabled={!prenom.trim() || !nom.trim() || !pseudo.trim() || !signUpEmail.trim() || !signUpPassword}
-          />
+          <SubmitButton loading={loading} label="Créer mon compte" disabled={inscriptionIncomplete} />
         </form>
       )}
     </div>
   )
 }
+
+// Même apparence que Field.
+const CLASSE_SELECT_INSCRIPTION =
+  'w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent'
 
 export function Field({
   label,

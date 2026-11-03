@@ -3,6 +3,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { NIVEAUX, NIVEAUX_SCOLAIRES } from '@/lib/niveaux'
+import SelectListe from '@/app/components/SelectListe'
+
+const CLASSE_SELECT =
+  'w-full rounded-lg bg-surface border border-border px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent'
 
 interface Props {
   userId: string
@@ -14,6 +19,9 @@ interface Props {
   telephone: string
   dateNaissance: string
   ville: string
+  // '' quand la valeur est null en base (comptes créés avant ces champs)
+  niveauScolaire: string
+  niveau: string
 }
 
 interface CommuneSuggestion {
@@ -49,6 +57,7 @@ export default function ProfilClient({
   userId, email, pseudo: initPseudo, nom: initNom, prenom: initPrenom,
   avatarUrl: initAvatarUrl, telephone: initTelephone,
   dateNaissance: initDateNaissance, ville: initVille,
+  niveauScolaire: initNiveauScolaire, niveau: initNiveau,
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -60,6 +69,8 @@ export default function ProfilClient({
   const [telephone, setTelephone] = useState(initTelephone)
   const [dateNaissance, setDateNaissance] = useState(initDateNaissance)
   const [ville, setVille] = useState(initVille)
+  const [niveauScolaire, setNiveauScolaire] = useState(initNiveauScolaire)
+  const [niveau, setNiveau] = useState(initNiveau)
   const [suggestionsVille, setSuggestionsVille] = useState<CommuneSuggestion[]>([])
   const [showSuggestionsVille, setShowSuggestionsVille] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -159,7 +170,10 @@ export default function ProfilClient({
 
     const { error: err } = await supabase
       .from('user_profile')
-      .update({ pseudo, nom, prenom, telephone: telephone || null, date_naissance: dateNaissance, ville })
+      .update({
+        pseudo, nom, prenom, telephone: telephone || null, date_naissance: dateNaissance, ville,
+        niveau_scolaire: niveauScolaire || null, niveau: niveau || null,
+      })
       .eq('id', userId)
 
     if (err) {
@@ -296,6 +310,28 @@ export default function ProfilClient({
               value={nom}
               onChange={(e) => setNom(e.target.value)}
               className="w-full rounded-lg bg-surface border border-border px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <div className="flex-1 space-y-1">
+            <label className="block text-xs font-medium text-text-muted">Classe</label>
+            <SelectListe
+              options={NIVEAUX_SCOLAIRES}
+              value={niveauScolaire}
+              onChange={setNiveauScolaire}
+              placeholder="À compléter"
+              className={CLASSE_SELECT}
+            />
+          </div>
+          <div className="flex-1 space-y-1">
+            <label className="block text-xs font-medium text-text-muted">Niveau</label>
+            <SelectListe
+              options={NIVEAUX}
+              value={niveau}
+              onChange={setNiveau}
+              placeholder="À compléter"
+              className={CLASSE_SELECT}
             />
           </div>
         </div>
