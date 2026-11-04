@@ -114,7 +114,7 @@ export default function AuthForm() {
       email: signUpEmail,
       password: signUpPassword,
       options: {
-        data: { prenom, nom, pseudo, niveau_scolaire: niveauScolaire, niveau },
+        data: { prenom, nom, pseudo: pseudo.trim(), niveau_scolaire: niveauScolaire, niveau },
       },
     })
     if (error) {

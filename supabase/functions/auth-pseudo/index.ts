@@ -20,6 +20,12 @@ const allowedOrigins = [
   "http://localhost:3000",
 ];
 
+// Page web où l'on choisit le nouveau mot de passe. Origine de l'appelant si
+// elle est autorisée (web, localhost), sinon le site (app mobile, sans Origin).
+// L'URL doit figurer dans les Redirect URLs de Supabase Auth.
+const SITE_PAR_DEFAUT = "https://monstro.fr";
+const PAGE_NOUVEAU_MOT_DE_PASSE = "/reinitialiser-mot-de-passe";
+
 const IDENTIFIANT_MAX = 100;
 const PASSWORD_MAX = 200;
 
@@ -32,16 +38,26 @@ function clientAnon() {
   });
 }
 
+// Échappe les jokers de LIKE (\ d'abord, puis % et _) : le pseudo est
+// comparé tel quel, seule la casse est ignorée.
+function echapperLike(valeur: string): string {
+  return valeur.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 // Pseudo ou email → email, ou null si introuvable. Une erreur technique
 // (base, API admin) est levée pour être distinguée d'un pseudo inconnu.
 async function resoudreEmail(identifiant: string): Promise<string | null> {
   if (identifiant.includes("@")) return identifiant;
+  // PostgREST traite * comme % dans like/ilike, sans échappement possible :
+  // un tel identifiant servirait de joker. Aucun pseudo n'en contient.
+  if (identifiant.includes("*")) return null;
 
+  // Insensible à la casse, comme l'ancienne RPC get_email_by_pseudo (ILIKE).
   // limit(2) suffit pour savoir s'il y a exactement une ligne.
   const { data: profils, error } = await admin
     .from("user_profile")
     .select("id")
-    .eq("pseudo", identifiant)
+    .ilike("pseudo", echapperLike(identifiant))
     .limit(2);
   if (error) throw new Error(`user_profile : ${error.message}`);
   if (profils?.length !== 1) return null;
@@ -110,7 +126,10 @@ serve(async (req) => {
     try {
       const email = await resoudreEmail(identifiant);
       if (email) {
-        const { error } = await clientAnon().auth.resetPasswordForEmail(email);
+        const site = origin && allowedOrigins.includes(origin) ? origin : SITE_PAR_DEFAUT;
+        const { error } = await clientAnon().auth.resetPasswordForEmail(email, {
+          redirectTo: `${site}${PAGE_NOUVEAU_MOT_DE_PASSE}`,
+        });
         if (error) console.error("[auth-pseudo] oubli resetPasswordForEmail", detailErreur(error));
       }
     } catch (err) {
