@@ -44,23 +44,34 @@ function echapperLike(valeur: string): string {
   return valeur.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
+// Quelque chose avant @, un point après : forme minimale d'un email.
+function ressembleAEmail(valeur: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valeur);
+}
+
 // Pseudo ou email → email, ou null si introuvable. Une erreur technique
 // (base, API admin) est levée pour être distinguée d'un pseudo inconnu.
+// Le pseudo passe d'abord : certains contiennent « @ » (@diamidia, Maelle@971).
 async function resoudreEmail(identifiant: string): Promise<string | null> {
-  if (identifiant.includes("@")) return identifiant;
+  let profils: { id: string }[] = [];
   // PostgREST traite * comme % dans like/ilike, sans échappement possible :
-  // un tel identifiant servirait de joker. Aucun pseudo n'en contient.
-  if (identifiant.includes("*")) return null;
+  // un tel identifiant servirait de joker. Aucun pseudo n'en contient, on ne
+  // cherche donc pas de pseudo (un email avec * reste possible).
+  if (!identifiant.includes("*")) {
+    // Insensible à la casse, comme l'ancienne RPC get_email_by_pseudo (ILIKE).
+    // limit(2) suffit pour savoir s'il y a exactement une ligne.
+    const { data, error } = await admin
+      .from("user_profile")
+      .select("id")
+      .ilike("pseudo", echapperLike(identifiant))
+      .limit(2);
+    if (error) throw new Error(`user_profile : ${error.message}`);
+    profils = data ?? [];
+  }
 
-  // Insensible à la casse, comme l'ancienne RPC get_email_by_pseudo (ILIKE).
-  // limit(2) suffit pour savoir s'il y a exactement une ligne.
-  const { data: profils, error } = await admin
-    .from("user_profile")
-    .select("id")
-    .ilike("pseudo", echapperLike(identifiant))
-    .limit(2);
-  if (error) throw new Error(`user_profile : ${error.message}`);
-  if (profils?.length !== 1) return null;
+  // Aucun pseudo : email si l'identifiant en a la forme, sinon introuvable.
+  if (profils.length === 0) return ressembleAEmail(identifiant) ? identifiant : null;
+  if (profils.length !== 1) return null;
 
   const { data, error: errUser } = await admin.auth.admin.getUserById(profils[0].id);
   if (errUser) {
