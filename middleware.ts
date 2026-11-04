@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { PUBLIC_PATHS, RECUPERATION_PATHS, hasAppAccess, isVitrine } from '@/lib/access'
 import { SITE_URL } from '@/lib/site'
+import { urlPublique } from '@/lib/urlPublique'
 
 // Ancien sous-domaine Render, que Render ne sait pas rediriger lui-même.
 const ANCIEN_HOST = 'monstro.onrender.com'
@@ -54,17 +55,14 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Non authentifié hors routes publiques → / (page d'accueil avec formulaire de connexion)
+  // Redirections sur l'origine publique (cf. lib/urlPublique), query conservée.
   if (!user && !PUBLIC_PATHS.has(pathname) && !isVitrine(pathname)) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/'
-    return NextResponse.redirect(url)
+    return NextResponse.redirect(urlPublique(request, '/', request.nextUrl.search))
   }
 
   // Déjà connecté sur /login → /
   if (user && pathname === '/login') {
-    const url = request.nextUrl.clone()
-    url.pathname = '/'
-    return NextResponse.redirect(url)
+    return NextResponse.redirect(urlPublique(request, '/', request.nextUrl.search))
   }
 
   // Contrôle de plan : seulement sur les routes hors liste blanche
@@ -77,9 +75,7 @@ export async function middleware(request: NextRequest) {
 
     // Pas d'accès (cf. hasAppAccess) → redirection vers /profil
     if (!hasAppAccess(profile?.role, profile?.plan)) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/profil'
-      return NextResponse.redirect(url)
+      return NextResponse.redirect(urlPublique(request, '/profil', request.nextUrl.search))
     }
   }
 
