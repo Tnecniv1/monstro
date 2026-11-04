@@ -38,8 +38,6 @@ export interface WeekDay {
 export interface WeekActivityProfile {
   id: string
   pseudo: string | null
-  prenom: string | null
-  nom: string | null
   avatar_url: string | null
   is_fake: boolean
   activite: boolean[]   // longueur 7, aligné sur WeekDay[] (lundi -> dimanche)

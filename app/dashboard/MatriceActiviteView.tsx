@@ -29,7 +29,7 @@ export default function MatriceActiviteView({ matrice, jours, isAdmin, masquerFa
         </thead>
         <tbody>
           {liste.map((p) => {
-            const label = p.pseudo ?? `${p.prenom ?? ''} ${p.nom ?? ''}`.trim() ?? '—'
+            const label = p.pseudo?.trim() || '—'
 
             return (
               <tr key={p.id} className="border-b border-border last:border-0">

@@ -20,8 +20,6 @@ type SupabaseClient = ReturnType<typeof createClient>
 type Auteur = {
   id: string
   pseudo: string | null
-  prenom: string | null
-  nom: string | null
   role: string | null
 }
 
@@ -51,7 +49,7 @@ export function useFilQuestions({
   async function chargerAuteurs(ids: string[]) {
     const manquants = Array.from(new Set(ids)).filter((id) => !auteurs.has(id))
     if (manquants.length === 0) return
-    const { data } = await supabase.from('user_profile').select('id, pseudo, prenom, nom, role').in('id', manquants)
+    const { data } = await supabase.from('profil_public').select('id, pseudo, role').in('id', manquants)
     setAuteurs((prev) => {
       const next = new Map(prev)
       ;((data ?? []) as Auteur[]).forEach((a) => next.set(a.id, a))
@@ -221,17 +219,11 @@ export type FilQuestions = ReturnType<typeof useFilQuestions>
 
 function nomAffiche(auteur: Auteur | undefined, estMoi: boolean): string {
   if (estMoi) return 'Toi'
-  if (!auteur) return '—'
-  const complet = [auteur.prenom, auteur.nom].filter(Boolean).join(' ').trim()
-  return auteur.pseudo || complet || '—'
+  return auteur?.pseudo?.trim() || '—'
 }
 
 function initiales(auteur: Auteur | undefined): string {
-  if (!auteur) return '?'
-  if (auteur.prenom || auteur.nom) {
-    return `${auteur.prenom?.[0] ?? ''}${auteur.nom?.[0] ?? ''}`.toUpperCase() || '?'
-  }
-  return (auteur.pseudo ?? '?').slice(0, 2).toUpperCase()
+  return auteur?.pseudo?.trim().slice(0, 2).toUpperCase() || '?'
 }
 
 // Avatar à initiales : 36 px (question) ou 32 px (réponse) ; fond accent

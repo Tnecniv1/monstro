@@ -41,9 +41,11 @@ export default async function DashboardPage() {
   const dimancheStr = jours[6].date
 
   const [{ data: profiles }, { data: sessionsSemaine }, { data: fakeData }] = await Promise.all([
+    // profil_public : exclut déjà les élèves confidentiels pour les non-admins,
+    // qui n'apparaissent donc pas dans la matrice.
     supabase
-      .from('user_profile')
-      .select('id, pseudo, avatar_url, prenom, nom')
+      .from('profil_public')
+      .select('id, pseudo, avatar_url')
       .order('pseudo'),
     supabase
       .from('session')
