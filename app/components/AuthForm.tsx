@@ -54,9 +54,7 @@ export default function AuthForm() {
     if (!identifiant || !password) return
     setLoading(true)
     setError(null)
-    const erreur = identifiant.includes('@')
-      ? await connexionParEmail(identifiant)
-      : await connexionParPseudo(identifiant)
+    const erreur = await connexion(identifiant)
     if (erreur) {
       setError(erreur)
     } else {
@@ -66,18 +64,11 @@ export default function AuthForm() {
     setLoading(false)
   }
 
+  // Tout identifiant, pseudo ou email, passe par l'Edge Function auth-pseudo :
+  // elle cherche d'abord un pseudo (certains contiennent « @ »), puis un email,
+  // et renvoie les jetons de session sans jamais exposer l'email.
   // Renvoie le message d'erreur à afficher, ou null si la session est ouverte.
-  async function connexionParEmail(adresse: string): Promise<string | null> {
-    const { error } = await supabase.auth.signInWithPassword({ email: adresse, password })
-    if (!error) return null
-    if (error.code === 'invalid_credentials') return MESSAGE_IDENTIFIANTS_INVALIDES
-    if (error.status === 429) return MESSAGE_TROP_DE_TENTATIVES
-    return error.message
-  }
-
-  // L'Edge Function auth-pseudo résout le pseudo côté serveur et renvoie les
-  // jetons de session, sans jamais exposer l'email.
-  async function connexionParPseudo(identifiant: string): Promise<string | null> {
+  async function connexion(identifiant: string): Promise<string | null> {
     const { data, error } = await supabase.functions.invoke<{ access_token: string; refresh_token: string }>(
       'auth-pseudo',
       { body: { action: 'connexion', identifiant, password } },
