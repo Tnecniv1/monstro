@@ -14,6 +14,7 @@ export type FeuilleRow = {
   id: string
   titre: string
   ordre: number
+  volume?: number | null
   noeud: Noeud | null
   correction: CorrectionRow[] | null
 }

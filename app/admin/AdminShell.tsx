@@ -9,8 +9,10 @@ import GlobalView from './GlobalView'
 import UtilisateursView from './UtilisateursView'
 import ForumScriptsView from './ForumScriptsView'
 import ForumCardManager from './ForumCardManager'
+import ParcoursObjectifView from './ParcoursObjectifView'
+import type { EleveParcours } from './parcoursObjectifTypes'
 
-type Onglet = 'scope' | 'correction' | 'cours' | 'abonnements' | 'utilisateurs' | 'agora' | 'global' | 'forum'
+type Onglet = 'scope' | 'correction' | 'cours' | 'abonnements' | 'utilisateurs' | 'agora' | 'global' | 'forum' | 'objectifs'
 
 const TABS: { id: Onglet; label: string }[] = [
   { id: 'scope', label: 'Scope' },
@@ -21,16 +23,19 @@ const TABS: { id: Onglet; label: string }[] = [
   { id: 'agora', label: 'Agora' },
   { id: 'global', label: 'Global' },
   { id: 'forum', label: 'Forum' },
+  { id: 'objectifs', label: 'Objectifs' },
 ]
 
 export default function AdminShell({
   noeuds,
   feuilles,
   eleves,
+  elevesParcours,
 }: {
   noeuds: Noeud[]
   feuilles: FeuilleRow[]
   eleves: EleveAgora[]
+  elevesParcours: EleveParcours[]
 }) {
   const [onglet, setOnglet] = useState<Onglet>('scope')
 
@@ -82,6 +87,7 @@ export default function AdminShell({
       {onglet === 'agora' && <AgoraAdminView eleves={eleves} />}
       {onglet === 'global' && <GlobalView />}
       {onglet === 'forum' && <ForumScriptsView />}
+      {onglet === 'objectifs' && <ParcoursObjectifView feuilles={feuilles} eleves={elevesParcours} />}
     </div>
   )
 }

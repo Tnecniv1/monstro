@@ -7,6 +7,7 @@ import AdminShell from './AdminShell'
 import type { Noeud } from './AdminClient'
 import type { FeuilleRow } from './corrections/CorrectionsClient'
 import type { EleveAgora } from './AgoraAdminView'
+import type { EleveParcours } from './parcoursObjectifTypes'
 
 export default async function AdminPage() {
   await requireAdmin()
@@ -18,7 +19,7 @@ export default async function AdminPage() {
     supabase
       .from('feuille_entrainement')
       .select(`
-        id, titre, ordre,
+        id, titre, ordre, volume,
         noeud:noeud_id (
           id, nom, ordre, parent_id,
           parent:parent_id (
@@ -49,6 +50,13 @@ export default async function AdminPage() {
     is_fake: fakeUserIds.has(p.id),
     agora_bloque: motifBlocage(p.id),
   }))
+  // Onglet Objectifs : recherche des élèves par pseudo.
+  const elevesParcours: EleveParcours[] = (profilesData ?? []).map((p) => ({
+    id: p.id,
+    pseudo: p.pseudo,
+    prenom: p.prenom,
+    nom: p.nom,
+  }))
 
   return (
     <div style={{ minHeight: '100vh', background: '#F5F3EE' }}>
@@ -57,7 +65,7 @@ export default async function AdminPage() {
           ← Retour
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">Administration</h1>
-        <AdminShell noeuds={noeuds} feuilles={feuilles} eleves={eleves} />
+        <AdminShell noeuds={noeuds} feuilles={feuilles} eleves={eleves} elevesParcours={elevesParcours} />
       </div>
     </div>
   )
