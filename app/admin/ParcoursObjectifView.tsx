@@ -4,11 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import ParcoursEtapes from './ParcoursEtapes'
 import ParcoursEleves from './ParcoursEleves'
+import type { Noeud } from './AdminClient'
 import {
   btnPrimaire,
   btnSecondaire,
   champ,
+  descendDe,
   etiquette,
+  NOEUD_PREPARATION_EXAMEN,
   type Assignation,
   type EleveParcours,
   type Etape,
@@ -19,9 +22,11 @@ import {
 // Onglet admin « Objectifs » : parcours (objectifs), leurs étapes et les
 // élèves assignés. Tables parcours, parcours_etape et parcours_eleve.
 export default function ParcoursObjectifView({
+  noeuds,
   feuilles,
   eleves,
 }: {
+  noeuds: Noeud[]
   feuilles: FeuilleChoix[]
   eleves: EleveParcours[]
 }) {
@@ -38,7 +43,7 @@ export default function ParcoursObjectifView({
       supabase.from('parcours').select('id, nom, description, ordre, actif, created_at').order('ordre').order('created_at'),
       supabase
         .from('parcours_etape')
-        .select('id, parcours_id, ordre, type, feuille_id, exo_debut, exo_fin, libelle, classe_examen')
+        .select('id, parcours_id, ordre, type, feuille_id, exo_debut, exo_fin, libelle')
         .order('ordre'),
       supabase.from('parcours_eleve').select('user_id, parcours_id, date_objectif'),
     ])
@@ -59,6 +64,11 @@ export default function ParcoursObjectifView({
   }, [charger])
 
   const feuilleParId = useMemo(() => new Map(feuilles.map((f) => [f.id, f])), [feuilles])
+  // Feuilles possibles pour une étape examen : descendantes de « Préparation Examen ».
+  const feuillesExamen = useMemo(() => {
+    const parentParId = new Map(noeuds.map((n) => [n.id, n.parent_id]))
+    return feuilles.filter((f) => descendDe(f.noeud?.id, NOEUD_PREPARATION_EXAMEN, parentParId))
+  }, [noeuds, feuilles])
   const parcoursParId = useMemo(() => new Map((parcours ?? []).map((p) => [p.id, p])), [parcours])
 
   const etapesParParcours = useMemo(() => {
@@ -151,6 +161,7 @@ export default function ParcoursObjectifView({
                 parcoursId={selection.id}
                 etapes={etapesParParcours.get(selection.id) ?? []}
                 feuilles={feuilles}
+                feuillesExamen={feuillesExamen}
                 feuilleParId={feuilleParId}
                 onChange={charger}
               />

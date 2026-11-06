@@ -13,8 +13,6 @@ export type Parcours = {
   created_at: string
 }
 
-export type ClasseExamen = '3e' | '1re' | 'terminale'
-
 export type Etape = {
   id: string
   parcours_id: string
@@ -24,7 +22,6 @@ export type Etape = {
   exo_debut: number | null
   exo_fin: number | null
   libelle: string | null
-  classe_examen: ClasseExamen | null
 }
 
 export type Assignation = {
@@ -43,15 +40,25 @@ export type EleveParcours = {
 
 export type FeuilleChoix = FeuilleRow
 
-export const CLASSES_EXAMEN: { valeur: ClasseExamen; libelle: string }[] = [
-  { valeur: '3e', libelle: '3e' },
-  { valeur: '1re', libelle: '1re' },
-  { valeur: 'terminale', libelle: 'Terminale' },
-]
+// Nœud racine « Préparation Examen » (sous-nœuds Type bac, Type brevet) :
+// seules ses feuilles peuvent servir d'étape examen.
+export const NOEUD_PREPARATION_EXAMEN = '6ea71c8e-a819-4e15-9368-bd4033369ea0'
 
-export function libelleClasse(valeur: string | null): string {
-  if (!valeur) return ''
-  return CLASSES_EXAMEN.find((c) => c.valeur === valeur)?.libelle ?? valeur
+// Vrai si le nœud est la racine donnée ou l'un de ses descendants
+// (remontée par parent_id).
+export function descendDe(
+  noeudId: string | null | undefined,
+  racineId: string,
+  parentParId: Map<string, string | null>
+): boolean {
+  const vus = new Set<string>()
+  let courant = noeudId ?? null
+  while (courant && !vus.has(courant)) {
+    if (courant === racineId) return true
+    vus.add(courant)
+    courant = parentParId.get(courant) ?? null
+  }
+  return false
 }
 
 export function cheminFeuille(f: FeuilleChoix): string {

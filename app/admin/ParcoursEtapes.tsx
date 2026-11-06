@@ -7,7 +7,6 @@ import {
   btnDanger,
   btnPrimaire,
   btnSecondaire,
-  libelleClasse,
   plageEtape,
   type Etape,
   type FeuilleChoix,
@@ -24,12 +23,14 @@ export default function ParcoursEtapes({
   parcoursId,
   etapes,
   feuilles,
+  feuillesExamen,
   feuilleParId,
   onChange,
 }: {
   parcoursId: string
   etapes: Etape[]
   feuilles: FeuilleChoix[]
+  feuillesExamen: FeuilleChoix[]
   feuilleParId: Map<string, FeuilleChoix>
   onChange: () => Promise<void>
 }) {
@@ -116,6 +117,7 @@ export default function ParcoursEtapes({
           type={formulaire.type}
           initial={null}
           feuilles={feuilles}
+          feuillesExamen={feuillesExamen}
           feuilleParId={feuilleParId}
           enCours={enCours}
           onAnnuler={() => setFormulaire(null)}
@@ -139,6 +141,7 @@ export default function ParcoursEtapes({
                   type={e.type}
                   initial={e}
                   feuilles={feuilles}
+                  feuillesExamen={feuillesExamen}
                   feuilleParId={feuilleParId}
                   enCours={enCours}
                   onAnnuler={() => setFormulaire(null)}
@@ -172,7 +175,8 @@ export default function ParcoursEtapes({
                         {e.libelle}
                       </p>
                       <p className="text-xs" style={{ color: VERT_TEXTE }}>
-                        Examen · {libelleClasse(e.classe_examen)}
+                        {feuille?.titre ?? 'Feuille introuvable'}
+                        {feuille?.volume ? ` · ${feuille.volume} exercices` : ''}
                       </p>
                     </>
                   ) : (

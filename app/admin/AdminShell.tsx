@@ -87,7 +87,7 @@ export default function AdminShell({
       {onglet === 'agora' && <AgoraAdminView eleves={eleves} />}
       {onglet === 'global' && <GlobalView />}
       {onglet === 'forum' && <ForumScriptsView />}
-      {onglet === 'objectifs' && <ParcoursObjectifView feuilles={feuilles} eleves={elevesParcours} />}
+      {onglet === 'objectifs' && <ParcoursObjectifView noeuds={noeuds} feuilles={feuilles} eleves={elevesParcours} />}
     </div>
   )
 }
