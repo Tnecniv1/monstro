@@ -27,17 +27,23 @@ function cheminFeuille(feuille: Feuille): string {
   return parts.join(' › ')
 }
 
+// feuilleInitialeId / exoInitial (optionnels) : la modale s'ouvre directement
+// sur le choix de l'exercice, pré-rempli (COMMENCER de l'accueil parcours).
 export default function NouvelEntrainementModal({
   userId,
   onClose,
+  feuilleInitialeId,
+  exoInitial,
 }: {
   userId: string
   onClose: () => void
+  feuilleInitialeId?: string
+  exoInitial?: number
 }) {
   const router = useRouter()
   const supabase = createClient()
 
-  const [step, setStep] = useState<Step>('feuille')
+  const [step, setStep] = useState<Step>(feuilleInitialeId ? 'exercice' : 'feuille')
   const [feuilles, setFeuilles] = useState<Feuille[]>([])
   const [focusIds, setFocusIds] = useState<Set<string>>(new Set())
   const [showFocusOnly, setShowFocusOnly] = useState(false)
@@ -64,8 +70,18 @@ export default function NouvelEntrainementModal({
         .order('ordre'),
       supabase.from('feuille_focus').select('feuille_id').eq('user_id', userId),
     ]).then(([{ data: f }, { data: focus }]) => {
-      setFeuilles((f as unknown as Feuille[]) ?? [])
+      const liste = (f as unknown as Feuille[]) ?? []
+      setFeuilles(liste)
       setFocusIds(new Set(focus?.map((x) => x.feuille_id) ?? []))
+      if (feuilleInitialeId) {
+        const initiale = liste.find((x) => x.id === feuilleInitialeId)
+        if (initiale) {
+          setFeuille(initiale)
+          setRefExo(exoInitial ?? 1)
+        } else {
+          setStep('feuille')
+        }
+      }
     })
   }, [userId])
 
@@ -176,6 +192,11 @@ export default function NouvelEntrainementModal({
               })}
             </ul>
           </>
+        )}
+
+        {/* Feuille pré-sélectionnée en cours de chargement */}
+        {step === 'exercice' && !feuille && (
+          <p className="px-6 py-8 text-center text-sm text-gray-400">Chargement…</p>
         )}
 
         {/* Étape 2 : choisir l'exercice */}

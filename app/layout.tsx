@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { Cinzel } from "next/font/google";
 import "./globals.css";
@@ -25,6 +25,13 @@ export const metadata: Metadata = {
   title: "Monstro",
   description: "Application d'entraînement Monstro",
   itunes: { appId: "6768066030" },
+};
+
+// viewport-fit=cover : env(safe-area-inset-*) disponible (barre d'onglets).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

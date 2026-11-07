@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import NouvelEntrainementButton from './NouvelEntrainementButton'
 import NouvelEntrainementModal from './NouvelEntrainementModal'
 import CarteEntrainement, { type Entrainement } from './CarteEntrainement'
@@ -14,14 +15,31 @@ export default function EntrainementClient({
   correctionEnCours,
   termines,
   canStartCorrection,
+  preselection = null,
 }: {
   userId: string
   enCours: Entrainement | null
   correctionEnCours: Entrainement | null
   termines: Entrainement[]
   canStartCorrection: boolean
+  // ?feuille=&exo= reçus de l'accueil parcours (COMMENCER).
+  preselection?: { feuilleId: string; exo: number } | null
 }) {
+  const router = useRouter()
   const [modalOpen, setModalOpen] = useState(false)
+  // Gardée en état : l'URL est nettoyée dès l'ouverture, la prop repasse à null.
+  const [modalPreselection, setModalPreselection] = useState<{ feuilleId: string; exo: number } | null>(null)
+
+  // Au montage : modale pré-remplie si aucune activité en cours (même règle que
+  // le bouton), puis URL nettoyée pour qu'un rechargement ne la rouvre pas.
+  // Activité en cours : les paramètres sont ignorés.
+  useEffect(() => {
+    if (!preselection || enCours || correctionEnCours) return
+    setModalPreselection(preselection)
+    setModalOpen(true)
+    router.replace('/entrainement')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [vue, setVue] = useState<Vue>('liste')
 
   return (
@@ -51,12 +69,14 @@ export default function EntrainementClient({
 
       <NouvelEntrainementButton
         disabled={!!enCours || !!correctionEnCours}
-        onOpen={() => setModalOpen(true)}
+        onOpen={() => { setModalPreselection(null); setModalOpen(true) }}
       />
       {modalOpen && (
         <NouvelEntrainementModal
           userId={userId}
-          onClose={() => setModalOpen(false)}
+          feuilleInitialeId={modalPreselection?.feuilleId}
+          exoInitial={modalPreselection?.exo}
+          onClose={() => { setModalOpen(false); setModalPreselection(null) }}
         />
       )}
 

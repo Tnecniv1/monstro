@@ -45,9 +45,15 @@ function getLevelInfo(count: number) {
 
 interface Props {
   count: number
+  // Vrai : la grille prend toute la largeur de son conteneur (viewBox mis à
+  // l'échelle) au lieu des 280px fixes. Utilisé dans la carte parcours.
+  pleineLargeur?: boolean
+  // Vrai : pas de fond gris derrière la grille (cases vides transparentes,
+  // seuls les pixels allumés restent visibles). Utilisé dans la carte parcours.
+  fondTransparent?: boolean
 }
 
-export default function PixelGrid({ count }: Props) {
+export default function PixelGrid({ count, pleineLargeur = false, fondTransparent = false }: Props) {
   const { levelIdx, level, pixelsLit, totalCount } = useMemo(
     () => getLevelInfo(count),
     [count],
@@ -94,9 +100,10 @@ export default function PixelGrid({ count }: Props) {
       {/* Grille SVG — fond blanc + contour subtil, comme BigPixel */}
       <div className="flex justify-center">
         <svg
-          width={DISPLAY_WIDTH}
-          height={svgHeight}
-          className="bg-surface-2"
+          width={pleineLargeur ? '100%' : DISPLAY_WIDTH}
+          height={pleineLargeur ? undefined : svgHeight}
+          viewBox={pleineLargeur ? `0 0 ${DISPLAY_WIDTH} ${svgHeight}` : undefined}
+          className={fondTransparent ? undefined : 'bg-surface-2'}
           style={{ display: 'block' }}
         >
           {litPositions.map(([r, c], i) => (

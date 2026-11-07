@@ -4,7 +4,20 @@ import { createClient } from '@/lib/supabase/server'
 import EntrainementClient from './EntrainementClient'
 import type { Entrainement } from './CarteEntrainement'
 
-export default async function EntrainementPage() {
+// ?feuille=<id>&exo=<n> (COMMENCER de l'accueil parcours) : modale pré-remplie.
+function lirePreselection(searchParams: { [key: string]: string | string[] | undefined }) {
+  const feuille = Array.isArray(searchParams.feuille) ? searchParams.feuille[0] : searchParams.feuille
+  const exoBrut = Array.isArray(searchParams.exo) ? searchParams.exo[0] : searchParams.exo
+  const exo = exoBrut ? Number(exoBrut) : NaN
+  if (!feuille || !Number.isInteger(exo) || exo < 1) return null
+  return { feuilleId: feuille, exo }
+}
+
+export default async function EntrainementPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined }
+}) {
   const supabase = createClient()
 
   const {
@@ -67,6 +80,7 @@ export default async function EntrainementPage() {
           correctionEnCours={correctionEnCours}
           termines={termines}
           canStartCorrection={canStartCorrection}
+          preselection={lirePreselection(searchParams)}
         />
       </div>
     </div>

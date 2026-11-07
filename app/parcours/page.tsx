@@ -2,6 +2,9 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import TableauHistorique, { type EntHistorique } from './TableauHistorique'
+import TableauParcours from './TableauParcours'
+import { chargerParcoursEleve } from '@/lib/parcours/charger'
+import { calculerProgression } from '@/lib/parcours/progression'
 import GraphiqueConcentration, { type SessionRaw } from './GraphiqueConcentration'
 import GraphiqueTauxReussite from './GraphiqueTauxReussite'
 import GraphiqueErreurs, { type ErreurRaw } from './GraphiqueErreurs'
@@ -70,6 +73,13 @@ export default async function ParcoursPage() {
 
   const erreurs = (erreursRaw ?? []) as unknown as ErreurRaw[]
 
+  // Parcours assigné : tableau « Parcours » (étapes) au lieu de l'Historique.
+  const parcours = await chargerParcoursEleve(supabase, user.id).catch((e: Error) => {
+    console.error('[parcours] chargement du parcours', e.message)
+    return null
+  })
+  const progression = parcours ? calculerProgression(parcours.etapes, parcours.exercices) : null
+
   return (
     <div className="min-h-screen bg-bg">
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-10">
@@ -77,13 +87,23 @@ export default async function ParcoursPage() {
         <Link href="/" className="text-sm text-text-muted hover:text-text-secondary transition-colors">← Monstro</Link>
         <h1 className="text-2xl font-bold text-text-primary">Parcours</h1>
 
-        {/* Section Historique */}
-        <section className="space-y-3 bg-surface border border-border rounded-2xl p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
-            Historique
-          </h2>
-          <TableauHistorique historique={historique} focusIds={focusIds} />
-        </section>
+        {parcours && progression ? (
+          /* Section Parcours (élève qui a un parcours) */
+          <section className="space-y-3 bg-surface border border-border rounded-2xl p-5">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
+              Parcours
+            </h2>
+            <TableauParcours parcours={parcours} progression={progression} historique={historique} />
+          </section>
+        ) : (
+          /* Section Historique */
+          <section className="space-y-3 bg-surface border border-border rounded-2xl p-5">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">
+              Historique
+            </h2>
+            <TableauHistorique historique={historique} focusIds={focusIds} />
+          </section>
+        )}
 
         {/* Section Concentration */}
         <section className="space-y-3 bg-surface border border-border rounded-2xl p-5">

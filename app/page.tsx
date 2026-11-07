@@ -5,10 +5,13 @@ import type { UserProfile } from '@/lib/supabase/getUser'
 import PixelGrid from './components/PixelGrid'
 import StreakBadge from './components/StreakBadge'
 import LogoutButton from './components/LogoutButton'
+import MenuProfil from './components/accueil/MenuProfil'
+import AvecBarreOnglets from './components/navigation/AvecBarreOnglets'
 import LandingPage from './components/LandingPage'
-import EntreeForum from './components/EntreeForum'
-import BandeauEtudiantSemaine from './components/BandeauEtudiantSemaine'
-import type { Laureat } from '@/lib/classement'
+import AccueilParcours from './components/accueil/AccueilParcours'
+import ProchaineAction, { type EtatProchaineAction } from './components/accueil/ProchaineAction'
+import { chargerParcoursEleve } from '@/lib/parcours/charger'
+import { calculerProgression, joursRestants } from '@/lib/parcours/progression'
 
 export const metadata: Metadata = {
   title: 'Monstro — Apprendre à raisonner.',
@@ -42,8 +45,6 @@ export default async function HomePage() {
 
   const pseudo = profile?.pseudo ?? user.email ?? ''
   const isAdmin = profile?.role === 'admin'
-  // Élève confidentiel : ni bouton Classement ni bandeau (les admins voient tout).
-  const masquerClassement = profile?.confidentiel === true && !isAdmin
   const avatarUrl = profile?.avatar_url ?? null
 
   const { data: entIds } = await supabase
@@ -53,7 +54,7 @@ export default async function HomePage() {
 
   const ids = entIds?.map((e) => e.id) ?? []
 
-  const [{ count }, { data: sessionDates }, { data: soldeJetons }, etudiantsSemaine] = await Promise.all([
+  const [{ count }, { data: sessionDates }, parcoursAccueil] = await Promise.all([
     ids.length > 0
       ? supabase
           .from('observation')
@@ -68,12 +69,30 @@ export default async function HomePage() {
           .in('entrainement_id', ids)
           .order('date', { ascending: false })
       : Promise.resolve({ data: [] }),
-    // Jetons ADN : somme des mouvements, calculée en base (null si indisponible)
-    supabase.rpc('token_solde', { p_user_id: user.id }),
-    // Lauréat(s) de la semaine précédente ; bandeau masqué si aucun ou en cas d'erreur
-    supabase.rpc('etudiant_de_la_semaine'),
+    // Parcours assigné (élève ou admin) : nouvel accueil ; null = accueil actuel
+    chargerParcoursEleve(supabase, user.id).catch((e: Error) => {
+      console.error('[accueil] parcours', e.message)
+      return null
+    }),
   ])
-  const laureats = etudiantsSemaine.error ? [] : ((etudiantsSemaine.data ?? []) as Laureat[])
+  const progression = parcoursAccueil ? calculerProgression(parcoursAccueil.etapes, parcoursAccueil.exercices) : null
+  // J-n de l'objectif (J+n une fois la date passée, J-0 le jour même) ; seulement avec une date.
+  const jours = parcoursAccueil?.dateObjectif ? joursRestants(parcoursAccueil.dateObjectif) : null
+  const compteARebours = jours === null ? null : jours >= 0 ? `J-${jours}` : `J+${-jours}`
+  let prochaineAction: EtatProchaineAction = { type: 'aucune' }
+  if (parcoursAccueil && progression) {
+    const etapeCourante =
+      progression.etapeCouranteIndex !== null ? parcoursAccueil.etapes[progression.etapeCouranteIndex] : null
+    if (progression.termine) prochaineAction = { type: 'termine' }
+    else if (parcoursAccueil.activiteEnCours) prochaineAction = { type: 'en_cours' }
+    else if (etapeCourante?.feuille_id && progression.prochainExo !== null)
+      prochaineAction = {
+        type: 'commencer',
+        feuilleId: etapeCourante.feuille_id,
+        titre: etapeCourante.titre ?? 'Feuille',
+        exo: progression.prochainExo,
+      }
+  }
 
   const uniqueDates = Array.from(
     new Set((sessionDates ?? []).map((s: { date: string }) => s.date))
@@ -100,87 +119,61 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg flex flex-col items-center px-4 py-8 space-y-8">
-      <div className="w-full max-w-sm flex items-center justify-between">
-        <Link href="/profil" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt={pseudo}
-              width={28}
-              height={28}
-              className="rounded-full object-cover"
-              style={{ width: 28, height: 28 }}
-            />
-          ) : (
-            <div
-              className="rounded-full bg-surface-2 flex items-center justify-center font-semibold text-text-secondary text-xs"
-              style={{ width: 28, height: 28 }}
-            >
-              {pseudo ? pseudo[0].toUpperCase() : '?'}
-            </div>
-          )}
-          <span className="font-semibold text-text-primary">{pseudo}</span>
-        </Link>
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard">
-            <svg xmlns="http://www.w3.org/2000/svg"
-              width="20" height="20" viewBox="0 0 24 24"
-              fill="none" stroke="currentColor"
-              strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-              className="text-text-muted hover:text-text-secondary transition-colors cursor-pointer">
-              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
-          </Link>
-          <Link href="/agora">
-            <svg xmlns="http://www.w3.org/2000/svg"
-              width="20" height="20" viewBox="0 0 24 24"
-              fill="none" stroke="currentColor"
-              strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-              className="text-text-muted hover:text-text-secondary transition-colors cursor-pointer">
-              <path d="M6 3h12" />
-              <path d="M6 21h12" />
-              <path d="M6 3c0 5 4 7 6 9-2 2-6 4-6 9" />
-              <path d="M18 3c0 5-4 7-6 9 2 2 6 4 6 9" />
-            </svg>
-          </Link>
-          {isAdmin && (
-            <Link href="/admin" className="text-sm text-text-muted hover:text-text-secondary">
-              Admin
+    <AvecBarreOnglets profil={{ role: profile?.role ?? null, confidentiel: profile?.confidentiel ?? null }}>
+      <div className="min-h-screen bg-bg flex flex-col items-center px-4 py-8 space-y-8">
+        <div className="w-full max-w-sm flex items-center justify-between">
+          <MenuProfil pseudo={pseudo} avatarUrl={avatarUrl} isAdmin={isAdmin} />
+          <div className="flex items-center gap-4">
+            <Link href="/dashboard">
+              <svg xmlns="http://www.w3.org/2000/svg"
+                width="20" height="20" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor"
+                strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                className="text-text-muted hover:text-text-secondary transition-colors cursor-pointer">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
             </Link>
-          )}
-          <LogoutButton />
+            <Link href="/agora">
+              <svg xmlns="http://www.w3.org/2000/svg"
+                width="20" height="20" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor"
+                strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                className="text-text-muted hover:text-text-secondary transition-colors cursor-pointer">
+                <path d="M6 3h12" />
+                <path d="M6 21h12" />
+                <path d="M6 3c0 5 4 7 6 9-2 2-6 4-6 9" />
+                <path d="M18 3c0 5-4 7-6 9 2 2 6 4 6 9" />
+              </svg>
+            </Link>
+            <LogoutButton />
+          </div>
         </div>
-      </div>
-      <StreakBadge streak={streak} pixels={count ?? 0} jetons={typeof soldeJetons === 'number' ? soldeJetons : null} />
+        <StreakBadge streak={streak} pixels={count ?? 0} />
 
-      <div className="w-full max-w-sm rounded-2xl p-4">
-        <PixelGrid count={count ?? 0} />
-      </div>
-
-      {!masquerClassement && laureats.length > 0 && <BandeauEtudiantSemaine laureats={laureats} />}
-
-      <div className="w-full max-w-sm space-y-3">
-        <Link href="/entrainement" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-accent text-bg hover:opacity-90 transition-opacity">
-          Entraînement
-        </Link>
-        <Link href="/bibliotheque" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
-          Bibliothèque
-        </Link>
-        <Link href="/parcours" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
-          Parcours
-        </Link>
-        <EntreeForum />
-        {!masquerClassement && (
-          <Link href="/classement" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-surface border border-border text-text-primary hover:bg-surface-2 transition-colors">
-            Classement
-          </Link>
+        {parcoursAccueil && progression ? (
+          <>
+            <AccueilParcours
+              parcours={parcoursAccueil}
+              progression={progression}
+              pixels={count ?? 0}
+              compteARebours={compteARebours}
+            />
+            <ProchaineAction etat={prochaineAction} />
+          </>
+        ) : (
+          <>
+            <div className="w-full max-w-sm rounded-2xl p-4">
+              <PixelGrid count={count ?? 0} />
+            </div>
+            <div className="w-full max-w-sm">
+              <Link href="/entrainement" className="block w-full rounded-2xl py-5 text-center font-bold text-lg bg-accent text-bg hover:opacity-90 transition-opacity">
+                Entraînement
+              </Link>
+            </div>
+          </>
         )}
-        {/* Mission désactivée temporairement (refonte visuelle en cours) —
-            code et route conservés intacts sous app/mission/**, entrée
-            masquée ici uniquement. À réactiver en retirant ce commentaire. */}
       </div>
-    </div>
+    </AvecBarreOnglets>
   )
 }
