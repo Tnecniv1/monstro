@@ -1,7 +1,8 @@
 import Link from 'next/link'
 
 export type EtatProchaineAction =
-  | { type: 'commencer'; feuilleId: string; titre: string; exo: number }
+  // examen : étape examen (« Sujet n », « Examen · libellé ») ; libelle : son libellé.
+  | { type: 'commencer'; feuilleId: string; titre: string; exo: number; examen: boolean; libelle: string | null }
   | { type: 'en_cours' }
   | { type: 'termine' }
   | { type: 'aucune' }
@@ -32,9 +33,14 @@ export default function ProchaineAction({ etat }: { etat: EtatProchaineAction })
 
       {etat.type === 'commencer' && (
         <>
-          <p className="text-xl font-extrabold leading-snug text-text-primary">
-            {etat.titre} · exercice {etat.exo}
-          </p>
+          <div className="space-y-0.5">
+            <p className="truncate text-xl font-extrabold leading-snug text-text-primary">
+              {etat.examen ? 'Sujet' : 'Exercice'} {etat.exo}
+            </p>
+            <p className="truncate text-[13px] text-text-muted">
+              {etat.examen ? `Examen · ${etat.libelle ?? etat.titre}` : etat.titre}
+            </p>
+          </div>
           <Link
             href={`/entrainement?feuille=${encodeURIComponent(etat.feuilleId)}&exo=${etat.exo}`}
             className={bouton}

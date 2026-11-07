@@ -43,6 +43,11 @@ function getLevelInfo(count: number) {
   return { levelIdx, level, scoreInLevel, capacity, pixelsLit: scoreInLevel, totalCount: capped }
 }
 
+// Numéro du niveau (1 à 12) pour un nombre de pixels : légende de la carte parcours.
+export function niveauPixels(count: number) {
+  return getLevelInfo(count).levelIdx + 1
+}
+
 interface Props {
   count: number
   // Vrai : la grille prend toute la largeur de son conteneur (viewBox mis à
@@ -51,9 +56,13 @@ interface Props {
   // Vrai : pas de fond gris derrière la grille (cases vides transparentes,
   // seuls les pixels allumés restent visibles). Utilisé dans la carte parcours.
   fondTransparent?: boolean
+  // Vrai : la grille prend l'espace restant (flex-1) et tient dans la largeur
+  // ET la hauteur disponibles (viewBox « meet » : taille = min des deux),
+  // centrée ; sans fond ni légende (affichée par la carte parcours).
+  ajuster?: boolean
 }
 
-export default function PixelGrid({ count, pleineLargeur = false, fondTransparent = false }: Props) {
+export default function PixelGrid({ count, pleineLargeur = false, fondTransparent = false, ajuster = false }: Props) {
   const { levelIdx, level, pixelsLit, totalCount } = useMemo(
     () => getLevelInfo(count),
     [count],
@@ -94,6 +103,32 @@ export default function PixelGrid({ count, pleineLargeur = false, fondTransparen
   const svgHeight = level.rows * cellSize + GAP * (level.rows - 1)
   const litPositions = shuffledPositions.slice(0, revealed)
 
+  const cases = litPositions.map(([r, c], i) => (
+    <rect
+      key={i}
+      x={c * (cellSize + GAP)}
+      y={r * (cellSize + GAP)}
+      width={cellSize}
+      height={cellSize}
+      className="fill-accent"
+    />
+  ))
+
+  // Mode ajuster : 120 px au minimum (en deçà, l'accueil défile).
+  if (ajuster) {
+    return (
+      <div className="relative min-h-[120px] flex-1">
+        <svg
+          viewBox={`0 0 ${DISPLAY_WIDTH} ${svgHeight}`}
+          preserveAspectRatio="xMidYMid meet"
+          className="absolute inset-0 h-full w-full"
+        >
+          {cases}
+        </svg>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-3">
 
@@ -106,16 +141,7 @@ export default function PixelGrid({ count, pleineLargeur = false, fondTransparen
           className={fondTransparent ? undefined : 'bg-surface-2'}
           style={{ display: 'block' }}
         >
-          {litPositions.map(([r, c], i) => (
-            <rect
-              key={i}
-              x={c * (cellSize + GAP)}
-              y={r * (cellSize + GAP)}
-              width={cellSize}
-              height={cellSize}
-              className="fill-accent"
-            />
-          ))}
+          {cases}
         </svg>
       </div>
 

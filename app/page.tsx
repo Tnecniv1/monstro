@@ -91,6 +91,8 @@ export default async function HomePage() {
         feuilleId: etapeCourante.feuille_id,
         titre: etapeCourante.titre ?? 'Feuille',
         exo: progression.prochainExo,
+        examen: etapeCourante.type === 'examen',
+        libelle: etapeCourante.libelle,
       }
   }
 
@@ -120,7 +122,16 @@ export default async function HomePage() {
 
   return (
     <AvecBarreOnglets profil={{ role: profile?.role ?? null, confidentiel: profile?.confidentiel ?? null }}>
-      <div className="min-h-screen bg-bg flex flex-col items-center px-4 py-8 space-y-8">
+      {/* Avec parcours : colonne de toute la hauteur au-dessus de la barre
+          d'onglets, blocs à leur taille naturelle, PixelGrid dans le reste,
+          16 px entre les blocs ; ne défile que si l'écran est trop petit. */}
+      <div
+        className={
+          parcoursAccueil && progression
+            ? 'flex min-h-[calc(100dvh-56px-env(safe-area-inset-bottom))] flex-col items-center gap-4 bg-bg px-4 py-4'
+            : 'min-h-screen bg-bg flex flex-col items-center px-4 py-8 space-y-8'
+        }
+      >
         <div className="w-full max-w-sm flex items-center justify-between">
           <MenuProfil pseudo={pseudo} avatarUrl={avatarUrl} isAdmin={isAdmin} />
           <div className="flex items-center gap-4">
@@ -149,20 +160,20 @@ export default async function HomePage() {
             <LogoutButton />
           </div>
         </div>
-        <StreakBadge streak={streak} pixels={count ?? 0} />
-
         {parcoursAccueil && progression ? (
           <>
             <AccueilParcours
               parcours={parcoursAccueil}
               progression={progression}
               pixels={count ?? 0}
+              streak={streak}
               compteARebours={compteARebours}
             />
             <ProchaineAction etat={prochaineAction} />
           </>
         ) : (
           <>
+            <StreakBadge streak={streak} pixels={count ?? 0} />
             <div className="w-full max-w-sm rounded-2xl p-4">
               <PixelGrid count={count ?? 0} />
             </div>
