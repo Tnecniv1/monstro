@@ -101,17 +101,26 @@ export function calculerProgression(etapes: EtapeProgression[], exercices: Etats
   }
 }
 
+// Date du jour à Paris, 'AAAA-MM-JJ'. Assemblée à partir des champs de
+// formatToParts plutôt que du format « en-CA » : l'ordre des champs de ce
+// format n'est pas garanti par l'Intl de Hermes (app mobile). Fichier
+// identique côté web et côté mobile : pas d'import, fonction locale.
+function dateParis(instant: Date): string {
+  const parties = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(instant)
+  const valeur = (type: string) => parties.find((p) => p.type === type)?.value ?? ''
+  return `${valeur('year')}-${valeur('month')}-${valeur('day')}`
+}
+
 // Jours calendaires entre aujourd'hui à Paris et dateObjectif ('YYYY-MM-DD').
 // Positif avant l'examen, 0 le jour même, négatif après.
 export function joursRestants(dateObjectif: string, maintenant: Date = new Date()): number | null {
   const cible = Date.parse(`${dateObjectif}T00:00:00Z`)
   if (isNaN(cible)) return null
-  // en-CA formate en AAAA-MM-JJ.
-  const aujourdhui = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Paris',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(maintenant)
+  const aujourdhui = dateParis(maintenant)
   return Math.round((cible - Date.parse(`${aujourdhui}T00:00:00Z`)) / 86400000)
 }
