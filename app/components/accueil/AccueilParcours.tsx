@@ -1,6 +1,7 @@
 import type { ParcoursAccueil } from '@/lib/parcours/charger'
 import type { Progression } from '@/lib/parcours/progression'
-import PixelGrid, { niveauPixels } from '../PixelGrid'
+import { niveauPixels } from '@/lib/pixels'
+import PixelGrid from '../PixelGrid'
 import StationsParcours, { type Station } from './StationsParcours'
 
 // Accueil d'un élève qui a un parcours : bloc objectif (nom du parcours et
