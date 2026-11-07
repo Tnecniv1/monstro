@@ -2,11 +2,12 @@ import type { ParcoursAccueil } from '@/lib/parcours/charger'
 import type { Progression } from '@/lib/parcours/progression'
 import { niveauPixels } from '@/lib/pixels'
 import PixelGrid from '../PixelGrid'
+import StreakBadge from '../StreakBadge'
 import StationsParcours, { type Station } from './StationsParcours'
 
 // Accueil d'un élève qui a un parcours : bloc objectif (nom du parcours et
-// J-n) et carte parcours (stations, PixelGrid de l'élève dans l'espace
-// restant, puis une légende : pixels · niveau à gauche, série à droite).
+// J-n) et carte parcours (stations, compteurs pixels / série, PixelGrid de
+// l'élève dans l'espace restant, puis le niveau).
 export default function AccueilParcours({
   parcours,
   progression,
@@ -18,7 +19,7 @@ export default function AccueilParcours({
   progression: Progression
   // Nombre de pixels de l'élève (même compteur que l'accueil sans parcours).
   pixels: number
-  // Série de jours consécutifs (0 : rien à droite de la légende).
+  // Série de jours consécutifs (0 : compteur de série masqué).
   streak: number
   // « J-12 », « J+3 » ; null si le parcours n'a pas de date_objectif.
   compteARebours: string | null
@@ -62,22 +63,11 @@ export default function AccueilParcours({
 
         <div className="h-px bg-border" />
 
+        <StreakBadge streak={streak} pixels={pixels} />
+
         <PixelGrid count={pixels} ajuster />
 
-        <div className="flex items-center justify-between gap-3 text-sm text-text-secondary">
-          <p className="min-w-0 truncate">
-            <span className="font-bold text-text-primary">{pixels.toLocaleString('fr-FR')}</span> pixels · Niveau{' '}
-            {niveauPixels(pixels)} / 12
-          </p>
-          {streak > 0 && (
-            <span className="flex shrink-0 items-center gap-1">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-warning">
-                <path d="M6 3 L18 3 L18 6 L12 12 L18 18 L18 21 L6 21 L6 18 L12 12 L6 6 Z" />
-              </svg>
-              {streak} j
-            </span>
-          )}
-        </div>
+        <p className="text-center text-sm text-text-secondary">Niveau {niveauPixels(pixels)} / 12</p>
       </div>
     </div>
   )
