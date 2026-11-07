@@ -118,30 +118,19 @@ export default function AgoraPersonalView({ eleveId, initial, profil }: Props) {
     setLoading(true)
     setError(null)
 
-    const { data: ref, error: e1 } = await supabase
-      .from('referent')
-      .insert({
-        prenom: prenom.trim() || null,
-        nom: nom.trim(),
-        relation,
-        telephone: tel.numero,
-        mode: 'whatsapp',
-      })
-      .select('id')
-      .single()
+    // Suiveur + lien avec l'utilisateur connecté (auth.uid()) en une seule
+    // opération : la RPC ajouter_suiveur (security definer, mode whatsapp).
+    // L'ancien insert referent puis .select('id') échouait pour un élève non
+    // admin (la ligne n'est lisible qu'une fois le lien créé).
+    const { error: e } = await supabase.rpc('ajouter_suiveur', {
+      p_prenom: prenom.trim() || null,
+      p_nom: nom.trim(),
+      p_relation: relation,
+      p_telephone: tel.numero,
+    })
 
-    if (e1 || !ref) {
-      setError(e1?.message ?? 'Erreur lors de la création du suiveur.')
-      setLoading(false)
-      return
-    }
-
-    const { error: e2 } = await supabase
-      .from('referent_eleve')
-      .insert({ referent_id: ref.id, eleve_id: eleveId, actif: true })
-
-    if (e2) {
-      setError(e2.message)
+    if (e) {
+      setError(e.message || 'Erreur lors de la création du suiveur.')
       setLoading(false)
       return
     }
