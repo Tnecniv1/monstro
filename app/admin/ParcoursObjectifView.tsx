@@ -4,11 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import ParcoursEtapes from './ParcoursEtapes'
 import ParcoursEleves from './ParcoursEleves'
+import ParcoursPositionnement from './ParcoursPositionnement'
 import type { Noeud } from './AdminClient'
 import {
   btnPrimaire,
   btnSecondaire,
   champ,
+  COLONNES_QCM,
   descendDe,
   etiquette,
   NOEUD_PREPARATION_EXAMEN,
@@ -17,10 +19,12 @@ import {
   type Etape,
   type FeuilleChoix,
   type Parcours,
+  type Positionnement,
 } from './parcoursObjectifTypes'
 
 // Onglet admin « Objectifs » : parcours (objectifs), leurs étapes et les
-// élèves assignés. Tables parcours, parcours_etape et parcours_eleve.
+// élèves assignés. Tables parcours, parcours_etape, parcours_eleve et
+// parcours_positionnement (questions du test de positionnement).
 export default function ParcoursObjectifView({
   noeuds,
   feuilles,
@@ -34,20 +38,25 @@ export default function ParcoursObjectifView({
   const [parcours, setParcours] = useState<Parcours[] | null>(null)
   const [etapes, setEtapes] = useState<Etape[]>([])
   const [assignations, setAssignations] = useState<Assignation[]>([])
+  const [positionnements, setPositionnements] = useState<Positionnement[]>([])
   const [selectionId, setSelectionId] = useState<string | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
   const [creation, setCreation] = useState(false)
 
   const charger = useCallback(async () => {
-    const [p, e, a] = await Promise.all([
+    const [p, e, a, q] = await Promise.all([
       supabase.from('parcours').select('id, nom, description, ordre, actif, created_at').order('ordre').order('created_at'),
       supabase
         .from('parcours_etape')
         .select('id, parcours_id, ordre, type, feuille_id, exo_debut, exo_fin, libelle')
         .order('ordre'),
       supabase.from('parcours_eleve').select('user_id, parcours_id, date_objectif'),
+      supabase
+        .from('parcours_positionnement')
+        .select(`id, parcours_id, etape_id, qcm_question_id, ordre, question:qcm_question(${COLONNES_QCM})`)
+        .order('ordre'),
     ])
-    const err = p.error ?? e.error ?? a.error
+    const err = p.error ?? e.error ?? a.error ?? q.error
     if (err) {
       console.error('[admin objectifs] chargement', err)
       setErreur(err.message)
@@ -57,6 +66,7 @@ export default function ParcoursObjectifView({
     setParcours((p.data ?? []) as Parcours[])
     setEtapes((e.data ?? []) as Etape[])
     setAssignations((a.data ?? []) as Assignation[])
+    setPositionnements((q.data ?? []) as unknown as Positionnement[])
   }, [])
 
   useEffect(() => {
@@ -80,6 +90,17 @@ export default function ParcoursObjectifView({
     for (const liste of Array.from(m.values())) liste.sort((x, y) => x.ordre - y.ordre)
     return m
   }, [etapes])
+
+  // Questions de positionnement par étape, triées par ordre.
+  const positionnementsParEtape = useMemo(() => {
+    const m = new Map<string, Positionnement[]>()
+    for (const q of positionnements) {
+      if (!m.has(q.etape_id)) m.set(q.etape_id, [])
+      m.get(q.etape_id)!.push(q)
+    }
+    for (const liste of Array.from(m.values())) liste.sort((x, y) => x.ordre - y.ordre)
+    return m
+  }, [positionnements])
 
   const selection = selectionId ? parcoursParId.get(selectionId) ?? null : null
 
@@ -154,20 +175,33 @@ export default function ParcoursObjectifView({
           {!selection ? (
             <p className="py-10 text-center text-sm text-text-muted">Sélectionne un parcours ou crées-en un.</p>
           ) : (
-            <div className="space-y-6">
-              <EnTeteParcours key={selection.id} parcours={selection} onChange={charger} onErreur={setErreur} />
+            // Une seule clé, sur le conteneur : au changement de parcours,
+            // en-tête, étapes et élèves sont remontés ensemble (état local
+            // réinitialisé, écritures sur le seul id sélectionné). Pas de clé
+            // sur les enfants : trois frères avec la même clé faisaient perdre
+            // à React la trace des anciens, laissés à l'écran avec leur parcours.
+            <div key={selection.id} className="space-y-6">
+              <EnTeteParcours parcours={selection} onChange={charger} onErreur={setErreur} />
               <ParcoursEtapes
-                key={selection.id}
                 parcoursId={selection.id}
                 etapes={etapesParParcours.get(selection.id) ?? []}
                 feuilles={feuilles}
                 feuillesExamen={feuillesExamen}
                 feuilleParId={feuilleParId}
+                positionnementsParEtape={positionnementsParEtape}
                 onChange={charger}
               />
               <div className="border-t border-border pt-5">
-                <ParcoursEleves
+                <ParcoursPositionnement
                   key={selection.id}
+                  etapes={etapesParParcours.get(selection.id) ?? []}
+                  feuilleParId={feuilleParId}
+                  positionnementsParEtape={positionnementsParEtape}
+                  onChange={charger}
+                />
+              </div>
+              <div className="border-t border-border pt-5">
+                <ParcoursEleves
                   parcours={selection}
                   eleves={eleves}
                   assignations={assignations}

@@ -30,6 +30,30 @@ export type Assignation = {
   date_objectif: string | null
 }
 
+// Question de la banque qcm_question.
+export type QcmQuestion = {
+  id: string
+  niveau: number
+  enonce: string
+  choix: { id: string; texte: string }[] | null
+  reponses_correctes: string[] | null
+  source: string | null
+  image_url: string | null
+}
+
+export const COLONNES_QCM = 'id, niveau, enonce, choix, reponses_correctes, source, image_url'
+
+// Question du test de positionnement rattachée à une étape feuille
+// (table parcours_positionnement, supprimée en cascade avec l'étape).
+export type Positionnement = {
+  id: string
+  parcours_id: string
+  etape_id: string
+  qcm_question_id: string
+  ordre: number
+  question: QcmQuestion | null
+}
+
 // Élève tel que chargé par admin/page.tsx pour l'onglet Objectifs.
 export type EleveParcours = {
   id: string

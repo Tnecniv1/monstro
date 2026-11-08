@@ -10,6 +10,7 @@ import {
   plageEtape,
   type Etape,
   type FeuilleChoix,
+  type Positionnement,
 } from './parcoursObjectifTypes'
 
 type Formulaire = { type: 'feuille' | 'examen'; etape: Etape | null }
@@ -25,6 +26,7 @@ export default function ParcoursEtapes({
   feuilles,
   feuillesExamen,
   feuilleParId,
+  positionnementsParEtape,
   onChange,
 }: {
   parcoursId: string
@@ -32,6 +34,7 @@ export default function ParcoursEtapes({
   feuilles: FeuilleChoix[]
   feuillesExamen: FeuilleChoix[]
   feuilleParId: Map<string, FeuilleChoix>
+  positionnementsParEtape: Map<string, Positionnement[]>
   onChange: () => Promise<void>
 }) {
   const supabase = createClient()
@@ -143,6 +146,7 @@ export default function ParcoursEtapes({
                   feuilles={feuilles}
                   feuillesExamen={feuillesExamen}
                   feuilleParId={feuilleParId}
+                  nbPositionnement={positionnementsParEtape.get(e.id)?.length ?? 0}
                   enCours={enCours}
                   onAnnuler={() => setFormulaire(null)}
                   onEnregistrer={enregistrer}
@@ -153,6 +157,7 @@ export default function ParcoursEtapes({
 
           const examen = e.type === 'examen'
           const feuille = e.feuille_id ? feuilleParId.get(e.feuille_id) : undefined
+          const nbPositionnement = positionnementsParEtape.get(e.id)?.length ?? 0
 
           return (
             <li
@@ -227,7 +232,11 @@ export default function ParcoursEtapes({
 
               {aSupprimer === e.id && (
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-                  <p className="text-sm text-text-primary">Supprimer cette étape ?</p>
+                  <p className="text-sm text-text-primary">
+                    {nbPositionnement > 0
+                      ? `Supprimer cette étape et ses ${nbPositionnement} question${nbPositionnement > 1 ? 's' : ''} de positionnement ?`
+                      : 'Supprimer cette étape ?'}
+                  </p>
                   <div className="flex gap-2">
                     <button type="button" onClick={() => setASupprimer(null)} className={btnSecondaire} disabled={enCours}>
                       Annuler
