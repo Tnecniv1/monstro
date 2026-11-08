@@ -6,23 +6,32 @@
 //   exclus) ; les questions d'une feuille sont posées dans leur ordre.
 // - Une question est juste si l'ensemble des choix sélectionnés est exactement
 //   reponses_correctes. « Je ne sais pas » (null) = faux.
-// - Une feuille est acquise si toutes ses questions sont justes.
-// - Le test s'arrête à la première feuille non acquise (dès la première
-//   réponse fausse) : c'est l'étape de départ. Une feuille sans question
-//   arrête le test et devient l'étape de départ.
+// - Une feuille de n questions est acquise si au moins seuil = ceil(2n/3)
+//   sont justes (4/6, 6/9, 2/3, 2/2, 1/1).
+// - Arrêt anticipé dans une feuille : dès que le seuil est atteint, elle est
+//   acquise et on passe à la feuille suivante sans poser ses questions
+//   restantes ; dès que le seuil ne peut plus être atteint, elle est non
+//   acquise et le test s'arrête : c'est l'étape de départ.
+// - Une feuille sans question arrête toujours le test (étape de départ).
 // - Toutes les feuilles acquises : départ = première étape (tout type) après
 //   la dernière feuille, ou dernière étape du parcours s'il n'y en a pas.
 //
-// Exemples, parcours F1 (q1, q2) → F2 (q3) → F3 (q4) → Examen E :
-// 1. Tout faux : q1 = null (« Je ne sais pas »).
-//    prochaineQuestion → null (arrêt dès q1) ; etapeDepart → F1.
-// 2. Arrêt en feuille 2 : q1 = ['a'] juste, q2 = ['b','c'] juste, q3 = ['a']
-//    alors que la bonne réponse est ['a','d'].
-//    prochaineQuestion → null ; etapeDepart → F2 (F1 acquise).
-// 3. Tout juste : q1, q2, q3, q4 justes.
-//    prochaineQuestion → null ; etapeDepart → E (première étape après F3).
-//    Sans l'examen E, le départ serait F3 (dernière étape du parcours).
-// En cours de test (ex. seule q1 répondue juste) : prochaineQuestion → q2,
+// Exemples, parcours F1 (a1…a6) → F2 (b1…b6) → Examen E ; seuil 4 sur 6.
+// J = juste, F = faux ou « Je ne sais pas ».
+// 1. 4/6, acquise : a1 F, a2 J, a3 F, a4 J, a5 J, a6 J.
+//    Après a3 (2 fausses), 4 justes restent possibles : on continue. Après a6,
+//    4 justes : F1 acquise → prochaineQuestion → b1.
+// 2. 3/6, non acquise : a1 J, a2 F, a3 J, a4 F, a5 J, a6 F.
+//    Après a6, 3 fausses : 4 justes impossibles → prochaineQuestion → null,
+//    etapeDepart → F1.
+// 3. Arrêt anticipé après 4 justes : a1 J, a2 J, a3 J, a4 J.
+//    Seuil atteint : a5 et a6 ne sont pas posées → prochaineQuestion → b1.
+//    Si F2 se termine de même (b1…b4 J), départ → E (étape après F2) ;
+//    sans l'examen E, le départ serait F2 (dernière étape du parcours).
+// 4. Arrêt après 3 fausses : a1 F, a2 F, a3 F.
+//    Au plus 3 justes possibles : a4…a6 ne sont pas posées → prochaineQuestion
+//    → null, etapeDepart → F1.
+// En cours de test (ex. seule a1 répondue) : prochaineQuestion → a2,
 // etapeDepart → null (pas encore déterminé).
 
 export type EtapeTest = {
@@ -92,18 +101,37 @@ function repondue(reponses: Reponses, id: string): boolean {
   return Object.prototype.hasOwnProperty.call(reponses, id)
 }
 
-// Parcourt le test dans l'ordre : première question sans réponse, ou étape
-// où le test s'arrête (feuille sans question ou réponse fausse), ou fin.
+// Nombre de justes nécessaires pour acquérir une feuille de n questions.
+export function seuilFeuille(n: number): number {
+  return Math.ceil((2 * n) / 3)
+}
+
+// Parcourt le test dans l'ordre : première question à poser, ou étape où le
+// test s'arrête (feuille sans question ou seuil devenu impossible), ou fin.
+// Une feuille est quittée dès que son sort est joué (seuil atteint ou
+// impossible) : ses questions restantes ne sont pas posées.
 function parcourir<Q extends QuestionTest>(
   test: Test<Q>,
   reponses: Reponses
 ): { question: Q } | { arret: string } | { fin: true } {
   for (const feuille of test.feuilles) {
-    if (feuille.questions.length === 0) return { arret: feuille.etapeId }
+    const n = feuille.questions.length
+    if (n === 0) return { arret: feuille.etapeId }
+    const seuil = seuilFeuille(n)
+    let justes = 0
+    let fausses = 0
+    let acquise = false
     for (const q of feuille.questions) {
       if (!repondue(reponses, q.id)) return { question: q }
-      if (!estJuste(q, reponses[q.id])) return { arret: feuille.etapeId }
+      if (estJuste(q, reponses[q.id])) justes++
+      else fausses++
+      if (justes >= seuil) {
+        acquise = true
+        break
+      }
+      if (n - fausses < seuil) return { arret: feuille.etapeId }
     }
+    if (!acquise) return { arret: feuille.etapeId }
   }
   return { fin: true }
 }

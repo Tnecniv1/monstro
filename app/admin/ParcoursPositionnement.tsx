@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import QcmTexte from '../components/QcmTexte'
 import QcmPicker from './QcmPicker'
+import { seuilFeuille } from '@/lib/parcours/positionnement'
 import {
   btnDanger,
   btnSecondaire,
@@ -16,6 +17,8 @@ import {
 const ORANGE_FOND = '#FFFBEB'
 const ORANGE_BORD = '#FDE68A'
 const SECONDES_PAR_QUESTION = 30
+// En dessous, une feuille est signalée (avertissement seul).
+const QUESTIONS_FIABLES = 6
 
 function dureeEstimee(nbQuestions: number): string {
   const s = nbQuestions * SECONDES_PAR_QUESTION
@@ -23,9 +26,11 @@ function dureeEstimee(nbQuestions: number): string {
 }
 
 // Test de positionnement d'un parcours : questions de la banque QCM
-// rattachées à chaque étape feuille (table parcours_positionnement). Le test
-// s'arrête à la première feuille non acquise ; une feuille sans question
-// l'arrête forcément. Les étapes examen n'ont pas de questions.
+// rattachées à chaque étape feuille (table parcours_positionnement). Une
+// feuille est acquise à ceil(2n/3) justes (lib/parcours/positionnement.ts) ;
+// le test s'arrête à la première feuille non acquise ; une feuille sans
+// question l'arrête forcément. Les étapes examen n'ont pas de questions.
+// Durée estimée : pire cas, toutes les questions posées.
 // Toutes les écritures prennent l'id de l'étape (et son parcours_id) telle
 // qu'affichée, ou l'id de la ligne de positionnement affichée.
 export default function ParcoursPositionnement({
@@ -104,7 +109,7 @@ export default function ParcoursPositionnement({
           <span className={sansQuestion > 0 ? 'font-semibold text-warning' : ''}>
             {sansQuestion} feuille{sansQuestion > 1 ? 's' : ''} sans question
           </span>
-          {totalQuestions > 0 && ` · ${dureeEstimee(totalQuestions)}`}
+          {totalQuestions > 0 && ` · ${dureeEstimee(totalQuestions)} au plus (toutes les questions)`}
         </p>
       </div>
 
@@ -121,6 +126,7 @@ export default function ParcoursPositionnement({
             const titre = feuille?.titre ?? 'Feuille introuvable'
             const questions = positionnementsParEtape.get(etape.id) ?? []
             const vide = questions.length === 0
+            const peuFiable = !vide && questions.length < QUESTIONS_FIABLES
             const numero = etapes.indexOf(etape) + 1
 
             return (
@@ -138,8 +144,11 @@ export default function ParcoursPositionnement({
                     <p className={`text-xs ${vide ? 'font-semibold text-warning' : 'text-text-muted'}`}>
                       {vide
                         ? 'Aucune question · le test s’arrêtera ici'
-                        : `${questions.length} question${questions.length > 1 ? 's' : ''}`}
+                        : `${questions.length} question${questions.length > 1 ? 's' : ''} · acquise à ${seuilFeuille(questions.length)} juste${seuilFeuille(questions.length) > 1 ? 's' : ''}`}
                     </p>
+                    {peuFiable && (
+                      <p className="text-xs font-semibold text-warning">Moins de 6 questions : le test sera moins fiable</p>
+                    )}
                   </div>
                   <button
                     type="button"
