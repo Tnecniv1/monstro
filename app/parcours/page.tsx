@@ -78,7 +78,7 @@ export default async function ParcoursPage() {
     console.error('[parcours] chargement du parcours', e.message)
     return null
   })
-  const progression = parcours ? calculerProgression(parcours.etapes, parcours.exercices) : null
+  const progression = parcours ? calculerProgression(parcours.etapes, parcours.exercices, parcours.etapeDepartId) : null
 
   return (
     <div className="min-h-screen bg-bg">

@@ -1,5 +1,5 @@
 import type { createClient } from '@/lib/supabase/server'
-import { classerExercice, cleExercice, type EtapeProgression, type EtatsExercices } from './progression'
+import { classerExercice, cleExercice, etapesDeLEleve, type EtapeProgression, type EtatsExercices } from './progression'
 
 type Client = ReturnType<typeof createClient>
 
@@ -13,7 +13,10 @@ export type EtapeAccueil = EtapeProgression & {
 export type ParcoursAccueil = {
   nom: string
   dateObjectif: string | null
+  // Étapes qui concernent l'élève (règle B appliquée), triées par ordre.
   etapes: EtapeAccueil[]
+  // Étape de départ du test de positionnement (règle A) ; null : début.
+  etapeDepartId: string | null
   // Exercices faits, rattrapés et en échec (règles dans progression.ts).
   exercices: EtatsExercices
   // Un entraînement ou une correction est en cours : on ne peut pas en commencer un autre.
@@ -22,6 +25,8 @@ export type ParcoursAccueil = {
 
 type LigneEtape = {
   id: string
+  ordre: number
+  created_at: string
   type: 'feuille' | 'examen'
   feuille_id: string | null
   exo_debut: number | null
@@ -48,7 +53,7 @@ type LigneEntrainement = {
 export async function chargerParcoursEleve(supabase: Client, userId: string): Promise<ParcoursAccueil | null> {
   const { data: assignation, error } = await supabase
     .from('parcours_eleve')
-    .select('parcours_id, date_objectif')
+    .select('parcours_id, date_objectif, etape_depart_id, created_at')
     .eq('user_id', userId)
     .maybeSingle()
   if (error) console.error('[accueil] parcours_eleve', error)
@@ -58,7 +63,7 @@ export async function chargerParcoursEleve(supabase: Client, userId: string): Pr
     supabase.from('parcours').select('nom').eq('id', assignation.parcours_id).maybeSingle(),
     supabase
       .from('parcours_etape')
-      .select('id, type, feuille_id, exo_debut, exo_fin, libelle, feuille:feuille_entrainement ( titre, volume )')
+      .select('id, ordre, created_at, type, feuille_id, exo_debut, exo_fin, libelle, feuille:feuille_entrainement ( titre, volume )')
       .eq('parcours_id', assignation.parcours_id)
       .order('ordre'),
     supabase
@@ -96,19 +101,25 @@ export async function chargerParcoursEleve(supabase: Client, userId: string): Pr
     if (echec) exercices.echecs.add(cle)
   })
 
+  const toutes: EtapeAccueil[] = ((etapes ?? []) as unknown as LigneEtape[]).map((e) => ({
+    id: e.id,
+    ordre: e.ordre,
+    created_at: e.created_at,
+    type: e.type,
+    libelle: e.libelle,
+    feuille_id: e.feuille_id,
+    exo_debut: e.exo_debut,
+    exo_fin: e.exo_fin,
+    titre: e.feuille?.titre ?? null,
+    volume: e.feuille?.volume ?? null,
+  }))
+  const etapeDepartId: string | null = assignation.etape_depart_id ?? null
+
   return {
     nom: parcours.nom,
     dateObjectif: assignation.date_objectif,
-    etapes: ((etapes ?? []) as unknown as LigneEtape[]).map((e) => ({
-      id: e.id,
-      type: e.type,
-      libelle: e.libelle,
-      feuille_id: e.feuille_id,
-      exo_debut: e.exo_debut,
-      exo_fin: e.exo_fin,
-      titre: e.feuille?.titre ?? null,
-      volume: e.feuille?.volume ?? null,
-    })),
+    etapes: etapesDeLEleve(toutes, exercices, { etapeDepartId, assigneLe: assignation.created_at }),
+    etapeDepartId,
     exercices,
     activiteEnCours,
   }

@@ -11,6 +11,8 @@ import {
   nomEleve,
   type Assignation,
   type EleveParcours,
+  type Etape,
+  type FeuilleChoix,
   type Parcours,
 } from './parcoursObjectifTypes'
 
@@ -26,19 +28,27 @@ function formatDate(d: string | null): string {
 }
 
 // Élèves assignés au parcours, assignation (un parcours par élève : upsert
-// sur parcours_eleve.user_id), modification et retrait. L'élève commence
-// toujours à la première étape : etape_depart_id n'est pas envoyé.
+// sur parcours_eleve.user_id), modification et retrait. Première assignation
+// ou changement de parcours : created_at repart de maintenant et le test de
+// positionnement est remis à zéro ; une simple modification de la date
+// d'examen ne touche à rien d'autre. Départ du test affiché par élève, avec
+// réinitialisation (etape_depart_id et positionnement_at à null).
 export default function ParcoursEleves({
   parcours,
   eleves,
   assignations,
   parcoursParId,
+  etapes,
+  feuilleParId,
   onChange,
 }: {
   parcours: Parcours
   eleves: EleveParcours[]
   assignations: Assignation[]
   parcoursParId: Map<string, Parcours>
+  // Étapes du parcours affiché, pour le titre de l'étape de départ.
+  etapes: Etape[]
+  feuilleParId: Map<string, FeuilleChoix>
   onChange: () => Promise<void>
 }) {
   const supabase = createClient()
@@ -46,6 +56,7 @@ export default function ParcoursEleves({
   const [recherche, setRecherche] = useState('')
   const [saisie, setSaisie] = useState<Saisie | null>(null)
   const [aRetirer, setARetirer] = useState<string | null>(null)
+  const [aReinitialiser, setAReinitialiser] = useState<string | null>(null)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -100,18 +111,48 @@ export default function ParcoursEleves({
 
   async function enregistrer() {
     if (!saisie) return
+    const maintenant = new Date().toISOString()
+    const memeParcours = assignationParEleve.get(saisie.eleve.id)?.parcours_id === parcours.id
     const ok = await executer(() =>
       supabase.from('parcours_eleve').upsert(
         {
           user_id: saisie.eleve.id,
           parcours_id: parcours.id,
           date_objectif: saisie.date || null,
-          updated_at: new Date().toISOString(),
+          updated_at: maintenant,
+          // Nouvelle assignation : repart de zéro (règle des étapes ajoutées
+          // après coup, test de positionnement).
+          ...(memeParcours ? {} : { created_at: maintenant, etape_depart_id: null, positionnement_at: null }),
         },
         { onConflict: 'user_id' }
       )
     )
     if (ok) fermer()
+  }
+
+  // Remet le test de positionnement de l'élève affiché à zéro, seulement
+  // s'il est toujours sur le parcours affiché.
+  async function reinitialiserTest(userId: string) {
+    const ok = await executer(() =>
+      supabase
+        .from('parcours_eleve')
+        .update({ etape_depart_id: null, positionnement_at: null, updated_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('parcours_id', parcours.id)
+    )
+    if (ok) setAReinitialiser(null)
+  }
+
+  function libelleDepart(a: Assignation): string {
+    if (!a.positionnement_at) return 'Test non passé'
+    const etape = a.etape_depart_id ? etapes.find((e) => e.id === a.etape_depart_id) : undefined
+    if (!etape) return 'Test passé sans départ (début)'
+    const titre =
+      etape.type === 'examen'
+        ? etape.libelle ?? 'Examen'
+        : (etape.feuille_id ? feuilleParId.get(etape.feuille_id)?.titre : null) ?? 'Feuille introuvable'
+    const date = new Date(a.positionnement_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    return `Départ : ${titre} · test du ${date}`
   }
 
   async function retirer(userId: string) {
@@ -230,8 +271,19 @@ export default function ParcoursEleves({
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-text-primary">{eleve ? nomEleve(eleve) : a.user_id}</p>
                     <p className="text-xs text-text-muted">Examen : {formatDate(a.date_objectif)}</p>
+                    <p className="text-xs text-text-muted">{libelleDepart(a)}</p>
                   </div>
                   <div className="flex gap-1">
+                    {a.positionnement_at && (
+                      <button
+                        type="button"
+                        onClick={() => { setARetirer(null); setAReinitialiser(a.user_id) }}
+                        disabled={enCours}
+                        className="rounded-md px-2 py-1 text-xs font-medium text-text-secondary hover:bg-surface-2"
+                      >
+                        Réinitialiser le test
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => modifier(a)}
@@ -242,7 +294,7 @@ export default function ParcoursEleves({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setARetirer(a.user_id)}
+                      onClick={() => { setAReinitialiser(null); setARetirer(a.user_id) }}
                       disabled={enCours}
                       className="rounded-md px-2 py-1 text-xs font-medium text-danger hover:bg-red-50"
                     >
@@ -250,6 +302,21 @@ export default function ParcoursEleves({
                     </button>
                   </div>
                 </div>
+                {aReinitialiser === a.user_id && (
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                    <p className="text-sm text-text-primary">
+                      Réinitialiser le test ? L’élève repartira du début du parcours.
+                    </p>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setAReinitialiser(null)} className={btnSecondaire} disabled={enCours}>
+                        Annuler
+                      </button>
+                      <button type="button" onClick={() => reinitialiserTest(a.user_id)} className={btnPrimaire} disabled={enCours}>
+                        Réinitialiser
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {aRetirer === a.user_id && (
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
                     <p className="text-sm text-text-primary">Retirer cet élève du parcours ?</p>

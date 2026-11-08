@@ -28,6 +28,12 @@ export type Assignation = {
   user_id: string
   parcours_id: string
   date_objectif: string | null
+  // Test de positionnement : étape de départ (null : début) et date du test
+  // (null : test non passé).
+  etape_depart_id: string | null
+  positionnement_at: string | null
+  // Date d'assignation : sert à repérer les étapes ajoutées après coup.
+  created_at: string
 }
 
 // Question de la banque qcm_question.

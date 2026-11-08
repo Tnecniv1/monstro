@@ -50,7 +50,7 @@ export default function ParcoursObjectifView({
         .from('parcours_etape')
         .select('id, parcours_id, ordre, type, feuille_id, exo_debut, exo_fin, libelle')
         .order('ordre'),
-      supabase.from('parcours_eleve').select('user_id, parcours_id, date_objectif'),
+      supabase.from('parcours_eleve').select('user_id, parcours_id, date_objectif, etape_depart_id, positionnement_at, created_at'),
       supabase
         .from('parcours_positionnement')
         .select(`id, parcours_id, etape_id, qcm_question_id, ordre, question:qcm_question(${COLONNES_QCM})`)
@@ -206,6 +206,8 @@ export default function ParcoursObjectifView({
                   eleves={eleves}
                   assignations={assignations}
                   parcoursParId={parcoursParId}
+                  etapes={etapesParParcours.get(selection.id) ?? []}
+                  feuilleParId={feuilleParId}
                   onChange={charger}
                 />
               </div>

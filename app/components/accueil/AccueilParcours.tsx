@@ -25,14 +25,14 @@ export default function AccueilParcours({
   compteARebours: string | null
 }) {
   const { etapes } = parcours
-  const { etapeCouranteIndex, termine } = progression
+  const { etapeCouranteIndex, termine, acquisParTest } = progression
 
   const stations: Station[] = etapes.map((e, i) => ({
     id: e.id,
     libelle: (e.type === 'examen' ? e.libelle : e.titre) ?? e.titre ?? 'Étape',
     examen: e.type === 'examen',
     statut:
-      termine || (etapeCouranteIndex !== null && i < etapeCouranteIndex)
+      termine || acquisParTest[i] || (etapeCouranteIndex !== null && i < etapeCouranteIndex)
         ? 'fait'
         : i === etapeCouranteIndex
           ? 'courant'

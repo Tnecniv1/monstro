@@ -9,7 +9,8 @@ const VERT_FOND = '#F0FDF4'
 // Tableau « Parcours » de /parcours, pour un élève qui a un parcours : une
 // ligne par étape, dans l'ordre. Progression = exercices distincts faits
 // (succes, echec ou corrige) dans la plage, via calculerProgression comme
-// l'accueil. Correction = rattrapés ÷ (rattrapés + échecs), « — » sans échec.
+// l'accueil ; « Acquise · test de positionnement » pour une étape d'avant le
+// départ du test (règle A). Correction = rattrapés ÷ (rattrapés + échecs), « — » sans échec.
 // Réussite et temps : mêmes formules que TableauHistorique, restreintes aux
 // entraînements terminés dont le ref_exo est dans la plage (« — » sinon).
 export default function TableauParcours({
@@ -48,6 +49,7 @@ export default function TableauParcours({
             const pct = total > 0 ? Math.min(100, Math.round((faits / total) * 100)) : 0
             const restreinte = e.exo_debut != null || e.exo_fin != null
             const courante = i === progression.etapeCouranteIndex
+            const acquise = progression.acquisParTest[i] ?? false
 
             // Entraînements terminés de cette étape (feuille + ref_exo dans la plage).
             const termines = historique.filter(
@@ -90,14 +92,20 @@ export default function TableauParcours({
 
                 {/* Progression */}
                 <td className="px-4 py-3">
-                  <div className="space-y-1.5 min-w-[120px]">
-                    <span className="text-text-secondary text-xs">
-                      {faits} / {total} exercices
+                  {acquise ? (
+                    <span className="block min-w-[120px] text-xs font-semibold text-success">
+                      Acquise · test de positionnement
                     </span>
-                    <div className="h-1 w-full rounded-full bg-surface-2 overflow-hidden">
-                      <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
+                  ) : (
+                    <div className="space-y-1.5 min-w-[120px]">
+                      <span className="text-text-secondary text-xs">
+                        {faits} / {total} exercices
+                      </span>
+                      <div className="h-1 w-full rounded-full bg-surface-2 overflow-hidden">
+                        <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </td>
 
                 {/* Réussite */}

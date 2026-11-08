@@ -75,7 +75,7 @@ export default async function HomePage() {
       return null
     }),
   ])
-  const progression = parcoursAccueil ? calculerProgression(parcoursAccueil.etapes, parcoursAccueil.exercices) : null
+  const progression = parcoursAccueil ? calculerProgression(parcoursAccueil.etapes, parcoursAccueil.exercices, parcoursAccueil.etapeDepartId) : null
   // J-n de l'objectif (J+n une fois la date passée, J-0 le jour même) ; seulement avec une date.
   const jours = parcoursAccueil?.dateObjectif ? joursRestants(parcoursAccueil.dateObjectif) : null
   const compteARebours = jours === null ? null : jours >= 0 ? `J-${jours}` : `J+${-jours}`
