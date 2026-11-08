@@ -118,6 +118,7 @@ async function charger(
         .filter((l) => l.question)
         .map((l) => ({
           id: l.id,
+          qcm_question_id: l.question!.id,
           etape_id: l.etape_id,
           ordre: l.ordre,
           reponses_correctes: l.question!.reponses_correctes,
@@ -126,7 +127,7 @@ async function charger(
           image_url: l.question!.image_url,
         }))
     }
-    return { etape: 'positionnement', etapes, questions }
+    return { etape: 'positionnement', parcoursId: parcoursId!, etapes, questions }
   }
 
   const { data: script, error } = await supabase

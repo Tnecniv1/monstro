@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ETAPES_ONBOARDING, type EtapeOnboarding } from '@/lib/onboarding'
-import { construireTest, etapeDepart, prochaineQuestion, type Reponses } from '@/lib/parcours/positionnement'
+import { construireTest, estJuste, etapeDepart, prochaineQuestion, type Reponses } from '@/lib/parcours/positionnement'
 import QcmTexte from '../components/QcmTexte'
 import MathText from '../components/MathText'
 import StationsParcours, { type Station } from '../components/accueil/StationsParcours'
@@ -16,6 +16,7 @@ export type EtapeBienvenue = { id: string; ordre: number; type: 'feuille' | 'exa
 export type QuestionBienvenue = {
   // id de la ligne parcours_positionnement
   id: string
+  qcm_question_id: string
   etape_id: string
   ordre: number
   reponses_correctes: string[] | null
@@ -29,7 +30,7 @@ export type DonneesOnboarding =
   | { etape: 'objectif'; erreur: string }
   | { etape: 'objectif'; parcours: { id: string; nom: string; description: string | null }[] }
   | { etape: 'positionnement'; erreur: string }
-  | { etape: 'positionnement'; etapes: EtapeBienvenue[]; questions: QuestionBienvenue[] }
+  | { etape: 'positionnement'; parcoursId: string; etapes: EtapeBienvenue[]; questions: QuestionBienvenue[] }
   | { etape: 'introduction'; erreur: string }
   | {
       etape: 'introduction'
@@ -60,7 +61,12 @@ export default function OnboardingClient({ userId, donnees }: { userId: string; 
         ) : donnees.etape === 'objectif' ? (
           <EtapeObjectif userId={userId} parcours={donnees.parcours} />
         ) : donnees.etape === 'positionnement' ? (
-          <EtapePositionnement userId={userId} etapes={donnees.etapes} questions={donnees.questions} />
+          <EtapePositionnement
+            userId={userId}
+            parcoursId={donnees.parcoursId}
+            etapes={donnees.etapes}
+            questions={donnees.questions}
+          />
         ) : (
           <EtapeIntroduction userId={userId} script={donnees.script} />
         )}
@@ -223,16 +229,53 @@ type Phase =
   | { nom: 'questions' }
   | { nom: 'resultat'; departId: string | null; passe: boolean }
 
+// Enregistre une réponse du test (positionnement_reponse) en arrière-plan :
+// jamais attendue, un échec est seulement journalisé.
+function journaliserReponse(ligne: {
+  passage_id: string
+  user_id: string
+  parcours_id: string
+  etape_id: string
+  positionnement_id: string
+  qcm_question_id: string
+  choix: string[] | null
+  juste: boolean
+}) {
+  try {
+    createClient()
+      .from('positionnement_reponse')
+      .insert(ligne)
+      .then(({ error }) => {
+        if (error) console.error('[bienvenue] positionnement_reponse', error)
+      })
+  } catch (e) {
+    console.error('[bienvenue] positionnement_reponse', e)
+  }
+}
+
+// Identifiant d'un passage du test (crypto.randomUUID, repli si absent).
+function nouveauPassage(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
+  })
+}
+
 function EtapePositionnement({
   userId,
+  parcoursId,
   etapes,
   questions,
 }: {
   userId: string
+  parcoursId: string
   etapes: EtapeBienvenue[]
   questions: QuestionBienvenue[]
 }) {
   const router = useRouter()
+  // Passage en cours (un par « Commencer le test ») : regroupe ses réponses.
+  const [passageId, setPassageId] = useState<string | null>(null)
   const test = useMemo(() => construireTest(etapes, questions), [etapes, questions])
   const [phase, setPhase] = useState<Phase>({ nom: 'intro' })
   // Réponses en mémoire seulement : un élève qui quitte recommence le test.
@@ -280,11 +323,25 @@ function EtapePositionnement({
 
   function commencer() {
     setReponses({})
+    setPassageId(nouveauPassage())
     if (!prochaineQuestion(test, {})) terminer({})
     else setPhase({ nom: 'questions' })
   }
 
   function repondre(questionId: string, choix: string[] | null) {
+    const question = questions.find((q) => q.id === questionId)
+    if (question && passageId) {
+      journaliserReponse({
+        passage_id: passageId,
+        user_id: userId,
+        parcours_id: parcoursId,
+        etape_id: question.etape_id,
+        positionnement_id: question.id,
+        qcm_question_id: question.qcm_question_id,
+        choix,
+        juste: estJuste(question, choix),
+      })
+    }
     const suivantes = { ...reponses, [questionId]: choix }
     setReponses(suivantes)
     if (!prochaineQuestion(test, suivantes)) terminer(suivantes)
