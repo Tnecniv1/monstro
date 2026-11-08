@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { PUBLIC_PATHS, RECUPERATION_PATHS, hasAppAccess, isVitrine } from '@/lib/access'
 import { SITE_URL } from '@/lib/site'
+import { ROUTE_ONBOARDING, etapeOnboarding, premiereAssignation } from '@/lib/onboarding'
 import { urlPublique } from '@/lib/urlPublique'
 
 // Ancien sous-domaine Render, que Render ne sait pas rediriger lui-même.
@@ -9,6 +10,10 @@ const ANCIEN_HOST = 'monstro.onrender.com'
 
 // Routes accessibles sans plan payant (+ /login déjà géré en-dessous)
 const WHITELIST = new Set(['/', '/profil', '/login', '/mentions-legales', '/privacy', ...RECUPERATION_PATHS])
+
+// Pages de la liste blanche jamais redirigées vers l'onboarding (les routes
+// /api et /auth ne le sont pas non plus : voir plus bas).
+const HORS_ONBOARDING = new Set(['/login', '/mentions-legales', '/privacy', '/robots.txt', '/sitemap.xml', ...RECUPERATION_PATHS])
 
 export async function middleware(request: NextRequest) {
   // Routes cron et webhooks Twilio : pas de session, authentifiées dans la route elle-même
@@ -65,17 +70,48 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(urlPublique(request, '/', request.nextUrl.search))
   }
 
-  // Contrôle de plan : seulement sur les routes hors liste blanche
-  if (user && !WHITELIST.has(pathname) && !isVitrine(pathname)) {
-    const { data: profile } = await supabase
+  // Contrôle de plan (routes hors liste blanche) et onboarding (toutes les
+  // pages de l'app, liste blanche comprise : « / » et /profil aussi).
+  const controlePlan = !WHITELIST.has(pathname)
+  if (user && !isVitrine(pathname) && (controlePlan || !HORS_ONBOARDING.has(pathname))) {
+    // Une seule requête : profil et ligne parcours_eleve (relation un-à-un).
+    const lecture = await supabase
       .from('user_profile')
-      .select('plan, role')
+      .select('plan, role, script1_ouvert_at, parcours_eleve ( positionnement_at )')
       .eq('id', user.id)
       .single()
+    let profile = lecture.data
+    const error = lecture.error
+    let onboardingLisible = !error
+    if (error) {
+      // Jamais de redirection à tort : relecture du seul profil, sans onboarding.
+      console.error('[middleware] lecture profil + parcours_eleve', error.message)
+      const repli = await supabase.from('user_profile').select('plan, role').eq('id', user.id).single()
+      profile = repli.data as typeof profile
+      onboardingLisible = false
+    }
 
     // Pas d'accès (cf. hasAppAccess) → redirection vers /profil
-    if (!hasAppAccess(profile?.role, profile?.plan)) {
+    if (controlePlan && !hasAppAccess(profile?.role, profile?.plan)) {
       return NextResponse.redirect(urlPublique(request, '/profil', request.nextUrl.search))
+    }
+
+    const routeTechnique = pathname.startsWith('/api/') || pathname.startsWith('/auth/')
+    if (onboardingLisible && profile && !routeTechnique) {
+      const etape = etapeOnboarding({
+        role: profile.role,
+        plan: profile.plan,
+        script1OuvertAt: profile.script1_ouvert_at,
+        assignation: premiereAssignation(profile.parcours_eleve),
+      })
+      // Onboarding à faire : aucune autre page tant qu'il n'est pas fini.
+      if (etape && pathname !== ROUTE_ONBOARDING) {
+        return NextResponse.redirect(urlPublique(request, ROUTE_ONBOARDING, ''))
+      }
+      // Rien à faire (ou admin) : /bienvenue renvoie à l'accueil.
+      if (!etape && pathname === ROUTE_ONBOARDING) {
+        return NextResponse.redirect(urlPublique(request, '/', ''))
+      }
     }
   }
 

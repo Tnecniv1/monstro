@@ -1,5 +1,5 @@
-// Règles d'accès partagées entre middleware.ts et l'onboarding
-// (app/onboarding/OnboardingGate.tsx). Pur TypeScript : utilisable en edge.
+// Règles d'accès partagées entre middleware.ts et les pages de l'app
+// (onboarding : lib/onboarding.ts). Pur TypeScript : utilisable en edge.
 
 // Parcours « Identifiants oubliés » : la demande se fait sans session, le lien
 // de l'email ouvre une session de récupération, et l'utilisateur doit pouvoir

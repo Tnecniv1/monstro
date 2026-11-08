@@ -10,7 +10,7 @@ const APP_STORE_URL = 'https://apps.apple.com/app/id6768066030'
 const DISMISS_KEY = 'monstro_app_banner_dismissed'
 
 // Admin, et pages plein écran (lecture d'une feuille, missions) : pas de bandeau.
-const SECTIONS_EXCLUES = ['/admin', '/viewer', '/mission']
+const SECTIONS_EXCLUES = ['/admin', '/viewer', '/mission', '/bienvenue']
 
 type Plateforme = 'ios-safari' | 'ios-autre' | 'android' | 'ordinateur'
 

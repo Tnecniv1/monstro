@@ -4,7 +4,6 @@ import { Cinzel } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { SITE_URL } from "@/lib/site";
-import OnboardingGate from "./onboarding/OnboardingGate";
 import { ForumAttenteProvider } from "./components/ForumAttenteProvider";
 import AppDownloadBanner from "./components/AppDownloadBanner";
 
@@ -45,7 +44,6 @@ export default function RootLayout({
         <ForumAttenteProvider>
           <AppDownloadBanner />
           {children}
-          <OnboardingGate />
         </ForumAttenteProvider>
       </body>
     </html>

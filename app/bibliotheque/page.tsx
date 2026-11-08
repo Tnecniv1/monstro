@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { estEnEtapeFocus } from '../onboarding/focus'
 import type { Feuille } from './BibliothequeClient'
 import BibliothequeVues from './BibliothequeVues'
 import { estCategorieCours, type Cours } from './cours'
@@ -23,7 +22,7 @@ export default async function BibliothequePage({
   const vueParam = Array.isArray(searchParams.vue) ? searchParams.vue[0] : searchParams.vue
   const categorieParam = Array.isArray(searchParams.categorie) ? searchParams.categorie[0] : searchParams.categorie
 
-  const [{ data }, { data: focusData }, { data: terminesData }, { data: profile }, { data: coursData }] = await Promise.all([
+  const [{ data }, { data: focusData }, { data: terminesData }, { data: coursData }] = await Promise.all([
     supabase
       .from('feuille_entrainement')
       .select(`
@@ -46,12 +45,6 @@ export default async function BibliothequePage({
       .select('feuille_id, feuille_entrainement!inner(volume)')
       .eq('user_id', user.id)
       .eq('statut', 'termine'),
-    // Onboarding : le bandeau de l'étape Focus ne s'affiche que pendant l'étape.
-    supabase
-      .from('user_profile')
-      .select('role, plan, charte_acceptee_at, script1_ouvert_at, focus_valide_at, date_naissance')
-      .eq('id', user.id)
-      .single(),
     // Cours (vue « Cours ») — anciennes ressources du Forum.
     supabase
       .from('forum_resources')
@@ -75,9 +68,9 @@ export default async function BibliothequePage({
   const feuilles = (data ?? []) as unknown as Feuille[]
   const cours = (coursData ?? []) as Cours[]
 
-  // Onboarding : pendant l'étape Focus, la page reste sur la vue Problèmes
-  // (choix des feuilles) et le toggle est masqué (BibliothequeVues).
-  const etapeFocus = estEnEtapeFocus(profile) ? { dateNaissance: profile?.date_naissance ?? null } : null
+  // Ancien onboarding (étape Focus) désactivé : remplacé par /bienvenue.
+  // Le bandeau Focus de BibliothequeVues ne s'affiche donc plus.
+  const etapeFocus = null
   const initialVue = vueParam === 'cours' && !etapeFocus ? 'cours' : 'problemes'
   const initialCategorie = initialVue === 'cours' && estCategorieCours(categorieParam) ? categorieParam : null
 
