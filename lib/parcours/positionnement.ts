@@ -1,9 +1,14 @@
 // Test de positionnement d'un parcours : fonctions pures, sans Supabase ni
 // React (fichier identique côté web et côté mobile).
 //
+// Source : les questions (table qcm_positionnement) sont rattachées à une
+// FEUILLE ; une feuille présente dans plusieurs parcours partage ses
+// questions. rattacherQuestions les relie aux étapes feuille d'un parcours
+// (questions actives seulement) avant construireTest.
+//
 // Règles :
 // - Le test porte sur les étapes feuille, dans l'ordre du parcours (examens
-//   exclus) ; les questions d'une feuille sont posées dans leur ordre.
+//   exclus) ; les questions actives de la feuille sont posées dans leur ordre.
 // - Une question est juste si l'ensemble des choix sélectionnés est exactement
 //   reponses_correctes. « Je ne sais pas » (null) = faux.
 // - Une feuille de n questions est acquise si au moins seuil = ceil(2n/3)
@@ -12,11 +17,13 @@
 //   acquise et on passe à la feuille suivante sans poser ses questions
 //   restantes ; dès que le seuil ne peut plus être atteint, elle est non
 //   acquise et le test s'arrête : c'est l'étape de départ.
-// - Une feuille sans question arrête toujours le test (étape de départ).
+// - Une feuille sans question active arrête toujours le test (étape de départ).
 // - Toutes les feuilles acquises : départ = première étape (tout type) après
 //   la dernière feuille, ou dernière étape du parcours s'il n'y en a pas.
 //
 // Exemples, parcours F1 (a1…a6) → F2 (b1…b6) → Examen E ; seuil 4 sur 6.
+// (a1… désignent les questions rattachées : leur id dans le test est
+// « <id de l'étape F1>:<id qcm_positionnement> ».)
 // J = juste, F = faux ou « Je ne sais pas ».
 // 1. 4/6, acquise : a1 F, a2 J, a3 F, a4 J, a5 J, a6 J.
 //    Après a3 (2 fausses), 4 justes restent possibles : on continue. Après a6,
@@ -40,11 +47,11 @@ export type EtapeTest = {
   type: 'feuille' | 'examen'
 }
 
-// Ligne de parcours_positionnement avec les bonnes réponses de sa question
-// (le type réel peut porter en plus l'énoncé, les choix, l'image…).
+// Question du test, rattachée à une étape (le type réel peut porter en plus
+// l'énoncé, les choix, l'image…).
 export type QuestionTest = {
-  // id de la ligne parcours_positionnement (une même question peut être
-  // associée à deux feuilles).
+  // Identifiant unique dans le test (voir rattacherQuestions) : clé des
+  // Reponses. Ce n'est pas l'id de la ligne qcm_positionnement.
   id: string
   etape_id: string
   ordre: number
@@ -66,6 +73,36 @@ export type Test<Q extends QuestionTest> = {
 // Réponses par id de question (QuestionTest.id) : choix sélectionnés, ou
 // null pour « Je ne sais pas ». Absente : pas encore répondue.
 export type Reponses = Record<string, string[] | null>
+
+// Question telle que lue dans qcm_positionnement.
+export type QuestionFeuille = {
+  id: string
+  feuille_id: string
+  ordre: number
+  actif: boolean
+  reponses_correctes: string[] | null
+}
+
+// Relie les questions actives de chaque feuille aux étapes feuille du
+// parcours qui la portent. Chaque question rattachée reçoit l'etape_id de
+// son étape, garde l'id de la ligne qcm_positionnement dans question_id, et
+// prend pour id « <etape_id>:<question_id> » : si une feuille apparaît deux
+// fois dans le parcours, les réponses des deux étapes restent distinctes.
+// Examens et questions inactives sont exclus.
+export function rattacherQuestions<Q extends QuestionFeuille>(
+  etapes: { id: string; type: 'feuille' | 'examen'; feuille_id: string | null }[],
+  questions: Q[]
+): (Omit<Q, 'id'> & { id: string; etape_id: string; question_id: string })[] {
+  const resultat: (Omit<Q, 'id'> & { id: string; etape_id: string; question_id: string })[] = []
+  for (const e of etapes) {
+    if (e.type !== 'feuille' || !e.feuille_id) continue
+    for (const q of questions) {
+      if (q.feuille_id !== e.feuille_id || !q.actif) continue
+      resultat.push({ ...q, id: `${e.id}:${q.id}`, etape_id: e.id, question_id: q.id })
+    }
+  }
+  return resultat
+}
 
 export function construireTest<Q extends QuestionTest>(etapes: EtapeTest[], questions: Q[]): Test<Q> {
   const triees = etapes.slice().sort((a, b) => a.ordre - b.ordre)

@@ -10,7 +10,7 @@ import {
   btnPrimaire,
   btnSecondaire,
   champ,
-  COLONNES_QCM,
+  COLONNES_QCM_POSITIONNEMENT,
   descendDe,
   etiquette,
   NOEUD_PREPARATION_EXAMEN,
@@ -19,12 +19,12 @@ import {
   type Etape,
   type FeuilleChoix,
   type Parcours,
-  type Positionnement,
+  type QcmPositionnement,
 } from './parcoursObjectifTypes'
 
 // Onglet admin « Objectifs » : parcours (objectifs), leurs étapes et les
 // élèves assignés. Tables parcours, parcours_etape, parcours_eleve et
-// parcours_positionnement (questions du test de positionnement).
+// qcm_positionnement (questions du test de positionnement, par feuille).
 export default function ParcoursObjectifView({
   noeuds,
   feuilles,
@@ -38,7 +38,7 @@ export default function ParcoursObjectifView({
   const [parcours, setParcours] = useState<Parcours[] | null>(null)
   const [etapes, setEtapes] = useState<Etape[]>([])
   const [assignations, setAssignations] = useState<Assignation[]>([])
-  const [positionnements, setPositionnements] = useState<Positionnement[]>([])
+  const [questionsTest, setQuestionsTest] = useState<QcmPositionnement[]>([])
   const [selectionId, setSelectionId] = useState<string | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
   const [creation, setCreation] = useState(false)
@@ -51,10 +51,7 @@ export default function ParcoursObjectifView({
         .select('id, parcours_id, ordre, type, feuille_id, exo_debut, exo_fin, libelle')
         .order('ordre'),
       supabase.from('parcours_eleve').select('user_id, parcours_id, date_objectif, etape_depart_id, positionnement_at, created_at'),
-      supabase
-        .from('parcours_positionnement')
-        .select(`id, parcours_id, etape_id, qcm_question_id, ordre, question:qcm_question(${COLONNES_QCM})`)
-        .order('ordre'),
+      supabase.from('qcm_positionnement').select(COLONNES_QCM_POSITIONNEMENT).order('ordre').order('created_at'),
     ])
     const err = p.error ?? e.error ?? a.error ?? q.error
     if (err) {
@@ -66,7 +63,7 @@ export default function ParcoursObjectifView({
     setParcours((p.data ?? []) as Parcours[])
     setEtapes((e.data ?? []) as Etape[])
     setAssignations((a.data ?? []) as Assignation[])
-    setPositionnements((q.data ?? []) as unknown as Positionnement[])
+    setQuestionsTest((q.data ?? []) as unknown as QcmPositionnement[])
   }, [])
 
   useEffect(() => {
@@ -91,16 +88,30 @@ export default function ParcoursObjectifView({
     return m
   }, [etapes])
 
-  // Questions de positionnement par étape, triées par ordre.
-  const positionnementsParEtape = useMemo(() => {
-    const m = new Map<string, Positionnement[]>()
-    for (const q of positionnements) {
-      if (!m.has(q.etape_id)) m.set(q.etape_id, [])
-      m.get(q.etape_id)!.push(q)
+  // Questions de positionnement par feuille (actives ou non), triées par ordre.
+  const questionsParFeuille = useMemo(() => {
+    const m = new Map<string, QcmPositionnement[]>()
+    for (const q of questionsTest) {
+      if (!m.has(q.feuille_id)) m.set(q.feuille_id, [])
+      m.get(q.feuille_id)!.push(q)
     }
     for (const liste of Array.from(m.values())) liste.sort((x, y) => x.ordre - y.ordre)
     return m
-  }, [positionnements])
+  }, [questionsTest])
+
+  // Parcours qui contiennent chaque feuille (étapes feuille), par nom.
+  const parcoursParFeuille = useMemo(() => {
+    const m = new Map<string, string[]>()
+    for (const e of etapes) {
+      if (e.type !== 'feuille' || !e.feuille_id) continue
+      const nom = parcoursParId.get(e.parcours_id)?.nom
+      if (!nom) continue
+      const liste = m.get(e.feuille_id) ?? []
+      if (!liste.includes(nom)) liste.push(nom)
+      m.set(e.feuille_id, liste)
+    }
+    return m
+  }, [etapes, parcoursParId])
 
   const selection = selectionId ? parcoursParId.get(selectionId) ?? null : null
 
@@ -188,7 +199,6 @@ export default function ParcoursObjectifView({
                 feuilles={feuilles}
                 feuillesExamen={feuillesExamen}
                 feuilleParId={feuilleParId}
-                positionnementsParEtape={positionnementsParEtape}
                 onChange={charger}
               />
               <div className="border-t border-border pt-5">
@@ -196,7 +206,8 @@ export default function ParcoursObjectifView({
                   key={selection.id}
                   etapes={etapesParParcours.get(selection.id) ?? []}
                   feuilleParId={feuilleParId}
-                  positionnementsParEtape={positionnementsParEtape}
+                  questionsParFeuille={questionsParFeuille}
+                  parcoursParFeuille={parcoursParFeuille}
                   onChange={charger}
                 />
               </div>

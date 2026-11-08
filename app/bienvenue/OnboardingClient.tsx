@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ETAPES_ONBOARDING, type EtapeOnboarding } from '@/lib/onboarding'
-import { construireTest, estJuste, etapeDepart, prochaineQuestion, type Reponses } from '@/lib/parcours/positionnement'
+import { construireTest, etapeDepart, prochaineQuestion, type Reponses } from '@/lib/parcours/positionnement'
+import { ligneReponse, type LigneReponse } from './ligneReponse'
 import QcmTexte from '../components/QcmTexte'
 import MathText from '../components/MathText'
 import StationsParcours, { type Station } from '../components/accueil/StationsParcours'
@@ -14,9 +15,10 @@ import type { ForumScriptEtape } from '../forum/types'
 export type EtapeBienvenue = { id: string; ordre: number; type: 'feuille' | 'examen'; titre: string }
 
 export type QuestionBienvenue = {
-  // id de la ligne parcours_positionnement
+  // Identifiant dans le test, « <etape_id>:<question_id> » (rattacherQuestions).
   id: string
-  qcm_question_id: string
+  // id de la ligne qcm_positionnement
+  question_id: string
   etape_id: string
   ordre: number
   reponses_correctes: string[] | null
@@ -231,16 +233,7 @@ type Phase =
 
 // Enregistre une réponse du test (positionnement_reponse) en arrière-plan :
 // jamais attendue, un échec est seulement journalisé.
-function journaliserReponse(ligne: {
-  passage_id: string
-  user_id: string
-  parcours_id: string
-  etape_id: string
-  positionnement_id: string
-  qcm_question_id: string
-  choix: string[] | null
-  juste: boolean
-}) {
+function journaliserReponse(ligne: LigneReponse) {
   try {
     createClient()
       .from('positionnement_reponse')
@@ -331,16 +324,7 @@ function EtapePositionnement({
   function repondre(questionId: string, choix: string[] | null) {
     const question = questions.find((q) => q.id === questionId)
     if (question && passageId) {
-      journaliserReponse({
-        passage_id: passageId,
-        user_id: userId,
-        parcours_id: parcoursId,
-        etape_id: question.etape_id,
-        positionnement_id: question.id,
-        qcm_question_id: question.qcm_question_id,
-        choix,
-        juste: estJuste(question, choix),
-      })
+      journaliserReponse(ligneReponse({ passageId, userId, parcoursId, question, choix }))
     }
     const suivantes = { ...reponses, [questionId]: choix }
     setReponses(suivantes)

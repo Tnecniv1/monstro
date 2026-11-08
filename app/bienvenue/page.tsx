@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { etapeOnboarding, premiereAssignation } from '@/lib/onboarding'
+import { rattacherQuestions } from '@/lib/parcours/positionnement'
 import type { ForumScriptEtape } from '../forum/types'
 import OnboardingClient, { type DonneesOnboarding, type EtapeBienvenue, type QuestionBienvenue } from './OnboardingClient'
 
@@ -12,21 +13,21 @@ type LigneEtape = {
   id: string
   ordre: number
   type: 'feuille' | 'examen'
+  feuille_id: string | null
   libelle: string | null
   feuille: { titre: string } | null
 }
 
+// Ligne de qcm_positionnement (questions rattachées à une feuille).
 type LigneQuestion = {
   id: string
-  etape_id: string
+  feuille_id: string
   ordre: number
-  question: {
-    id: string
-    enonce: string
-    choix: { id: string; texte: string }[] | null
-    reponses_correctes: string[] | null
-    image_url: string | null
-  } | null
+  actif: boolean
+  enonce: string
+  choix: { id: string; texte: string }[] | null
+  reponses_correctes: string[] | null
+  image_url: string | null
 }
 
 // Onboarding en 3 étapes (règles dans lib/onboarding.ts). Le middleware y
@@ -86,46 +87,46 @@ async function charger(
   if (etape === 'positionnement') {
     const { data: lignesEtapes, error: errEtapes } = await supabase
       .from('parcours_etape')
-      .select('id, ordre, type, libelle, feuille:feuille_entrainement ( titre )')
+      .select('id, ordre, type, feuille_id, libelle, feuille:feuille_entrainement ( titre )')
       .eq('parcours_id', parcoursId!)
       .order('ordre')
     if (errEtapes) {
       console.error('[bienvenue] parcours_etape', errEtapes)
       return { etape: 'positionnement', erreur: 'Impossible de charger ton parcours.' }
     }
-    const etapes: EtapeBienvenue[] = ((lignesEtapes ?? []) as unknown as LigneEtape[]).map((e) => ({
+    const lignes = (lignesEtapes ?? []) as unknown as LigneEtape[]
+    const etapes: EtapeBienvenue[] = lignes.map((e) => ({
       id: e.id,
       ordre: e.ordre,
       type: e.type,
       titre: (e.type === 'examen' ? e.libelle : e.feuille?.titre) ?? e.feuille?.titre ?? e.libelle ?? 'Étape',
     }))
 
+    // Questions actives des feuilles du parcours (qcm_positionnement),
+    // rattachées à leurs étapes par rattacherQuestions.
     let questions: QuestionBienvenue[] = []
-    if (etapes.length > 0) {
+    const feuilleIds = Array.from(new Set(lignes.filter((e) => e.type === 'feuille' && e.feuille_id).map((e) => e.feuille_id!)))
+    if (feuilleIds.length > 0) {
       const { data: lignesQuestions, error: errQuestions } = await supabase
-        .from('parcours_positionnement')
-        .select('id, etape_id, ordre, question:qcm_question ( id, enonce, choix, reponses_correctes, image_url )')
-        .in(
-          'etape_id',
-          etapes.map((e) => e.id)
-        )
+        .from('qcm_positionnement')
+        .select('id, feuille_id, ordre, actif, enonce, choix, reponses_correctes, image_url')
+        .in('feuille_id', feuilleIds)
+        .eq('actif', true)
         .order('ordre')
       if (errQuestions) {
-        console.error('[bienvenue] parcours_positionnement', errQuestions)
+        console.error('[bienvenue] qcm_positionnement', errQuestions)
         return { etape: 'positionnement', erreur: 'Impossible de charger le test.' }
       }
-      questions = ((lignesQuestions ?? []) as unknown as LigneQuestion[])
-        .filter((l) => l.question)
-        .map((l) => ({
-          id: l.id,
-          qcm_question_id: l.question!.id,
-          etape_id: l.etape_id,
-          ordre: l.ordre,
-          reponses_correctes: l.question!.reponses_correctes,
-          enonce: l.question!.enonce,
-          choix: l.question!.choix ?? [],
-          image_url: l.question!.image_url,
-        }))
+      questions = rattacherQuestions(lignes, (lignesQuestions ?? []) as unknown as LigneQuestion[]).map((q) => ({
+        id: q.id,
+        question_id: q.question_id,
+        etape_id: q.etape_id,
+        ordre: q.ordre,
+        reponses_correctes: q.reponses_correctes,
+        enonce: q.enonce,
+        choix: q.choix ?? [],
+        image_url: q.image_url,
+      }))
     }
     return { etape: 'positionnement', parcoursId: parcoursId!, etapes, questions }
   }

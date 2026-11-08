@@ -25,7 +25,6 @@ export default function ParcoursEtapeForm({
   feuilles,
   feuillesExamen,
   feuilleParId,
-  nbPositionnement = 0,
   enCours,
   onAnnuler,
   onEnregistrer,
@@ -35,8 +34,6 @@ export default function ParcoursEtapeForm({
   feuilles: FeuilleChoix[]
   feuillesExamen: FeuilleChoix[]
   feuilleParId: Map<string, FeuilleChoix>
-  // Questions de positionnement de l'étape modifiée (avertissement seul).
-  nbPositionnement?: number
   enCours: boolean
   onAnnuler: () => void
   onEnregistrer: (v: ValeursEtape) => void
@@ -104,13 +101,6 @@ export default function ParcoursEtapeForm({
       <p className="text-sm font-semibold text-text-primary">
         {initial ? 'Modifier l’étape' : examen ? 'Nouvel examen' : 'Nouvelle feuille'}
       </p>
-
-      {initial && !examen && nbPositionnement > 0 && (
-        <p className="rounded-lg border px-3 py-2 text-sm text-warning" style={{ background: '#FFFBEB', borderColor: '#FDE68A' }}>
-          Cette étape a {nbPositionnement} question{nbPositionnement > 1 ? 's' : ''} de positionnement : vérifie
-          qu’elles correspondent toujours à la nouvelle feuille.
-        </p>
-      )}
 
       <div className="space-y-1">
         <p className={etiquette}>{examen ? 'Feuille d’examen' : 'Feuille'}</p>

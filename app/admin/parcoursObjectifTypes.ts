@@ -36,29 +36,21 @@ export type Assignation = {
   created_at: string
 }
 
-// Question de la banque qcm_question.
-export type QcmQuestion = {
+// Question du test de positionnement (table qcm_positionnement), rattachée
+// à une feuille : partagée par tous les parcours qui contiennent la feuille.
+export type QcmPositionnement = {
   id: string
-  niveau: number
-  enonce: string
-  choix: { id: string; texte: string }[] | null
-  reponses_correctes: string[] | null
-  source: string | null
-  image_url: string | null
-}
-
-export const COLONNES_QCM = 'id, niveau, enonce, choix, reponses_correctes, source, image_url'
-
-// Question du test de positionnement rattachée à une étape feuille
-// (table parcours_positionnement, supprimée en cascade avec l'étape).
-export type Positionnement = {
-  id: string
-  parcours_id: string
-  etape_id: string
-  qcm_question_id: string
+  feuille_id: string
+  chapitre: string | null
   ordre: number
-  question: QcmQuestion | null
+  enonce: string
+  choix: { id: string; texte: string }[]
+  reponses_correctes: string[]
+  image_url: string | null
+  actif: boolean
 }
+
+export const COLONNES_QCM_POSITIONNEMENT = 'id, feuille_id, chapitre, ordre, enonce, choix, reponses_correctes, image_url, actif'
 
 // Élève tel que chargé par admin/page.tsx pour l'onglet Objectifs.
 export type EleveParcours = {
