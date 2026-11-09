@@ -4,18 +4,29 @@
 // (« 1 problème sur N »). Fonctions pures, sans Supabase ni React : fichier
 // copiable tel quel sur mobile, avec progression.ts.
 //
+// Exemple (pas de rattrapage) : élève assigné depuis longtemps, 40 exercices
+// du parcours faits ; Exeter ajouté aujourd'hui au parcours, « 1 problème
+// sur 5 ». Les compteurs d'Exeter partent d'aujourd'hui : P = 0, A = 0,
+// (0 + 1) × 4 = 4 > 0 → action du parcours (et non 10 problèmes Exeter
+// d'affilée pour « rattraper » les 40 exercices). Après 4 exercices du
+// parcours, P = 4 → Exeter a son tour.
+//
 // Règles :
 // - Plage d'une feuille chaotique : exo_debut ?? 1 à exo_fin ?? volume.
 //   Prochain problème = premier exercice NON FAIT de la plage (fait : une
 //   observation succes, echec ou corrige, quelle que soit la date). Une
 //   feuille entièrement faite n'est plus proposée.
-// - Compteurs depuis l'assignation (date de création de l'entraînement
-//   postérieure ou égale à parcours_eleve.created_at, lues avec lireDate) :
-//   P = exercices distincts faits sur les feuilles des étapes de l'élève
+// - Compteurs propres à chaque feuille chaotique f, depuis debut(f) = la
+//   plus récente de deux dates : assignation de l'élève
+//   (parcours_eleve.created_at) et ajout de f au parcours
+//   (parcours_accompagnement.created_at). Un entraînement compte si sa date
+//   de création est postérieure ou égale à debut(f) (dates lues avec
+//   lireDate ; date d'ajout illisible ou absente : l'assignation seule).
+//   P(f) = exercices distincts faits sur les feuilles des étapes de l'élève
 //   (dans leur plage ; étapes après la règle B, acquises par le test
-//   comprises) ; A(f) = exercices distincts faits sur la feuille chaotique f
-//   (dans sa plage).
-// - f a son tour si (A(f) + 1) × (rythme − 1) ≤ P : rythme 5 donne
+//   comprises) depuis debut(f) ; A(f) = exercices distincts faits sur f
+//   (dans sa plage) depuis debut(f).
+// - f a son tour si (A(f) + 1) × (rythme − 1) ≤ P(f) : rythme 5 donne
 //   pppp C pppp C… (premier chaotique après 4 exercices du parcours),
 //   rythme 2 donne p C p C…
 // - Prochaine action, dans l'ordre : activité en cours → REPRENDRE ; parcours
@@ -26,7 +37,7 @@
 //   (étape en cours, stations, acquis par le test).
 //
 // Exemples (une feuille chaotique C, rythme 5 donc rythme − 1 = 4, problèmes 1
-// à 10) :
+// à 10 ; P et A comptés depuis debut(C)) :
 // 1. P = 3, A(C) = 0 : (0 + 1) × 4 = 4 > 3 → action du parcours.
 // 2. P = 4, A(C) = 0 : 4 ≤ 4 → C a son tour → prochaine action = premier
 //    problème non fait de C (source 'chaotique').
@@ -47,6 +58,8 @@ export type FeuilleChaotique = {
   // Nombre d'exercices de la feuille (feuille_entrainement.volume).
   volume: number | null
   ordre: number
+  // parcours_accompagnement.created_at : date d'ajout au parcours (ISO).
+  ajouteeLe: string | null
 }
 
 // Un entraînement « fait » (observation succes, echec ou corrige) et la date
@@ -87,41 +100,51 @@ export function faitsSurPlage(f: FeuilleChaotique, exercices: EtatsExercices): n
   return n
 }
 
-// P et A(f), exercices distincts faits depuis l'assignation, dans les
-// plages. Une date illisible n'est pas comptée.
+// debut(f) : la plus récente des dates d'assignation et d'ajout de f au
+// parcours (NaN si l'assignation est illisible : rien n'est compté).
+export function debutCompteurs(f: FeuilleChaotique, assigneLe: string): number {
+  const assignation = lireDate(assigneLe)
+  const ajout = lireDate(f.ajouteeLe)
+  return isNaN(ajout) ? assignation : Math.max(assignation, ajout)
+}
+
+// P(f) et A(f) pour chaque feuille chaotique (par id), exercices distincts
+// faits depuis debut(f), dans les plages. Une date illisible n'est pas comptée.
 export function compteurs(
   etapes: EtapeProgression[],
   chaotiques: FeuilleChaotique[],
   faitsDates: FaitDate[],
   assigneLe: string
-): { P: number; A: Record<string, number> } {
-  const depuis = lireDate(assigneLe)
-  const faitsDepuis = new Set<string>()
-  if (!isNaN(depuis)) {
-    for (const f of faitsDates) {
-      const t = lireDate(f.date)
-      if (!isNaN(t) && t >= depuis) faitsDepuis.add(cleExercice(f.feuille_id, f.ref_exo))
-    }
-  }
-
-  const duParcours = new Set<string>()
-  for (const e of etapes) {
-    if (!e.feuille_id) continue
-    const { debut, fin } = plageEtape(e)
-    for (let n = debut; n <= fin; n++) {
-      const cle = cleExercice(e.feuille_id, n)
-      if (faitsDepuis.has(cle)) duParcours.add(cle)
-    }
-  }
-
+): { P: Record<string, number>; A: Record<string, number> } {
+  const P: Record<string, number> = {}
   const A: Record<string, number> = {}
   for (const c of chaotiques) {
+    const depuis = debutCompteurs(c, assigneLe)
+    const faitsDepuis = new Set<string>()
+    if (!isNaN(depuis)) {
+      for (const f of faitsDates) {
+        const t = lireDate(f.date)
+        if (!isNaN(t) && t >= depuis) faitsDepuis.add(cleExercice(f.feuille_id, f.ref_exo))
+      }
+    }
+
+    const duParcours = new Set<string>()
+    for (const e of etapes) {
+      if (!e.feuille_id) continue
+      const { debut, fin } = plageEtape(e)
+      for (let n = debut; n <= fin; n++) {
+        const cle = cleExercice(e.feuille_id, n)
+        if (faitsDepuis.has(cle)) duParcours.add(cle)
+      }
+    }
+    P[c.id] = duParcours.size
+
     const { debut, fin } = plage(c)
     let n = 0
     for (let i = debut; i <= fin; i++) if (faitsDepuis.has(cleExercice(c.feuille_id, i))) n++
     A[c.id] = n
   }
-  return { P: duParcours.size, A }
+  return { P, A }
 }
 
 // (A + 1) × (rythme − 1) ≤ P
@@ -146,7 +169,7 @@ export function choisirProchaineAction(p: {
     const { P, A } = compteurs(p.etapes, p.chaotiques, p.faitsDates, p.assigneLe)
     const triees = p.chaotiques.slice().sort((a, b) => a.ordre - b.ordre)
     for (const c of triees) {
-      if (!aSonTour(A[c.id] ?? 0, c.rythme, P)) continue
+      if (!aSonTour(A[c.id] ?? 0, c.rythme, P[c.id] ?? 0)) continue
       const exo = prochainProbleme(c, p.exercices)
       if (exo !== null) return { type: 'commencer', source: 'chaotique', feuilleId: c.feuille_id, exo, accompagnementId: c.id }
     }

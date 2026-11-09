@@ -23,7 +23,8 @@ export type ParcoursAccueil = {
   // Feuilles chaotiques du parcours (accompagnement.ts), triées par ordre.
   chaotiques: ChaotiqueAccueil[]
   // Entraînements faits (observation succes, echec ou corrige) avec leur
-  // date de création : compteurs P et A depuis l'assignation.
+  // date de création : compteurs P(f) et A(f) depuis la plus récente des
+  // dates d'assignation et d'ajout de la feuille chaotique.
   faitsDates: FaitDate[]
   // parcours_eleve.created_at
   assigneLe: string
@@ -40,6 +41,7 @@ type LigneChaotique = {
   exo_debut: number | null
   exo_fin: number | null
   ordre: number
+  created_at: string
   feuille: { titre: string; volume: number } | null
 }
 
@@ -97,7 +99,7 @@ export async function chargerParcoursEleve(supabase: Client, userId: string): Pr
       .eq('user_id', userId),
     supabase
       .from('parcours_accompagnement')
-      .select('id, feuille_id, rythme, exo_debut, exo_fin, ordre, feuille:feuille_entrainement ( titre, volume )')
+      .select('id, feuille_id, rythme, exo_debut, exo_fin, ordre, created_at, feuille:feuille_entrainement ( titre, volume )')
       .eq('parcours_id', assignation.parcours_id)
       .order('ordre'),
   ])
@@ -164,6 +166,7 @@ export async function chargerParcoursEleve(supabase: Client, userId: string): Pr
       exo_debut: c.exo_debut,
       exo_fin: c.exo_fin,
       ordre: c.ordre,
+      ajouteeLe: c.created_at,
       volume: c.feuille?.volume ?? null,
       titre: c.feuille?.titre ?? null,
     })),
