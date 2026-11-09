@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ETAPES_ONBOARDING, type EtapeOnboarding } from '@/lib/onboarding'
@@ -273,6 +273,9 @@ function EtapePositionnement({
   const [phase, setPhase] = useState<Phase>({ nom: 'intro' })
   // Réponses en mémoire seulement : un élève qui quitte recommence le test.
   const [reponses, setReponses] = useState<Reponses>({})
+  // Questions déjà répondues dans le passage : une deuxième réponse (double
+  // appui dans la même image) n'est ni comptée ni journalisée.
+  const dejaRepondues = useRef<Set<string>>(new Set())
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   // Écriture à refaire en cas d'échec (« Réessayer »).
@@ -316,12 +319,15 @@ function EtapePositionnement({
 
   function commencer() {
     setReponses({})
+    dejaRepondues.current = new Set()
     setPassageId(nouveauPassage())
     if (!prochaineQuestion(test, {})) terminer({})
     else setPhase({ nom: 'questions' })
   }
 
   function repondre(questionId: string, choix: string[] | null) {
+    if (dejaRepondues.current.has(questionId)) return
+    dejaRepondues.current.add(questionId)
     const question = questions.find((q) => q.id === questionId)
     if (question && passageId) {
       journaliserReponse(ligneReponse({ passageId, userId, parcoursId, question, choix }))
@@ -426,6 +432,9 @@ function EtapePositionnement({
   )
 }
 
+// Durée pendant laquelle une question qui vient de s'afficher ignore les appuis.
+const VERROU_MS = 400
+
 function QuestionTest({
   question,
   numero,
@@ -440,8 +449,26 @@ function QuestionTest({
   const multiple = (question.reponses_correctes?.length ?? 0) > 1
   const [coches, setCoches] = useState<string[]>([])
 
+  // Verrou anti double appui : pendant VERROU_MS après l'affichage de la
+  // question (composant remonté à chaque question, key={question.id}), les
+  // appuis sur les boutons de réponse sont ignorés, sans changement visuel.
+  // Vaut aussi pour la première question (double appui sur « Commencer »).
+  const afficheeA = useRef<number | null>(null)
+  useEffect(() => {
+    afficheeA.current = performance.now()
+  }, [])
+  function verrouille(): boolean {
+    return afficheeA.current === null || performance.now() - afficheeA.current < VERROU_MS
+  }
+
   function basculer(id: string) {
+    if (verrouille()) return
     setCoches((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]))
+  }
+
+  function valider(choix: string[] | null) {
+    if (verrouille()) return
+    onRepondre(choix)
   }
 
   const btnChoix = 'w-full rounded-2xl border px-4 py-3.5 text-left text-sm transition-colors'
@@ -450,7 +477,7 @@ function QuestionTest({
     <Ecran
       pied={
         multiple ? (
-          <button type="button" onClick={() => onRepondre(coches)} disabled={coches.length === 0} className={btnAction}>
+          <button type="button" onClick={() => valider(coches)} disabled={coches.length === 0} className={btnAction}>
             Valider
           </button>
         ) : null
@@ -482,7 +509,7 @@ function QuestionTest({
             <li key={c.id}>
               <button
                 type="button"
-                onClick={() => (multiple ? basculer(c.id) : onRepondre([c.id]))}
+                onClick={() => (multiple ? basculer(c.id) : valider([c.id]))}
                 aria-pressed={multiple ? coche : undefined}
                 className={`${btnChoix} flex items-start gap-3 ${
                   coche ? 'border-2 border-accent bg-accent-soft' : 'border-border bg-surface hover:bg-surface-2'
@@ -508,7 +535,7 @@ function QuestionTest({
         <li>
           <button
             type="button"
-            onClick={() => onRepondre(null)}
+            onClick={() => valider(null)}
             className={`${btnChoix} border-dashed border-border-strong bg-surface text-center font-semibold text-text-secondary hover:bg-surface-2`}
           >
             Je ne sais pas
