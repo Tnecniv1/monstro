@@ -15,7 +15,7 @@ import type { ForumScriptEtape } from '../forum/types'
 export type EtapeBienvenue = { id: string; ordre: number; type: 'feuille' | 'examen'; titre: string }
 
 export type QuestionBienvenue = {
-  // Identifiant dans le test, « <etape_id>:<question_id> » (rattacherQuestions).
+  // Identifiant dans le test, « <etape_id>:<question_id> » (rattacherQuestionsParSet).
   id: string
   // id de la ligne qcm_positionnement
   question_id: string

@@ -11,7 +11,7 @@ import {
   btnPrimaire,
   btnSecondaire,
   champ,
-  COLONNES_QCM_POSITIONNEMENT,
+  COLONNES_QCM_SET,
   descendDe,
   NOEUD_PROBLEMES_CHAOTIQUES,
   etiquette,
@@ -22,47 +22,53 @@ import {
   type Etape,
   type FeuilleChoix,
   type Parcours,
-  type QcmPositionnement,
+  type QcmSet,
 } from './parcoursObjectifTypes'
 
 // Onglet admin « Objectifs » : parcours (objectifs), leurs étapes et les
-// élèves assignés. Tables parcours, parcours_etape, parcours_eleve et
-// qcm_positionnement (questions du test de positionnement, par feuille).
+// élèves assignés. Tables parcours, parcours_etape, parcours_eleve,
+// parcours_accompagnement, qcm_set et qcm_positionnement (sets du test de
+// positionnement, nombre de questions actives ; questions dans l'onglet QCM).
 export default function ParcoursObjectifView({
   noeuds,
   feuilles,
   eleves,
+  onModifierQuestions,
 }: {
   noeuds: Noeud[]
   feuilles: FeuilleChoix[]
   eleves: EleveParcours[]
+  // Ouvre l'onglet QCM sur une feuille.
+  onModifierQuestions: (feuilleId: string) => void
 }) {
   const supabase = createClient()
   const [parcours, setParcours] = useState<Parcours[] | null>(null)
   const [etapes, setEtapes] = useState<Etape[]>([])
   const [assignations, setAssignations] = useState<Assignation[]>([])
-  const [questionsTest, setQuestionsTest] = useState<QcmPositionnement[]>([])
+  const [sets, setSets] = useState<QcmSet[]>([])
+  const [questionsTest, setQuestionsTest] = useState<{ set_id: string; actif: boolean }[]>([])
   const [accompagnements, setAccompagnements] = useState<Accompagnement[]>([])
   const [selectionId, setSelectionId] = useState<string | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
   const [creation, setCreation] = useState(false)
 
   const charger = useCallback(async () => {
-    const [p, e, a, q, acc] = await Promise.all([
+    const [p, e, a, s, q, acc] = await Promise.all([
       supabase.from('parcours').select('id, nom, description, ordre, actif, created_at').order('ordre').order('created_at'),
       supabase
         .from('parcours_etape')
-        .select('id, parcours_id, ordre, type, feuille_id, exo_debut, exo_fin, libelle')
+        .select('id, parcours_id, ordre, type, feuille_id, exo_debut, exo_fin, libelle, qcm_set_id')
         .order('ordre'),
       supabase.from('parcours_eleve').select('user_id, parcours_id, date_objectif, etape_depart_id, positionnement_at, created_at'),
-      supabase.from('qcm_positionnement').select(COLONNES_QCM_POSITIONNEMENT).order('ordre').order('created_at'),
+      supabase.from('qcm_set').select(COLONNES_QCM_SET).order('created_at'),
+      supabase.from('qcm_positionnement').select('set_id, actif'),
       supabase
         .from('parcours_accompagnement')
         .select('id, parcours_id, feuille_id, rythme, exo_debut, exo_fin, ordre')
         .order('ordre')
         .order('created_at'),
     ])
-    const err = p.error ?? e.error ?? a.error ?? q.error ?? acc.error
+    const err = p.error ?? e.error ?? a.error ?? s.error ?? q.error ?? acc.error
     if (err) {
       console.error('[admin objectifs] chargement', err)
       setErreur(err.message)
@@ -72,7 +78,8 @@ export default function ParcoursObjectifView({
     setParcours((p.data ?? []) as Parcours[])
     setEtapes((e.data ?? []) as Etape[])
     setAssignations((a.data ?? []) as Assignation[])
-    setQuestionsTest((q.data ?? []) as unknown as QcmPositionnement[])
+    setSets((s.data ?? []) as QcmSet[])
+    setQuestionsTest((q.data ?? []) as { set_id: string; actif: boolean }[])
     setAccompagnements((acc.data ?? []) as Accompagnement[])
   }, [])
 
@@ -104,30 +111,12 @@ export default function ParcoursObjectifView({
     return m
   }, [etapes])
 
-  // Questions de positionnement par feuille (actives ou non), triées par ordre.
-  const questionsParFeuille = useMemo(() => {
-    const m = new Map<string, QcmPositionnement[]>()
-    for (const q of questionsTest) {
-      if (!m.has(q.feuille_id)) m.set(q.feuille_id, [])
-      m.get(q.feuille_id)!.push(q)
-    }
-    for (const liste of Array.from(m.values())) liste.sort((x, y) => x.ordre - y.ordre)
+  // Questions actives par set du test de positionnement.
+  const activesParSet = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const q of questionsTest) if (q.actif) m.set(q.set_id, (m.get(q.set_id) ?? 0) + 1)
     return m
   }, [questionsTest])
-
-  // Parcours qui contiennent chaque feuille (étapes feuille), par nom.
-  const parcoursParFeuille = useMemo(() => {
-    const m = new Map<string, string[]>()
-    for (const e of etapes) {
-      if (e.type !== 'feuille' || !e.feuille_id) continue
-      const nom = parcoursParId.get(e.parcours_id)?.nom
-      if (!nom) continue
-      const liste = m.get(e.feuille_id) ?? []
-      if (!liste.includes(nom)) liste.push(nom)
-      m.set(e.feuille_id, liste)
-    }
-    return m
-  }, [etapes, parcoursParId])
 
   const selection = selectionId ? parcoursParId.get(selectionId) ?? null : null
 
@@ -218,6 +207,7 @@ export default function ParcoursObjectifView({
                 feuillesChaotiquesIds={
                   new Set(accompagnements.filter((x) => x.parcours_id === selection.id).map((x) => x.feuille_id))
                 }
+                sets={sets}
                 onChange={charger}
               />
               <div className="border-t border-border pt-5">
@@ -237,9 +227,10 @@ export default function ParcoursObjectifView({
                   key={selection.id}
                   etapes={etapesParParcours.get(selection.id) ?? []}
                   feuilleParId={feuilleParId}
-                  questionsParFeuille={questionsParFeuille}
-                  parcoursParFeuille={parcoursParFeuille}
+                  sets={sets}
+                  activesParSet={activesParSet}
                   onChange={charger}
+                  onModifierQuestions={onModifierQuestions}
                 />
               </div>
               <div className="border-t border-border pt-5">

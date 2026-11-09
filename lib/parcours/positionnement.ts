@@ -1,14 +1,16 @@
 // Test de positionnement d'un parcours : fonctions pures, sans Supabase ni
 // React (fichier identique côté web et côté mobile).
 //
-// Source : les questions (table qcm_positionnement) sont rattachées à une
-// FEUILLE ; une feuille présente dans plusieurs parcours partage ses
-// questions. rattacherQuestions les relie aux étapes feuille d'un parcours
-// (questions actives seulement) avant construireTest.
+// Source : les questions (table qcm_positionnement) sont rangées en SETS
+// (table qcm_set, un set appartient à une feuille) ; chaque étape feuille
+// choisit un set de sa feuille (parcours_etape.qcm_set_id, null = aucune
+// question). rattacherQuestionsParSet relie les questions actives du set
+// choisi à leur étape avant construireTest.
 //
 // Règles :
 // - Le test porte sur les étapes feuille, dans l'ordre du parcours (examens
-//   exclus) ; les questions actives de la feuille sont posées dans leur ordre.
+//   exclus) ; les questions actives du set de l'étape sont posées dans leur
+//   ordre.
 // - Une question est juste si l'ensemble des choix sélectionnés est exactement
 //   reponses_correctes. « Je ne sais pas » (null) = faux.
 // - Une feuille de n questions est acquise si au moins seuil = ceil(2n/3)
@@ -17,7 +19,8 @@
 //   acquise et on passe à la feuille suivante sans poser ses questions
 //   restantes ; dès que le seuil ne peut plus être atteint, elle est non
 //   acquise et le test s'arrête : c'est l'étape de départ.
-// - Une feuille sans question active arrête toujours le test (étape de départ).
+// - Une feuille sans question active (aucun set, ou set sans question
+//   active) arrête toujours le test (étape de départ).
 // - Toutes les feuilles acquises : départ = première étape (tout type) après
 //   la dernière feuille, ou dernière étape du parcours s'il n'y en a pas.
 //
@@ -50,7 +53,7 @@ export type EtapeTest = {
 // Question du test, rattachée à une étape (le type réel peut porter en plus
 // l'énoncé, les choix, l'image…).
 export type QuestionTest = {
-  // Identifiant unique dans le test (voir rattacherQuestions) : clé des
+  // Identifiant unique dans le test (voir rattacherQuestionsParSet) : clé des
   // Reponses. Ce n'est pas l'id de la ligne qcm_positionnement.
   id: string
   etape_id: string
@@ -75,29 +78,36 @@ export type Test<Q extends QuestionTest> = {
 export type Reponses = Record<string, string[] | null>
 
 // Question telle que lue dans qcm_positionnement.
-export type QuestionFeuille = {
+export type QuestionSet = {
   id: string
-  feuille_id: string
+  set_id: string
   ordre: number
   actif: boolean
   reponses_correctes: string[] | null
 }
 
-// Relie les questions actives de chaque feuille aux étapes feuille du
-// parcours qui la portent. Chaque question rattachée reçoit l'etape_id de
-// son étape, garde l'id de la ligne qcm_positionnement dans question_id, et
-// prend pour id « <etape_id>:<question_id> » : si une feuille apparaît deux
-// fois dans le parcours, les réponses des deux étapes restent distinctes.
-// Examens et questions inactives sont exclus.
-export function rattacherQuestions<Q extends QuestionFeuille>(
-  etapes: { id: string; type: 'feuille' | 'examen'; feuille_id: string | null }[],
+// Relie les questions actives du set choisi par chaque étape feuille
+// (etape.qcm_set_id ↔ question.set_id). Chaque question rattachée reçoit
+// l'etape_id de son étape, garde l'id de la ligne qcm_positionnement dans
+// question_id, et prend pour id « <etape_id>:<question_id> » : si un set sert
+// à deux étapes du parcours, les réponses des deux étapes restent distinctes.
+// Examens, étapes sans set et questions inactives sont exclus.
+//
+// Exemple : étapes E1 (feuille, set S1), E2 (feuille, set null), E3 (examen),
+// E4 (feuille, set S1) ; questions q1 (S1, active), q2 (S1, inactive),
+// q3 (S2, active).
+// → [{ id: 'E1:q1', etape_id: 'E1', question_id: 'q1' },
+//    { id: 'E4:q1', etape_id: 'E4', question_id: 'q1' }]
+// E2 n'a aucune question : le test s'y arrête (étape de départ).
+export function rattacherQuestionsParSet<Q extends QuestionSet>(
+  etapes: { id: string; type: 'feuille' | 'examen'; qcm_set_id: string | null }[],
   questions: Q[]
 ): (Omit<Q, 'id'> & { id: string; etape_id: string; question_id: string })[] {
   const resultat: (Omit<Q, 'id'> & { id: string; etape_id: string; question_id: string })[] = []
   for (const e of etapes) {
-    if (e.type !== 'feuille' || !e.feuille_id) continue
+    if (e.type !== 'feuille' || !e.qcm_set_id) continue
     for (const q of questions) {
-      if (q.feuille_id !== e.feuille_id || !q.actif) continue
+      if (q.set_id !== e.qcm_set_id || !q.actif) continue
       resultat.push({ ...q, id: `${e.id}:${q.id}`, etape_id: e.id, question_id: q.id })
     }
   }

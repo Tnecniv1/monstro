@@ -22,6 +22,9 @@ export type Etape = {
   exo_debut: number | null
   exo_fin: number | null
   libelle: string | null
+  // Set de questions du test de positionnement (qcm_set d'une feuille de
+  // l'étape) ; null : aucune question, le test s'arrête à cette étape.
+  qcm_set_id: string | null
 }
 
 export type Assignation = {
@@ -52,10 +55,23 @@ export type Accompagnement = {
 // feuille chaotique.
 export const NOEUD_PROBLEMES_CHAOTIQUES = 'a84a33fd-3e17-4a97-ab1f-e7a87757ea64'
 
-// Question du test de positionnement (table qcm_positionnement), rattachée
-// à une feuille : partagée par tous les parcours qui contiennent la feuille.
+// Set de questions du test de positionnement (table qcm_set) : appartient à
+// une feuille ; chaque étape feuille d'un objectif choisit un set de sa
+// feuille (parcours_etape.qcm_set_id). Nom unique sur une feuille.
+export type QcmSet = {
+  id: string
+  feuille_id: string
+  nom: string
+  created_at: string
+}
+
+export const COLONNES_QCM_SET = 'id, feuille_id, nom, created_at'
+
+// Question du test de positionnement (table qcm_positionnement), rangée dans
+// un set ; feuille_id = la feuille du set.
 export type QcmPositionnement = {
   id: string
+  set_id: string
   feuille_id: string
   chapitre: string | null
   ordre: number
@@ -66,7 +82,7 @@ export type QcmPositionnement = {
   actif: boolean
 }
 
-export const COLONNES_QCM_POSITIONNEMENT = 'id, feuille_id, chapitre, ordre, enonce, choix, reponses_correctes, image_url, actif'
+export const COLONNES_QCM_POSITIONNEMENT = 'id, set_id, feuille_id, chapitre, ordre, enonce, choix, reponses_correctes, image_url, actif'
 
 // Élève tel que chargé par admin/page.tsx pour l'onglet Objectifs.
 export type EleveParcours = {
@@ -130,3 +146,15 @@ export const btnDanger =
 export const champ =
   'w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/40'
 export const etiquette = 'text-xs font-semibold uppercase tracking-wide text-text-muted'
+
+// Test de positionnement : en dessous de ce nombre de questions actives, un
+// set est signalé (avertissement seul).
+export const QUESTIONS_FIABLES = 6
+
+// Set à choisir automatiquement pour une étape feuille : l'unique set de la
+// feuille, sinon aucun.
+export function setParDefaut(feuilleId: string | null, sets: QcmSet[]): string | null {
+  if (!feuilleId) return null
+  const siens = sets.filter((s) => s.feuille_id === feuilleId)
+  return siens.length === 1 ? siens[0].id : null
+}

@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { etapeOnboarding, premiereAssignation } from '@/lib/onboarding'
-import { rattacherQuestions } from '@/lib/parcours/positionnement'
+import { rattacherQuestionsParSet } from '@/lib/parcours/positionnement'
 import type { ForumScriptEtape } from '../forum/types'
 import OnboardingClient, { type DonneesOnboarding, type EtapeBienvenue, type QuestionBienvenue } from './OnboardingClient'
 
@@ -14,14 +14,15 @@ type LigneEtape = {
   ordre: number
   type: 'feuille' | 'examen'
   feuille_id: string | null
+  qcm_set_id: string | null
   libelle: string | null
   feuille: { titre: string } | null
 }
 
-// Ligne de qcm_positionnement (questions rattachées à une feuille).
+// Ligne de qcm_positionnement (questions rangées en sets).
 type LigneQuestion = {
   id: string
-  feuille_id: string
+  set_id: string
   ordre: number
   actif: boolean
   enonce: string
@@ -87,7 +88,7 @@ async function charger(
   if (etape === 'positionnement') {
     const { data: lignesEtapes, error: errEtapes } = await supabase
       .from('parcours_etape')
-      .select('id, ordre, type, feuille_id, libelle, feuille:feuille_entrainement ( titre )')
+      .select('id, ordre, type, feuille_id, qcm_set_id, libelle, feuille:feuille_entrainement ( titre )')
       .eq('parcours_id', parcoursId!)
       .order('ordre')
     if (errEtapes) {
@@ -102,22 +103,22 @@ async function charger(
       titre: (e.type === 'examen' ? e.libelle : e.feuille?.titre) ?? e.feuille?.titre ?? e.libelle ?? 'Étape',
     }))
 
-    // Questions actives des feuilles du parcours (qcm_positionnement),
-    // rattachées à leurs étapes par rattacherQuestions.
+    // Questions actives des sets choisis par les étapes (qcm_positionnement),
+    // rattachées à leurs étapes par rattacherQuestionsParSet.
     let questions: QuestionBienvenue[] = []
-    const feuilleIds = Array.from(new Set(lignes.filter((e) => e.type === 'feuille' && e.feuille_id).map((e) => e.feuille_id!)))
-    if (feuilleIds.length > 0) {
+    const setIds = Array.from(new Set(lignes.filter((e) => e.type === 'feuille' && e.qcm_set_id).map((e) => e.qcm_set_id!)))
+    if (setIds.length > 0) {
       const { data: lignesQuestions, error: errQuestions } = await supabase
         .from('qcm_positionnement')
-        .select('id, feuille_id, ordre, actif, enonce, choix, reponses_correctes, image_url')
-        .in('feuille_id', feuilleIds)
+        .select('id, set_id, ordre, actif, enonce, choix, reponses_correctes, image_url')
+        .in('set_id', setIds)
         .eq('actif', true)
         .order('ordre')
       if (errQuestions) {
         console.error('[bienvenue] qcm_positionnement', errQuestions)
         return { etape: 'positionnement', erreur: 'Impossible de charger le test.' }
       }
-      questions = rattacherQuestions(lignes, (lignesQuestions ?? []) as unknown as LigneQuestion[]).map((q) => ({
+      questions = rattacherQuestionsParSet(lignes, (lignesQuestions ?? []) as unknown as LigneQuestion[]).map((q) => ({
         id: q.id,
         question_id: q.question_id,
         etape_id: q.etape_id,

@@ -10,9 +10,10 @@ import UtilisateursView from './UtilisateursView'
 import ForumScriptsView from './ForumScriptsView'
 import ForumCardManager from './ForumCardManager'
 import ParcoursObjectifView from './ParcoursObjectifView'
+import QcmView from './QcmView'
 import type { EleveParcours } from './parcoursObjectifTypes'
 
-type Onglet = 'scope' | 'correction' | 'cours' | 'abonnements' | 'utilisateurs' | 'agora' | 'global' | 'forum' | 'objectifs'
+type Onglet = 'scope' | 'correction' | 'cours' | 'abonnements' | 'utilisateurs' | 'agora' | 'global' | 'forum' | 'objectifs' | 'qcm'
 
 const TABS: { id: Onglet; label: string }[] = [
   { id: 'scope', label: 'Scope' },
@@ -24,6 +25,7 @@ const TABS: { id: Onglet; label: string }[] = [
   { id: 'global', label: 'Global' },
   { id: 'forum', label: 'Forum' },
   { id: 'objectifs', label: 'Objectifs' },
+  { id: 'qcm', label: 'QCM' },
 ]
 
 export default function AdminShell({
@@ -38,6 +40,14 @@ export default function AdminShell({
   elevesParcours: EleveParcours[]
 }) {
   const [onglet, setOnglet] = useState<Onglet>('scope')
+  // Feuille ouverte dans l'onglet QCM (« Modifier les questions » depuis
+  // Objectifs) ; null : aucune.
+  const [qcmFeuilleId, setQcmFeuilleId] = useState<string | null>(null)
+
+  function ouvrirQcm(feuilleId: string) {
+    setQcmFeuilleId(feuilleId)
+    setOnglet('qcm')
+  }
 
   return (
     <div className="space-y-6">
@@ -87,7 +97,10 @@ export default function AdminShell({
       {onglet === 'agora' && <AgoraAdminView eleves={eleves} />}
       {onglet === 'global' && <GlobalView />}
       {onglet === 'forum' && <ForumScriptsView />}
-      {onglet === 'objectifs' && <ParcoursObjectifView noeuds={noeuds} feuilles={feuilles} eleves={elevesParcours} />}
+      {onglet === 'objectifs' && (
+        <ParcoursObjectifView noeuds={noeuds} feuilles={feuilles} eleves={elevesParcours} onModifierQuestions={ouvrirQcm} />
+      )}
+      {onglet === 'qcm' && <QcmView feuilles={feuilles} feuilleInitialeId={qcmFeuilleId} />}
     </div>
   )
 }

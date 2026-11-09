@@ -12,7 +12,9 @@ import {
   type FeuilleChoix,
 } from './parcoursObjectifTypes'
 
-export type ValeursEtape = Omit<Etape, 'id' | 'parcours_id' | 'ordre'>
+// Sans qcm_set_id : choisi par ParcoursEtapes (setParDefaut) et dans la
+// section « Test de positionnement ».
+export type ValeursEtape = Omit<Etape, 'id' | 'parcours_id' | 'ordre' | 'qcm_set_id'>
 
 // Création ou modification d'une étape. Feuille : feuille obligatoire (toute
 // la bibliothèque), plage d'exercices optionnelle (vide = toute la feuille ;

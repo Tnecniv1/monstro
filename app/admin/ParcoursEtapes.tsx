@@ -8,8 +8,10 @@ import {
   btnPrimaire,
   btnSecondaire,
   plageEtape,
+  setParDefaut,
   type Etape,
   type FeuilleChoix,
+  type QcmSet,
 } from './parcoursObjectifTypes'
 
 type Formulaire = { type: 'feuille' | 'examen'; etape: Etape | null }
@@ -26,6 +28,7 @@ export default function ParcoursEtapes({
   feuillesExamen,
   feuilleParId,
   feuillesChaotiquesIds,
+  sets,
   onChange,
 }: {
   parcoursId: string
@@ -35,6 +38,8 @@ export default function ParcoursEtapes({
   feuilleParId: Map<string, FeuilleChoix>
   // Feuilles chaotiques de ce parcours : elles ne peuvent pas devenir une étape.
   feuillesChaotiquesIds: Set<string>
+  // Sets du test de positionnement (toutes feuilles).
+  sets: QcmSet[]
   onChange: () => Promise<void>
 }) {
   const supabase = createClient()
@@ -65,10 +70,16 @@ export default function ParcoursEtapes({
       )
       return
     }
+    // Set du test : à l'ajout, ou si la feuille change, l'unique set de la
+    // feuille (sinon aucun) ; feuille inchangée : set inchangé.
+    const qcmSetId = v.type === 'feuille' ? setParDefaut(v.feuille_id, sets) : null
     const ok = await executer(async () => {
-      if (etape) return supabase.from('parcours_etape').update(v).eq('id', etape.id)
+      if (etape) {
+        const champs = v.feuille_id === etape.feuille_id ? v : { ...v, qcm_set_id: qcmSetId }
+        return supabase.from('parcours_etape').update(champs).eq('id', etape.id)
+      }
       const ordre = etapes.reduce((m, e) => Math.max(m, e.ordre), 0) + 1
-      return supabase.from('parcours_etape').insert({ ...v, parcours_id: parcoursId, ordre })
+      return supabase.from('parcours_etape').insert({ ...v, qcm_set_id: qcmSetId, parcours_id: parcoursId, ordre })
     })
     if (ok) setFormulaire(null)
   }
