@@ -36,6 +36,22 @@ export type Assignation = {
   created_at: string
 }
 
+// Feuille chaotique d'un parcours (table parcours_accompagnement) : rattachée
+// sans être une étape ; « 1 problème sur rythme » (lib/parcours/accompagnement.ts).
+export type Accompagnement = {
+  id: string
+  parcours_id: string
+  feuille_id: string
+  rythme: number
+  exo_debut: number | null
+  exo_fin: number | null
+  ordre: number
+}
+
+// Nœud racine « Problèmes Chaotiques » : filtre par défaut du choix d'une
+// feuille chaotique.
+export const NOEUD_PROBLEMES_CHAOTIQUES = 'a84a33fd-3e17-4a97-ab1f-e7a87757ea64'
+
 // Question du test de positionnement (table qcm_positionnement), rattachée
 // à une feuille : partagée par tous les parcours qui contiennent la feuille.
 export type QcmPositionnement = {

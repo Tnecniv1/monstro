@@ -3,9 +3,15 @@ import Link from 'next/link'
 export type EtatProchaineAction =
   // examen : étape examen (« Sujet n », « Examen · libellé ») ; libelle : son libellé.
   | { type: 'commencer'; feuilleId: string; titre: string; exo: number; examen: boolean; libelle: string | null }
+  // Problème d'une feuille chaotique (lib/parcours/accompagnement.ts).
+  | { type: 'chaotique'; feuilleId: string; titre: string; exo: number }
   | { type: 'en_cours' }
   | { type: 'termine' }
   | { type: 'aucune' }
+
+// Couleurs du label « Problème chaotique », distinctes du violet du parcours.
+const CHAOTIQUE_TEXTE = '#B8472A'
+const CHAOTIQUE_FOND = '#FDEEE9'
 
 const bouton =
   'block w-full rounded-2xl bg-accent py-4 text-center text-base font-bold uppercase tracking-wide text-white transition-opacity hover:opacity-90'
@@ -27,6 +33,27 @@ export default function ProchaineAction({ etat }: { etat: EtatProchaineAction })
           <p className="text-xl font-extrabold text-text-primary">Entraînement en cours</p>
           <Link href="/entrainement" className={bouton}>
             Reprendre
+          </Link>
+        </>
+      )}
+
+      {etat.type === 'chaotique' && (
+        <>
+          <div className="space-y-1">
+            <span
+              className="inline-block rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide"
+              style={{ color: CHAOTIQUE_TEXTE, background: CHAOTIQUE_FOND }}
+            >
+              Problème chaotique
+            </span>
+            <p className="truncate text-xl font-extrabold leading-snug text-text-primary">Problème {etat.exo}</p>
+            <p className="truncate text-[13px] text-text-muted">{etat.titre}</p>
+          </div>
+          <Link
+            href={`/entrainement?feuille=${encodeURIComponent(etat.feuilleId)}&exo=${etat.exo}`}
+            className={bouton}
+          >
+            Commencer
           </Link>
         </>
       )}

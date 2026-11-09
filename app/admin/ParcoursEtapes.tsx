@@ -25,6 +25,7 @@ export default function ParcoursEtapes({
   feuilles,
   feuillesExamen,
   feuilleParId,
+  feuillesChaotiquesIds,
   onChange,
 }: {
   parcoursId: string
@@ -32,6 +33,8 @@ export default function ParcoursEtapes({
   feuilles: FeuilleChoix[]
   feuillesExamen: FeuilleChoix[]
   feuilleParId: Map<string, FeuilleChoix>
+  // Feuilles chaotiques de ce parcours : elles ne peuvent pas devenir une étape.
+  feuillesChaotiquesIds: Set<string>
   onChange: () => Promise<void>
 }) {
   const supabase = createClient()
@@ -56,6 +59,12 @@ export default function ParcoursEtapes({
   // obligatoire et entree_niveau ne sont pas envoyés : valeurs par défaut de la base.
   async function enregistrer(v: ValeursEtape) {
     const etape = formulaire?.etape
+    if (v.feuille_id && feuillesChaotiquesIds.has(v.feuille_id)) {
+      setErreur(
+        `« ${feuilleParId.get(v.feuille_id)?.titre ?? 'Cette feuille'} » est déjà une feuille chaotique de ce parcours : retire-la des feuilles chaotiques avant d’en faire une étape.`
+      )
+      return
+    }
     const ok = await executer(async () => {
       if (etape) return supabase.from('parcours_etape').update(v).eq('id', etape.id)
       const ordre = etapes.reduce((m, e) => Math.max(m, e.ordre), 0) + 1

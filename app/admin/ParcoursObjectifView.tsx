@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import ParcoursEtapes from './ParcoursEtapes'
 import ParcoursEleves from './ParcoursEleves'
 import ParcoursPositionnement from './ParcoursPositionnement'
+import ParcoursAccompagnement from './ParcoursAccompagnement'
 import type { Noeud } from './AdminClient'
 import {
   btnPrimaire,
@@ -12,8 +13,10 @@ import {
   champ,
   COLONNES_QCM_POSITIONNEMENT,
   descendDe,
+  NOEUD_PROBLEMES_CHAOTIQUES,
   etiquette,
   NOEUD_PREPARATION_EXAMEN,
+  type Accompagnement,
   type Assignation,
   type EleveParcours,
   type Etape,
@@ -39,12 +42,13 @@ export default function ParcoursObjectifView({
   const [etapes, setEtapes] = useState<Etape[]>([])
   const [assignations, setAssignations] = useState<Assignation[]>([])
   const [questionsTest, setQuestionsTest] = useState<QcmPositionnement[]>([])
+  const [accompagnements, setAccompagnements] = useState<Accompagnement[]>([])
   const [selectionId, setSelectionId] = useState<string | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
   const [creation, setCreation] = useState(false)
 
   const charger = useCallback(async () => {
-    const [p, e, a, q] = await Promise.all([
+    const [p, e, a, q, acc] = await Promise.all([
       supabase.from('parcours').select('id, nom, description, ordre, actif, created_at').order('ordre').order('created_at'),
       supabase
         .from('parcours_etape')
@@ -52,8 +56,13 @@ export default function ParcoursObjectifView({
         .order('ordre'),
       supabase.from('parcours_eleve').select('user_id, parcours_id, date_objectif, etape_depart_id, positionnement_at, created_at'),
       supabase.from('qcm_positionnement').select(COLONNES_QCM_POSITIONNEMENT).order('ordre').order('created_at'),
+      supabase
+        .from('parcours_accompagnement')
+        .select('id, parcours_id, feuille_id, rythme, exo_debut, exo_fin, ordre')
+        .order('ordre')
+        .order('created_at'),
     ])
-    const err = p.error ?? e.error ?? a.error ?? q.error
+    const err = p.error ?? e.error ?? a.error ?? q.error ?? acc.error
     if (err) {
       console.error('[admin objectifs] chargement', err)
       setErreur(err.message)
@@ -64,6 +73,7 @@ export default function ParcoursObjectifView({
     setEtapes((e.data ?? []) as Etape[])
     setAssignations((a.data ?? []) as Assignation[])
     setQuestionsTest((q.data ?? []) as unknown as QcmPositionnement[])
+    setAccompagnements((acc.data ?? []) as Accompagnement[])
   }, [])
 
   useEffect(() => {
@@ -75,6 +85,12 @@ export default function ParcoursObjectifView({
   const feuillesExamen = useMemo(() => {
     const parentParId = new Map(noeuds.map((n) => [n.id, n.parent_id]))
     return feuilles.filter((f) => descendDe(f.noeud?.id, NOEUD_PREPARATION_EXAMEN, parentParId))
+  }, [noeuds, feuilles])
+  // Feuilles proposées par défaut pour une feuille chaotique : descendantes
+  // de « Problèmes Chaotiques ».
+  const feuillesChaotiques = useMemo(() => {
+    const parentParId = new Map(noeuds.map((n) => [n.id, n.parent_id]))
+    return feuilles.filter((f) => descendDe(f.noeud?.id, NOEUD_PROBLEMES_CHAOTIQUES, parentParId))
   }, [noeuds, feuilles])
   const parcoursParId = useMemo(() => new Map((parcours ?? []).map((p) => [p.id, p])), [parcours])
 
@@ -199,8 +215,23 @@ export default function ParcoursObjectifView({
                 feuilles={feuilles}
                 feuillesExamen={feuillesExamen}
                 feuilleParId={feuilleParId}
+                feuillesChaotiquesIds={
+                  new Set(accompagnements.filter((x) => x.parcours_id === selection.id).map((x) => x.feuille_id))
+                }
                 onChange={charger}
               />
+              <div className="border-t border-border pt-5">
+                <ParcoursAccompagnement
+                  key={selection.id}
+                  parcoursId={selection.id}
+                  accompagnements={accompagnements.filter((x) => x.parcours_id === selection.id)}
+                  etapes={etapesParParcours.get(selection.id) ?? []}
+                  feuilles={feuilles}
+                  feuillesChaotiques={feuillesChaotiques}
+                  feuilleParId={feuilleParId}
+                  onChange={charger}
+                />
+              </div>
               <div className="border-t border-border pt-5">
                 <ParcoursPositionnement
                   key={selection.id}

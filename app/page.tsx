@@ -12,6 +12,7 @@ import AccueilParcours from './components/accueil/AccueilParcours'
 import ProchaineAction, { type EtatProchaineAction } from './components/accueil/ProchaineAction'
 import { chargerParcoursEleve } from '@/lib/parcours/charger'
 import { calculerProgression, joursRestants } from '@/lib/parcours/progression'
+import { choisirProchaineAction } from '@/lib/parcours/accompagnement'
 
 export const metadata: Metadata = {
   title: 'Monstro — Apprendre à raisonner.',
@@ -81,19 +82,34 @@ export default async function HomePage() {
   const compteARebours = jours === null ? null : jours >= 0 ? `J-${jours}` : `J+${-jours}`
   let prochaineAction: EtatProchaineAction = { type: 'aucune' }
   if (parcoursAccueil && progression) {
-    const etapeCourante =
-      progression.etapeCouranteIndex !== null ? parcoursAccueil.etapes[progression.etapeCouranteIndex] : null
-    if (progression.termine) prochaineAction = { type: 'termine' }
-    else if (parcoursAccueil.activiteEnCours) prochaineAction = { type: 'en_cours' }
-    else if (etapeCourante?.feuille_id && progression.prochainExo !== null)
+    // Règles dans lib/parcours/accompagnement.ts : REPRENDRE, Parcours
+    // terminé, problème chaotique quand une feuille a son tour, sinon le parcours.
+    const action = choisirProchaineAction({
+      etapes: parcoursAccueil.etapes,
+      progression,
+      chaotiques: parcoursAccueil.chaotiques,
+      exercices: parcoursAccueil.exercices,
+      faitsDates: parcoursAccueil.faitsDates,
+      assigneLe: parcoursAccueil.assigneLe,
+      activiteEnCours: parcoursAccueil.activiteEnCours,
+    })
+    if (action?.type === 'en_cours') prochaineAction = { type: 'en_cours' }
+    else if (action?.type === 'termine') prochaineAction = { type: 'termine' }
+    else if (action?.type === 'commencer' && action.source === 'chaotique') {
+      const feuille = parcoursAccueil.chaotiques.find((c) => c.id === action.accompagnementId)
+      prochaineAction = { type: 'chaotique', feuilleId: action.feuilleId, titre: feuille?.titre ?? 'Feuille', exo: action.exo }
+    } else if (action?.type === 'commencer') {
+      const etapeCourante =
+        progression.etapeCouranteIndex !== null ? parcoursAccueil.etapes[progression.etapeCouranteIndex] : null
       prochaineAction = {
         type: 'commencer',
-        feuilleId: etapeCourante.feuille_id,
-        titre: etapeCourante.titre ?? 'Feuille',
-        exo: progression.prochainExo,
-        examen: etapeCourante.type === 'examen',
-        libelle: etapeCourante.libelle,
+        feuilleId: action.feuilleId,
+        titre: etapeCourante?.titre ?? 'Feuille',
+        exo: action.exo,
+        examen: etapeCourante?.type === 'examen',
+        libelle: etapeCourante?.libelle ?? null,
       }
+    }
   }
 
   const uniqueDates = Array.from(
