@@ -1,4 +1,4 @@
-// Squelette affiché pendant les appels à get_regularite_admin() et get_parcours_admin().
+// Squelette affiché pendant le chargement de la régularité (get_regularite_admin()) et de l'onboarding.
 export default function SuiviLoading() {
   return (
     <div className="min-h-screen bg-bg">
@@ -9,7 +9,7 @@ export default function SuiviLoading() {
 
         <div className="inline-flex gap-0.5 rounded-xl bg-surface-2 p-1">
           <span className="rounded-lg bg-surface px-4 py-1.5 text-sm font-semibold text-text-primary shadow-sm">Régularité</span>
-          <span className="rounded-lg px-4 py-1.5 text-sm font-semibold text-text-muted">Parcours</span>
+          <span className="rounded-lg px-4 py-1.5 text-sm font-semibold text-text-muted">Onboarding</span>
           <span className="rounded-lg px-4 py-1.5 text-sm font-semibold text-text-muted">Conversation</span>
         </div>
 
