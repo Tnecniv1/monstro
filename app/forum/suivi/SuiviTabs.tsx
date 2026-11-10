@@ -4,25 +4,25 @@ import { useState, type ReactNode } from 'react'
 import PastilleCompteur from '../../components/PastilleCompteur'
 import ConversationView from './ConversationView'
 
-type Onglet = 'regularite' | 'parcours' | 'conversation'
+type Onglet = 'regularite' | 'onboarding' | 'conversation'
 
 const ONGLETS: { id: Onglet; label: string }[] = [
   { id: 'regularite', label: 'Régularité' },
-  { id: 'parcours', label: 'Parcours' },
+  { id: 'onboarding', label: 'Onboarding' },
   { id: 'conversation', label: 'Conversation' },
 ]
 
-// Régularité et Parcours sont rendues côté serveur (page.tsx) ; seul le choix
+// Régularité et Onboarding sont rendues côté serveur (page.tsx) ; seul le choix
 // de l'onglet vit ici. Régularité reste l'onglet par défaut. Seule la vue
 // active est montée : Conversation se charge donc à son ouverture, et tient la
 // pastille des non-lus à jour quand une conversation est ouverte.
 export default function SuiviTabs({
   regularite,
-  parcours,
+  onboarding,
   nonLus: nonLusInitial,
 }: {
   regularite: ReactNode
-  parcours: ReactNode
+  onboarding: ReactNode
   nonLus: number
 }) {
   const [onglet, setOnglet] = useState<Onglet>('regularite')
@@ -50,7 +50,7 @@ export default function SuiviTabs({
         ))}
       </div>
 
-      {onglet === 'regularite' ? regularite : onglet === 'parcours' ? parcours : <ConversationView onNonLusChange={setNonLus} />}
+      {onglet === 'regularite' ? regularite : onglet === 'onboarding' ? onboarding : <ConversationView onNonLusChange={setNonLus} />}
     </>
   )
 }
