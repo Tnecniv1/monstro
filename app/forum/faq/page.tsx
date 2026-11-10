@@ -20,7 +20,7 @@ export default async function FaqPage({
     // Référence des questions Problème sans numéro, et formulaire « + Question ».
     supabase.from('feuille_entrainement').select('id, titre, volume'),
     // Référence des questions Méthode (#ordre titre), et formulaire.
-    supabase.from('forum_scripts').select('id, titre, description, citation, etapes, cover_url, ordre').order('ordre'),
+    supabase.from('forum_scripts').select('id, titre, description, citation, etapes, cover_url, video_url, ordre').order('ordre'),
     supabase.from('feuille_focus').select('feuille_id').eq('user_id', user.id).order('created_at'),
   ])
 

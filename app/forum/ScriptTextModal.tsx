@@ -1,6 +1,7 @@
 'use client'
 
 import MathText from '../components/MathText'
+import VideoScript from '../components/VideoScript'
 import type { ForumScript } from './types'
 
 interface Props {
@@ -30,6 +31,9 @@ export default function ScriptTextModal({ script, onClose }: Props) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          {/* Vidéo (forum_scripts.video_url) : en haut, avant citation et étapes. */}
+          <VideoScript url={script.video_url} titre={script.titre} />
+
           {script.citation && (
             <>
               <blockquote className="border-l-2 border-border-strong pl-4 italic text-text-secondary">

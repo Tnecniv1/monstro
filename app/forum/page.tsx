@@ -49,7 +49,7 @@ export default async function ForumPage({
   ] = await Promise.all([
     supabase
       .from('forum_scripts')
-      .select('id, titre, description, citation, etapes, cover_url, ordre')
+      .select('id, titre, description, citation, etapes, cover_url, video_url, ordre')
       .order('ordre'),
     supabase
       .from('forum_topics')

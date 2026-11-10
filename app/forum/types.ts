@@ -12,6 +12,8 @@ export type ForumScript = {
   citation: string | null
   etapes: ForumScriptEtape[]
   cover_url: string | null
+  // Vidéo affichée en haut du script (lib/video.ts) ; null : pas de vidéo.
+  video_url: string | null
   ordre: number
 }
 

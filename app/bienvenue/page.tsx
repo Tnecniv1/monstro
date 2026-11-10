@@ -134,7 +134,7 @@ async function charger(
 
   const { data: script, error } = await supabase
     .from('forum_scripts')
-    .select('titre, citation, etapes')
+    .select('titre, citation, etapes, video_url')
     .eq('ordre', 1)
     .maybeSingle()
   if (error) {
@@ -147,6 +147,7 @@ async function charger(
       ? {
           titre: script.titre as string,
           citation: (script.citation as string | null) ?? null,
+          videoUrl: (script.video_url as string | null) ?? null,
           etapes: (Array.isArray(script.etapes) ? script.etapes : []) as ForumScriptEtape[],
         }
       : null,

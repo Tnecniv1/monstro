@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getSignedPdfUrl } from '@/lib/getSignedPdfUrl'
+import VideoScript from '../components/VideoScript'
+import { analyserVideo } from '@/lib/video'
 import MathText from '../components/MathText'
 import { CATEGORIES_COURS, CATEGORIE_COURS_LABEL, type CategorieCours } from '../bibliotheque/cours'
 
@@ -57,6 +59,8 @@ type CardItem = {
   pdf_url?: string | null
   categorie?: CategorieCours
   cover_url: string | null
+  // Scripts seulement : vidéo affichée en haut du script (lib/video.ts).
+  video_url?: string | null
   ordre: number
   created_at?: string
 }
@@ -113,6 +117,7 @@ function CardForm({
   const [titre, setTitre] = useState(initial?.titre ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [citation, setCitation] = useState(initial?.citation ?? '')
+  const [videoUrl, setVideoUrl] = useState(initial?.video_url ?? '')
   const [etapes, setEtapes] = useState<CardEtape[]>(initial?.etapes ?? [])
   const [pdfUrl, setPdfUrl] = useState(initial?.pdf_url ?? '')
   const [categorie, setCategorie] = useState<CategorieCours>(initial?.categorie ?? 'introduction')
@@ -244,6 +249,7 @@ function CardForm({
       payload.description = description.trim()
       payload.cover_url = coverUrl.trim() || null
       payload.citation = citation.trim() || null
+      payload.video_url = videoUrl.trim() || null
       payload.etapes = etapes
         .map((et) => ({ titre: et.titre.trim(), description: et.description.trim() }))
         .filter((et) => et.titre || et.description)
@@ -349,6 +355,24 @@ function CardForm({
 
       {isScript ? (
         <>
+          {/* Vidéo — facultative, affichée en haut du script (ScriptTextModal, onboarding). */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-text-secondary">Vidéo (lien, optionnel)</label>
+            <input
+              type="text"
+              inputMode="url"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              placeholder="YouTube, ou lien direct .mp4 / .webm / .mov"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+            {videoUrl.trim() && !analyserVideo(videoUrl) ? (
+              <p className="text-xs text-danger">Lien non reconnu (il doit commencer par https://, youtube.com, youtu.be ou www.) : rien ne sera affiché.</p>
+            ) : (
+              <VideoScript url={videoUrl} titre={titre} />
+            )}
+          </div>
+
           {/* Citation — affichée en haut de ScriptTextModal. */}
           <div className="space-y-1">
             <label className="block text-xs font-medium text-text-secondary">Citation (optionnel)</label>
@@ -526,7 +550,7 @@ export default function ForumCardManager({ table, createLabel, itemLabelSingular
   async function charger() {
     setLoading(true)
     const columns = isScript
-      ? 'id, titre, description, citation, etapes, cover_url, ordre'
+      ? 'id, titre, description, citation, etapes, cover_url, video_url, ordre'
       : 'id, titre, description, pdf_url, categorie, cover_url, ordre, created_at'
     const { data } = await supabase.from(table).select(columns).order('ordre')
     setItems((data as unknown as CardItem[]) ?? [])

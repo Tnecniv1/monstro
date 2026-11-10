@@ -8,6 +8,7 @@ import { construireTest, etapeDepart, prochaineQuestion, type Reponses } from '@
 import { ligneReponse, type LigneReponse } from './ligneReponse'
 import QcmTexte from '../components/QcmTexte'
 import MathText from '../components/MathText'
+import VideoScript from '../components/VideoScript'
 import StationsParcours, { type Station } from '../components/accueil/StationsParcours'
 import { markScript1Ouvert } from '../onboarding/profileWrites'
 import type { ForumScriptEtape } from '../forum/types'
@@ -36,7 +37,7 @@ export type DonneesOnboarding =
   | { etape: 'introduction'; erreur: string }
   | {
       etape: 'introduction'
-      script: { titre: string; citation: string | null; etapes: ForumScriptEtape[] } | null
+      script: { titre: string; citation: string | null; videoUrl: string | null; etapes: ForumScriptEtape[] } | null
     }
 
 const LIBELLES: Record<EtapeOnboarding, string> = {
@@ -614,7 +615,7 @@ function EtapeIntroduction({
   script,
 }: {
   userId: string
-  script: { titre: string; citation: string | null; etapes: ForumScriptEtape[] } | null
+  script: { titre: string; citation: string | null; videoUrl: string | null; etapes: ForumScriptEtape[] } | null
 }) {
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -649,6 +650,9 @@ function EtapeIntroduction({
           {script ? <MathText text={script.titre} /> : 'La structure d’un entraînement'}
         </h1>
       </div>
+
+      {/* Vidéo du Script #1 (forum_scripts.video_url) : en haut, avant les étapes. */}
+      {script && <VideoScript url={script.videoUrl} titre={script.titre} />}
 
       {script?.citation && (
         <blockquote className="border-l-2 border-accent pl-3 text-sm italic leading-relaxed text-text-secondary">
