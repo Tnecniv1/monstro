@@ -5,7 +5,8 @@ export type EtatProchaineAction =
   | { type: 'commencer'; feuilleId: string; titre: string; exo: number; examen: boolean; libelle: string | null }
   // Problème d'une feuille chaotique (lib/parcours/accompagnement.ts).
   | { type: 'chaotique'; feuilleId: string; titre: string; exo: number }
-  | { type: 'en_cours' }
+  // exo/titre : exercice en cours (lib/exerciceEnCours.ts), s'il est connu.
+  | { type: 'en_cours'; exo?: number; titre?: string }
   | { type: 'termine' }
   | { type: 'aucune' }
 
@@ -30,7 +31,14 @@ export default function ProchaineAction({ etat }: { etat: EtatProchaineAction })
 
       {etat.type === 'en_cours' && (
         <>
-          <p className="text-xl font-extrabold text-text-primary">Entraînement en cours</p>
+          {etat.exo != null ? (
+            <div className="space-y-0.5">
+              <p className="text-xl font-extrabold text-text-primary">Exercice {etat.exo}</p>
+              {etat.titre && <p className="truncate text-sm text-text-muted">{etat.titre}</p>}
+            </div>
+          ) : (
+            <p className="text-xl font-extrabold text-text-primary">Entraînement en cours</p>
+          )}
           <Link href="/entrainement" className={bouton}>
             Reprendre
           </Link>

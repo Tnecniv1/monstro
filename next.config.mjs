@@ -6,6 +6,12 @@ const nextConfig = {
     // instrumentation.ts : réglages globaux au démarrage du serveur (sharp)
     instrumentationHook: true,
   },
+  // pdf.js (énoncé flottant, côté navigateur) cite le module Node « canvas »
+  // sans s'en servir dans le navigateur : on ne l'embarque pas.
+  webpack: (config) => {
+    config.resolve.alias = { ...config.resolve.alias, canvas: false };
+    return config;
+  },
   async headers() {
     return [
       {

@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import EntrainementClient from './EntrainementClient'
+import EnonceFlottant from '../components/enonce/EnonceFlottant'
+import { chargerExerciceEnCours } from '@/lib/exerciceEnCours'
 import type { Entrainement } from './CarteEntrainement'
 
 // ?feuille=<id>&exo=<n> (COMMENCER de l'accueil parcours) : modale pré-remplie.
@@ -52,6 +54,12 @@ export default async function EntrainementPage({
 
   const entrainements = (data ?? []) as unknown as Entrainement[]
 
+  // Énoncé flottant : lu après l'expiration des corrections ci-dessus.
+  const exerciceEnCours = await chargerExerciceEnCours(supabase, user.id).catch((e: Error) => {
+    console.error('[entrainement] exercice en cours', e.message)
+    return null
+  })
+
   const enCours = entrainements.find((e) => e.statut === 'en_cours') ?? null
 
   const correctionEnCours = entrainements.find((e) =>
@@ -83,6 +91,7 @@ export default async function EntrainementPage({
           preselection={lirePreselection(searchParams)}
         />
       </div>
+      <EnonceFlottant exercice={exerciceEnCours} />
     </div>
   )
 }

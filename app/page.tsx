@@ -7,6 +7,8 @@ import StreakBadge from './components/StreakBadge'
 import LogoutButton from './components/LogoutButton'
 import MenuProfil from './components/accueil/MenuProfil'
 import AvecBarreOnglets from './components/navigation/AvecBarreOnglets'
+import EnonceFlottant from './components/enonce/EnonceFlottant'
+import { chargerExerciceEnCours } from '@/lib/exerciceEnCours'
 import LandingPage from './components/LandingPage'
 import AccueilParcours from './components/accueil/AccueilParcours'
 import ProchaineAction, { type EtatProchaineAction } from './components/accueil/ProchaineAction'
@@ -55,7 +57,7 @@ export default async function HomePage() {
 
   const ids = entIds?.map((e) => e.id) ?? []
 
-  const [{ count }, { data: sessionDates }, parcoursAccueil] = await Promise.all([
+  const [{ count }, { data: sessionDates }, parcoursAccueil, exerciceEnCours] = await Promise.all([
     ids.length > 0
       ? supabase
           .from('observation')
@@ -73,6 +75,11 @@ export default async function HomePage() {
     // Parcours assigné (élève ou admin) : nouvel accueil ; null = accueil actuel
     chargerParcoursEleve(supabase, user.id).catch((e: Error) => {
       console.error('[accueil] parcours', e.message)
+      return null
+    }),
+    // Énoncé flottant et carte « Exercice n » (null : rien en cours).
+    chargerExerciceEnCours(supabase, user.id).catch((e: Error) => {
+      console.error('[accueil] exercice en cours', e.message)
       return null
     }),
   ])
@@ -93,7 +100,10 @@ export default async function HomePage() {
       assigneLe: parcoursAccueil.assigneLe,
       activiteEnCours: parcoursAccueil.activiteEnCours,
     })
-    if (action?.type === 'en_cours') prochaineAction = { type: 'en_cours' }
+    if (action?.type === 'en_cours')
+      prochaineAction = exerciceEnCours
+        ? { type: 'en_cours', exo: exerciceEnCours.exo, titre: exerciceEnCours.titre }
+        : { type: 'en_cours' }
     else if (action?.type === 'termine') prochaineAction = { type: 'termine' }
     else if (action?.type === 'commencer' && action.source === 'chaotique') {
       const feuille = parcoursAccueil.chaotiques.find((c) => c.id === action.accompagnementId)
@@ -201,6 +211,7 @@ export default async function HomePage() {
           </>
         )}
       </div>
+      <EnonceFlottant exercice={exerciceEnCours} />
     </AvecBarreOnglets>
   )
 }

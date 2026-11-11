@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ErreurModal from './ErreurModal'
-import { getSignedPdfUrl } from '@/lib/getSignedPdfUrl'
 import type { CompteursErreurs } from '@/lib/erreurs'
 
 type Session = { temps_min: number; date: string }
@@ -83,7 +82,6 @@ export default function CarteEntrainement({
   const derniereSession = e.session.map((s) => s.date).sort().reverse()[0] ?? null
   const dateAffichee = derniereSession ?? e.date_creation
   const feuille = e.feuille_entrainement
-  const correction = feuille?.correction ?? null
   const etat = e.observation?.etat ?? null
 
   const erreurData = Array.isArray(e.erreur) ? e.erreur[0] ?? null : e.erreur ?? null
@@ -228,12 +226,16 @@ export default function CarteEntrainement({
             <p className="text-xs text-text-muted">{formatDate(dateAffichee)}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setShowErreurs(true)}
-              className={`text-xs px-2 py-1 rounded border hover:border-border-strong hover:text-text-secondary transition-colors ${erreurClassName}`}
-            >
-              {erreurLabel}
-            </button>
+            {/* Carte active : la grille s'ouvre par le bouton « Erreurs » des
+                actions ; historique : petit bouton (total des erreurs). */}
+            {!isActive && (
+              <button
+                onClick={() => setShowErreurs(true)}
+                className={`text-xs px-2 py-1 rounded border hover:border-border-strong hover:text-text-secondary transition-colors ${erreurClassName}`}
+              >
+                {erreurLabel}
+              </button>
+            )}
 
             {/* Badge / bouton correction */}
             {correctionEnCours && (
@@ -321,24 +323,14 @@ export default function CarteEntrainement({
             >
               Terminer
             </button>
-            {correction?.pdf_url && (
-              <button
-                onClick={async () => {
-                  const signed = await getSignedPdfUrl(correction.pdf_url)
-                  if (signed) router.push(`/viewer?url=${encodeURIComponent(signed)}`)
-                }}
-                title="Voir la correction PDF"
-                className="flex items-center gap-1.5 text-sm px-3 py-3 rounded-xl border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 active:bg-gray-50 transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
-                  fill="none" stroke="currentColor" strokeWidth="2.5"
-                  strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                </svg>
-                Correction
-              </button>
-            )}
+            {/* Grille des erreurs (remplace l'ancien bouton Correction : la
+                correction se lit dans l'onglet Correction de l'énoncé flottant). */}
+            <button
+              onClick={() => setShowErreurs(true)}
+              className="rounded-xl px-4 py-3 text-sm font-medium transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300"
+            >
+              Erreurs
+            </button>
           </div>
         )}
 
