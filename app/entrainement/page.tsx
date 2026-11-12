@@ -91,7 +91,7 @@ export default async function EntrainementPage({
           preselection={lirePreselection(searchParams)}
         />
       </div>
-      <EnonceFlottant exercice={exerciceEnCours} />
+      <EnonceFlottant exercice={exerciceEnCours} userId={user.id} />
     </div>
   )
 }

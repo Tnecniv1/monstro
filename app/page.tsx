@@ -211,7 +211,7 @@ export default async function HomePage() {
           </>
         )}
       </div>
-      <EnonceFlottant exercice={exerciceEnCours} />
+      <EnonceFlottant exercice={exerciceEnCours} userId={user.id} />
     </AvecBarreOnglets>
   )
 }
