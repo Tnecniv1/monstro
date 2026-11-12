@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { markScript1Ouvert } from '../onboarding/profileWrites'
-import AvantScript1Modal from './AvantScript1Modal'
 import ScriptsRow from './ScriptsRow'
 import ScriptTextModal from './ScriptTextModal'
 import ForumTabs from './ForumTabs'
@@ -48,35 +47,17 @@ export default function ForumClient({
 }: Props) {
   const [openScript, setOpenScript] = useState<ForumScript | null>(null)
 
-  // Onboarding (modal 3) : avant la toute première ouverture du Script 1
-  // (ordre = 1) par un élève, un court modal s'intercale.
-  const [script1Ouvert, setScript1Ouvert] = useState(initialScript1Ouvert)
-  const [pendingScript1, setPendingScript1] = useState<ForumScript | null>(null)
-  const [savingScript1, setSavingScript1] = useState(false)
-  const [script1Error, setScript1Error] = useState(false)
+  // Le Script 1 s'ouvre directement, comme les autres. À sa première
+  // ouverture par un élève, script1_ouvert_at est noté sans bloquer
+  // l'ouverture (suivi de l'onboarding).
+  const script1Note = useRef(initialScript1Ouvert)
 
   function selectScript(script: ForumScript) {
-    if (script.ordre === 1 && !script1Ouvert && !isAdmin) {
-      setPendingScript1(script)
-      return
+    if (script.ordre === 1 && !script1Note.current && !isAdmin) {
+      script1Note.current = true
+      void markScript1Ouvert(userId)
     }
     setOpenScript(script)
-  }
-
-  async function confirmScript1() {
-    if (!pendingScript1) return
-    setSavingScript1(true)
-    setScript1Error(false)
-    const result = await markScript1Ouvert(userId)
-    setSavingScript1(false)
-    // Écriture refusée ou 0 ligne : on ne continue pas le parcours.
-    if (!result.ok) {
-      setScript1Error(true)
-      return
-    }
-    setScript1Ouvert(true)
-    setOpenScript(pendingScript1)
-    setPendingScript1(null)
   }
 
   // Onglet initial, par priorité : ?ticket=<id> (onglet du ticket),
@@ -262,9 +243,6 @@ export default function ForumClient({
         )}
       </div>
 
-      {pendingScript1 && (
-        <AvantScript1Modal saving={savingScript1} error={script1Error} onOk={confirmScript1} />
-      )}
       {openScript && <ScriptTextModal script={openScript} onClose={() => setOpenScript(null)} />}
     </div>
   )
