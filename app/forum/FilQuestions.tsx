@@ -8,7 +8,9 @@ import Composer from './Composer'
 import KebabMenu from './KebabMenu'
 import { STATUT_STYLE } from './questionMeta'
 import { formatRelative } from './relativeTime'
+import { TICKET_COLUMNS, titreQuestionProbleme } from './types'
 import type { ForumMessage, ForumTicket } from './types'
+import { friendlyTicketError } from './NouveauTicketModal'
 
 // Fil de questions-réponses, partagé par la page d'un problème et la page
 // d'une question : chargement, lecture, réponses, résolution, suppression.
@@ -22,6 +24,10 @@ type Auteur = {
   pseudo: string | null
   role: string | null
 }
+
+// Question ouverte de l'utilisateur (n'importe quel sujet) : de quoi la
+// situer (Problème : feuille + numéro) et l'ouvrir.
+export type QuestionOuverte = Pick<ForumTicket, 'id' | 'sujet' | 'feuille_id' | 'numero_exercice'>
 
 export function useFilQuestions({
   userId,
@@ -45,6 +51,7 @@ export function useFilQuestions({
   // Question ouverte de l'utilisateur, tous sujets confondus (trigger
   // forum_enforce_one_open_ticket). null tant que non vérifié.
   const [aUneQuestionOuverte, setAUneQuestionOuverte] = useState<boolean | null>(null)
+  const [questionOuverte, setQuestionOuverte] = useState<QuestionOuverte | null>(null)
 
   async function chargerAuteurs(ids: string[]) {
     const manquants = Array.from(new Set(ids)).filter((id) => !auteurs.has(id))
@@ -60,15 +67,18 @@ export function useFilQuestions({
   async function verifierQuestionOuverte() {
     if (isAdmin) {
       setAUneQuestionOuverte(false)
+      setQuestionOuverte(null)
       return
     }
     const { data } = await supabase
       .from('forum_tickets')
-      .select('id')
+      .select('id, sujet, feuille_id, numero_exercice')
       .eq('user_id', userId)
       .neq('statut', 'ferme')
       .limit(1)
-    setAUneQuestionOuverte((data ?? []).length > 0)
+    const ouverte = ((data ?? [])[0] as QuestionOuverte | undefined) ?? null
+    setQuestionOuverte(ouverte)
+    setAUneQuestionOuverte(ouverte !== null)
   }
 
   // Lecture enregistrée (forum_lecture, lu_le imposé par trigger) puis
@@ -122,7 +132,10 @@ export function useFilQuestions({
     setTickets((prev) => [ticket, ...prev])
     setMessages((prev) => [...prev, message])
     chargerAuteurs([userId])
-    if (!isAdmin) setAUneQuestionOuverte(true)
+    if (!isAdmin) {
+      setAUneQuestionOuverte(true)
+      setQuestionOuverte(ticket)
+    }
     marquerLus([ticket.id])
   }
 
@@ -205,6 +218,7 @@ export function useFilQuestions({
     auteurs,
     loading,
     aUneQuestionOuverte,
+    questionOuverte,
     televerserImage,
     ajouterQuestion,
     repondre,
@@ -216,6 +230,50 @@ export function useFilQuestions({
 }
 
 export type FilQuestions = ReturnType<typeof useFilQuestions>
+
+// Question sur un problème (page du problème, volet Forum de l'énoncé
+// flottant) : sujet Problème, feuille + numéro automatiques, titre
+// « <feuille> · n° <numero> », puis premier message (texte + image).
+// Renvoie un message d'erreur ou null.
+export async function poserQuestionProbleme(
+  fil: FilQuestions,
+  { feuilleId, feuilleTitre, numero, userId }: { feuilleId: string; feuilleTitre: string; numero: number; userId: string },
+  texte: string,
+  imageFile: File | null
+): Promise<string | null> {
+  const { supabase } = fil
+  const { data: ticket, error: ticketError } = await supabase
+    .from('forum_tickets')
+    .insert({
+      topic_id: null,
+      sujet: 'probleme',
+      feuille_id: feuilleId,
+      numero_exercice: numero,
+      script_id: null,
+      user_id: userId,
+      titre: titreQuestionProbleme(feuilleTitre, numero),
+    })
+    .select(TICKET_COLUMNS)
+    .single()
+  if (ticketError || !ticket) return friendlyTicketError(ticketError?.message)
+
+  let imageUrl: string | null = null
+  try {
+    if (imageFile) imageUrl = await fil.televerserImage(ticket.id, imageFile)
+  } catch (e) {
+    return (e as Error).message
+  }
+
+  const { data: message, error: messageError } = await supabase
+    .from('forum_messages')
+    .insert({ ticket_id: ticket.id, user_id: userId, contenu: texte, image_url: imageUrl })
+    .select(MESSAGE_COLUMNS)
+    .single()
+  if (messageError || !message) return messageError?.message ?? "Erreur lors de l'envoi de la question."
+
+  fil.ajouterQuestion(ticket as ForumTicket, message as ForumMessage)
+  return null
+}
 
 function nomAffiche(auteur: Auteur | undefined, estMoi: boolean): string {
   if (estMoi) return 'Toi'
