@@ -4,10 +4,8 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSignedPdfUrl } from '@/lib/getSignedPdfUrl'
 import MathText from '../../../../components/MathText'
-import { FilQuestion, MESSAGE_COLUMNS, useFilQuestions } from '../../../FilQuestions'
-import { friendlyTicketError } from '../../../NouveauTicketModal'
-import { TICKET_COLUMNS, titreQuestionProbleme } from '../../../types'
-import type { ForumMessage, ForumTicket } from '../../../types'
+import { FilQuestion, poserQuestionProbleme, useFilQuestions } from '../../../FilQuestions'
+import { TICKET_COLUMNS } from '../../../types'
 
 interface Props {
   feuille: { id: string; titre: string; pdf_url: string | null }
@@ -31,42 +29,8 @@ export default function ProblemeClient({ feuille, numero, userId, isAdmin }: Pro
         .eq('numero_exercice', numero)
         .order('created_at', { ascending: false }),
   })
-  const { supabase } = fil
-
-  // Question : sujet Problème et référence feuille + numéro automatiques,
-  // titre « <feuille> · n° <numero> ». Renvoie un message d'erreur ou null.
-  async function poserQuestion(texte: string, imageFile: File | null): Promise<string | null> {
-    const { data: ticket, error: ticketError } = await supabase
-      .from('forum_tickets')
-      .insert({
-        topic_id: null,
-        sujet: 'probleme',
-        feuille_id: feuille.id,
-        numero_exercice: numero,
-        script_id: null,
-        user_id: userId,
-        titre: titreQuestionProbleme(feuille.titre, numero),
-      })
-      .select(TICKET_COLUMNS)
-      .single()
-    if (ticketError || !ticket) return friendlyTicketError(ticketError?.message)
-
-    let imageUrl: string | null = null
-    try {
-      if (imageFile) imageUrl = await fil.televerserImage(ticket.id, imageFile)
-    } catch (e) {
-      return (e as Error).message
-    }
-
-    const { data: message, error: messageError } = await supabase
-      .from('forum_messages')
-      .insert({ ticket_id: ticket.id, user_id: userId, contenu: texte, image_url: imageUrl })
-      .select(MESSAGE_COLUMNS)
-      .single()
-    if (messageError || !message) return messageError?.message ?? "Erreur lors de l'envoi de la question."
-
-    fil.ajouterQuestion(ticket as ForumTicket, message as ForumMessage)
-    return null
+  function poserQuestion(texte: string, imageFile: File | null): Promise<string | null> {
+    return poserQuestionProbleme(fil, { feuilleId: feuille.id, feuilleTitre: feuille.titre, numero, userId }, texte, imageFile)
   }
 
   const nb = fil.tickets.length

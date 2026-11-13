@@ -75,11 +75,5 @@ export const INVITATION_SCRIPT1 = {
   bouton: 'Continuer',
 }
 
-export const AVANT_SCRIPT1 = {
-  texte:
-    "Si vous ne comprenez pas une des étapes du script, posez simplement votre question sur le forum, dans la rubrique adaptée 'Méthode'.",
-  bouton: 'Ok',
-}
-
 export const ERREUR_ENREGISTREMENT =
   "Impossible d'enregistrer votre réponse. Réessayez, et prévenez-nous si le problème continue."

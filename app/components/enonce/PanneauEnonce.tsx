@@ -4,27 +4,48 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import type { ExerciceEnCours } from '@/lib/exerciceEnCours'
 import { PageSeule, PagesDefilantes, useDocumentPdf } from './DocumentPdf'
+import VoletForum from './VoletForum'
 
-type Onglet = 'enonce' | 'correction'
+type Onglet = 'enonce' | 'correction' | 'forum'
+type OngletDocument = Exclude<Onglet, 'forum'>
+
+const LIBELLES: Record<Onglet, string> = { enonce: 'Énoncé', correction: 'Correction', forum: 'Forum' }
 
 // Glissement vers le bas au-delà duquel le panneau se ferme.
 const SEUIL_FERMETURE = 100
 
 // Panneau de l'énoncé flottant (chargé à la demande par EnonceFlottant) :
 // téléphone, panneau qui monte du bas (85 % de la hauteur) ; écran large,
-// panneau latéral à droite (480 px). Énoncé | Correction, document page par
-// page (pdf.js), plein écran, J'AI FINI · REPRENDRE. Fermeture : glisser
+// panneau latéral à droite (480 px). Énoncé | Correction : document page
+// par page (pdf.js), plein écran, J'AI FINI · REPRENDRE. Forum : question de
+// l'élève sur l'exercice (VoletForum), badge des non-lus. Fermeture : glisser
 // vers le bas (poignée, en-tête), chevron, ou toucher le fond assombri.
-export default function PanneauEnonce({ exercice, onFermer }: { exercice: ExerciceEnCours; onFermer: () => void }) {
+export default function PanneauEnonce({
+  exercice,
+  userId,
+  nbNonLus,
+  ongletInitial = 'enonce',
+  onFermer,
+}: {
+  exercice: ExerciceEnCours
+  userId: string
+  nbNonLus: number
+  ongletInitial?: Onglet
+  onFermer: () => void
+}) {
   const router = useRouter()
   const pathname = usePathname()
-  const [onglet, setOnglet] = useState<Onglet>('enonce')
+  const [onglet, setOnglet] = useState<Onglet>(ongletInitial)
+  // Document du dernier volet Énoncé / Correction : gardé chargé pendant le
+  // volet Forum, pour le retrouver tel quel.
+  const [ongletDoc, setOngletDoc] = useState<OngletDocument>('enonce')
+  const forum = onglet === 'forum'
   const [pleinEcran, setPleinEcran] = useState(false)
   const [page, setPage] = useState(1)
   const [decalage, setDecalage] = useState(0)
   const departY = useRef<number | null>(null)
 
-  const url = onglet === 'enonce' ? exercice.enonceUrl : exercice.correctionUrl
+  const url = ongletDoc === 'enonce' ? exercice.enonceUrl : exercice.correctionUrl
   const { doc, erreur, reessayer } = useDocumentPdf(url)
   const nbPages = doc?.numPages ?? null
 
@@ -76,7 +97,12 @@ export default function PanneauEnonce({ exercice, onFermer }: { exercice: Exerci
     },
   }
 
-  const libelleOnglet = onglet === 'enonce' ? 'Énoncé' : 'Correction'
+  const libelleOnglet = LIBELLES[ongletDoc]
+
+  function choisirOnglet(o: Onglet) {
+    setOnglet(o)
+    if (o !== 'forum') setOngletDoc(o)
+  }
 
   if (pleinEcran) {
     return (
@@ -149,7 +175,7 @@ export default function PanneauEnonce({ exercice, onFermer }: { exercice: Exerci
             <button
               type="button"
               onClick={() => setPleinEcran(true)}
-              disabled={!url}
+              disabled={!url || forum}
               aria-label="Plein écran"
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border text-lg text-text-secondary hover:bg-surface-2 disabled:opacity-30"
             >
@@ -165,58 +191,76 @@ export default function PanneauEnonce({ exercice, onFermer }: { exercice: Exerci
             </button>
           </div>
 
-          {/* Énoncé | Correction */}
-          <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl p-1" style={{ background: '#F3F4F6' }}>
-            {(['enonce', 'correction'] as const).map((o) => {
+          {/* Énoncé | Correction | Forum */}
+          <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl p-1" style={{ background: '#F3F4F6' }}>
+            {(['enonce', 'correction', 'forum'] as const).map((o) => {
               const indisponible = o === 'correction' && !exercice.correctionUrl
               const actif = onglet === o
               return (
                 <button
                   key={o}
                   type="button"
-                  onClick={() => !indisponible && setOnglet(o)}
+                  onClick={() => !indisponible && choisirOnglet(o)}
                   disabled={indisponible}
                   aria-pressed={actif}
-                  className={`rounded-lg py-2 text-sm font-semibold transition-colors ${
+                  aria-label={o === 'forum' && nbNonLus > 0 ? `Forum, ${nbNonLus} non lu${nbNonLus > 1 ? 's' : ''}` : undefined}
+                  className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold transition-colors ${
                     actif ? 'bg-white text-text-primary shadow-sm' : 'text-text-muted'
                   } ${indisponible ? 'cursor-not-allowed opacity-50' : ''}`}
                 >
-                  {o === 'enonce' ? 'Énoncé' : 'Correction'}
+                  {LIBELLES[o]}
+                  {o === 'forum' && nbNonLus > 0 && (
+                    <span
+                      aria-hidden
+                      className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[11px] font-bold leading-none text-white"
+                      style={{ background: '#DC2626' }}
+                    >
+                      {nbNonLus}
+                    </span>
+                  )}
                 </button>
               )
             })}
           </div>
-          {!exercice.correctionUrl && (
+          {!exercice.correctionUrl && !forum && (
             <p className="mt-1 text-center text-xs text-text-muted">Pas de correction pour cette feuille</p>
           )}
         </div>
 
-        {/* Document */}
-        <div className="relative mt-3 min-h-0 flex-1 overflow-y-auto bg-surface-2 px-3 py-3" style={{ touchAction: 'pan-x pan-y pinch-zoom' }}>
-          {!url ? (
-            <p className="py-10 text-center text-sm text-text-muted">Pas de document pour cette feuille.</p>
-          ) : doc ? (
-            // pageInitiale : au retour du plein écran, la page qu'on y lisait.
-            <PagesDefilantes key={url} doc={doc} pageInitiale={page} onPageVisible={surPageVisible} />
-          ) : (
-            <Etat erreur={erreur} onReessayer={reessayer} />
-          )}
-        </div>
-        {doc && (
-          <p className="shrink-0 py-1 text-center text-xs tabular-nums text-text-muted">
-            page {page} / {nbPages}
-          </p>
-        )}
+        {forum ? (
+          <div className="mt-3 flex min-h-0 flex-1 flex-col">
+            <VoletForum exercice={exercice} userId={userId} />
+          </div>
+        ) : (
+          <>
+            {/* Document */}
+            <div className="relative mt-3 min-h-0 flex-1 overflow-y-auto bg-surface-2 px-3 py-3" style={{ touchAction: 'pan-x pan-y pinch-zoom' }}>
+              {!url ? (
+                <p className="py-10 text-center text-sm text-text-muted">Pas de document pour cette feuille.</p>
+              ) : doc ? (
+                // pageInitiale : au retour du plein écran, la page qu'on y lisait.
+                <PagesDefilantes key={url} doc={doc} pageInitiale={page} onPageVisible={surPageVisible} />
+              ) : (
+                <Etat erreur={erreur} onReessayer={reessayer} />
+              )}
+            </div>
+            {doc && (
+              <p className="shrink-0 py-1 text-center text-xs tabular-nums text-text-muted">
+                page {page} / {nbPages}
+              </p>
+            )}
 
-        <div className="shrink-0 px-4 pb-3 pt-1" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
-          <button
-            type="button"
-            onClick={reprendre}
-            className="block w-full rounded-2xl bg-accent py-4 text-center text-base font-bold uppercase tracking-wide text-white transition-opacity hover:opacity-90"
-          >
-            J’ai fini · Reprendre
-          </button>
-        </div>
+            <div className="shrink-0 px-4 pb-3 pt-1" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+              <button
+                type="button"
+                onClick={reprendre}
+                className="block w-full rounded-2xl bg-accent py-4 text-center text-base font-bold uppercase tracking-wide text-white transition-opacity hover:opacity-90"
+              >
+                J’ai fini · Reprendre
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
