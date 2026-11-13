@@ -1,4 +1,5 @@
 import type { createClient } from '@/lib/supabase/server'
+import { chargerExerciceTexte } from '@/lib/exerciceTexte'
 
 type Client = ReturnType<typeof createClient>
 
@@ -9,6 +10,9 @@ type Client = ReturnType<typeof createClient>
 // « Prochaine action » de l'accueil.
 // Documents : énoncé = feuille_entrainement.pdf_url, correction = table
 // correction (pdf_url), bucket privé pdfs, ouverts par getSignedPdfUrl.
+// Exercice en texte (lib/exerciceTexte.ts) : si la feuille a
+// exercices_publies et que l'exercice est en base, énoncé (et correction
+// s'il y en a une) rendus en HTML ; sinon null, et le panneau garde le PDF.
 export type ExerciceEnCours = {
   entrainementId: string
   feuilleId: string
@@ -16,6 +20,8 @@ export type ExerciceEnCours = {
   titre: string
   enonceUrl: string | null
   correctionUrl: string | null
+  enonceHtml: string | null
+  correctionHtml: string | null
   type: 'entrainement' | 'correction'
 }
 
@@ -34,8 +40,9 @@ type LigneEntrainement = {
 const COLONNES =
   'id, feuille_id, ref_exo, date_creation, feuille_entrainement ( titre, pdf_url, correction ( pdf_url ) )'
 
-function versExercice(e: LigneEntrainement, type: ExerciceEnCours['type']): ExerciceEnCours {
+async function versExercice(supabase: Client, e: LigneEntrainement, type: ExerciceEnCours['type']): Promise<ExerciceEnCours> {
   const f = e.feuille_entrainement
+  const texte = await chargerExerciceTexte(supabase, e.feuille_id, e.ref_exo)
   const correction = Array.isArray(f?.correction) ? f?.correction[0] ?? null : f?.correction ?? null
   return {
     entrainementId: e.id,
@@ -44,6 +51,8 @@ function versExercice(e: LigneEntrainement, type: ExerciceEnCours['type']): Exer
     titre: f?.titre ?? 'Feuille',
     enonceUrl: f?.pdf_url ?? null,
     correctionUrl: correction?.pdf_url ?? null,
+    enonceHtml: texte?.enonceHtml ?? null,
+    correctionHtml: texte?.correctionHtml ?? null,
     type,
   }
 }
@@ -79,10 +88,10 @@ export async function chargerExerciceEnCours(supabase: Client, userId: string): 
   if (enCours && enCorrection) {
     // Le plus récent : création de l'entraînement contre début de la correction.
     return (enCours.date_creation ?? '') >= t!.date_creation
-      ? versExercice(enCours, 'entrainement')
-      : versExercice(enCorrection, 'correction')
+      ? versExercice(supabase, enCours, 'entrainement')
+      : versExercice(supabase, enCorrection, 'correction')
   }
-  if (enCours) return versExercice(enCours, 'entrainement')
-  if (enCorrection) return versExercice(enCorrection, 'correction')
+  if (enCours) return versExercice(supabase, enCours, 'entrainement')
+  if (enCorrection) return versExercice(supabase, enCorrection, 'correction')
   return null
 }
