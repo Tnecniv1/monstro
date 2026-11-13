@@ -16,9 +16,12 @@ const SEUIL_FERMETURE = 100
 
 // Panneau de l'énoncé flottant (chargé à la demande par EnonceFlottant) :
 // téléphone, panneau qui monte du bas (85 % de la hauteur) ; écran large,
-// panneau latéral à droite (480 px). Énoncé | Correction : document page
-// par page (pdf.js), plein écran, J'AI FINI · REPRENDRE. Forum : question de
-// l'élève sur l'exercice (VoletForum), badge des non-lus. Fermeture : glisser
+// panneau latéral à droite (480 px). Énoncé | Correction : l'exercice seul en
+// texte s'il est transcrit (feuille publiée, lib/exerciceTexte.ts), avec en
+// bas la feuille et « Voir la feuille entière » ; sinon le PDF de la feuille
+// page par page (pdf.js). Plein écran, J'AI FINI · REPRENDRE. Forum : question
+// de l'élève sur l'exercice (VoletForum), badge des non-lus, ni texte ni PDF.
+// Fermeture : glisser
 // vers le bas (poignée, en-tête), chevron, ou toucher le fond assombri.
 export default function PanneauEnonce({
   exercice,
@@ -41,13 +44,27 @@ export default function PanneauEnonce({
   const [ongletDoc, setOngletDoc] = useState<OngletDocument>('enonce')
   const forum = onglet === 'forum'
   const [pleinEcran, setPleinEcran] = useState(false)
+  // Exercice en texte : « Voir la feuille entière » bascule sur le PDF.
+  const [feuilleEntiere, setFeuilleEntiere] = useState(false)
   const [page, setPage] = useState(1)
   const [decalage, setDecalage] = useState(0)
   const departY = useRef<number | null>(null)
 
-  const url = ongletDoc === 'enonce' ? exercice.enonceUrl : exercice.correctionUrl
-  const { doc, erreur, reessayer } = useDocumentPdf(url)
+  // Énoncé / Correction du dernier volet document (inchangé pendant le Forum).
+  const html = ongletDoc === 'enonce' ? exercice.enonceHtml : exercice.correctionHtml
+  const modeTexte = html !== null && !feuilleEntiere
+  // PDF du volet ; pour la feuille entière depuis une correction en texte
+  // sans PDF de correction, celui de l'énoncé.
+  const urlPdf =
+    ongletDoc === 'enonce' ? exercice.enonceUrl : exercice.correctionUrl ?? (html !== null ? exercice.enonceUrl : null)
+  // Pas de PDF chargé tant que l'exercice est affiché en texte ; un PDF déjà
+  // affiché reste chargé pendant le volet Forum.
+  const url = modeTexte ? null : urlPdf
+  const { doc: docCharge, erreur, reessayer } = useDocumentPdf(url)
+  // useDocumentPdf garde le dernier document quand url passe à null.
+  const doc = url ? docCharge : null
   const nbPages = doc?.numPages ?? null
+  const correctionDisponible = exercice.correctionUrl !== null || exercice.correctionHtml !== null
 
   // Changement de document : retour à la page 1.
   useEffect(() => setPage(1), [url])
@@ -99,9 +116,34 @@ export default function PanneauEnonce({
 
   const libelleOnglet = LIBELLES[ongletDoc]
 
+  // Énoncé ou Correction : retour à l'exercice (texte) ; le Forum ne change
+  // pas le volet document.
   function choisirOnglet(o: Onglet) {
     setOnglet(o)
-    if (o !== 'forum') setOngletDoc(o)
+    if (o === 'forum') return
+    setOngletDoc(o)
+    setFeuilleEntiere(false)
+  }
+
+  if (pleinEcran && modeTexte) {
+    return (
+      <div className="fixed inset-0 z-[60] flex flex-col bg-surface">
+        <div className="flex items-center gap-3 border-b border-border px-3 py-2" style={{ paddingTop: 'max(8px, env(safe-area-inset-top))' }}>
+          <button
+            type="button"
+            onClick={() => setPleinEcran(false)}
+            aria-label="Revenir au panneau"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border text-text-secondary hover:bg-surface-2"
+          >
+            <IconeRetour />
+          </button>
+          <p className="min-w-0 flex-1 truncate text-sm font-semibold text-text-primary">{`Exercice ${exercice.exo} · ${libelleOnglet}`}</p>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-5" style={{ paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}>
+          <TexteExercice html={html ?? ''} grand />
+        </div>
+      </div>
+    )
   }
 
   if (pleinEcran) {
@@ -175,7 +217,7 @@ export default function PanneauEnonce({
             <button
               type="button"
               onClick={() => setPleinEcran(true)}
-              disabled={!url || forum}
+              disabled={forum || (!modeTexte && !url)}
               aria-label="Plein écran"
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border text-lg text-text-secondary hover:bg-surface-2 disabled:opacity-30"
             >
@@ -194,7 +236,7 @@ export default function PanneauEnonce({
           {/* Énoncé | Correction | Forum */}
           <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl p-1" style={{ background: '#F3F4F6' }}>
             {(['enonce', 'correction', 'forum'] as const).map((o) => {
-              const indisponible = o === 'correction' && !exercice.correctionUrl
+              const indisponible = o === 'correction' && !correctionDisponible
               const actif = onglet === o
               return (
                 <button
@@ -222,7 +264,7 @@ export default function PanneauEnonce({
               )
             })}
           </div>
-          {!exercice.correctionUrl && !forum && (
+          {!correctionDisponible && !forum && (
             <p className="mt-1 text-center text-xs text-text-muted">Pas de correction pour cette feuille</p>
           )}
         </div>
@@ -233,21 +275,51 @@ export default function PanneauEnonce({
           </div>
         ) : (
           <>
-            {/* Document */}
-            <div className="relative mt-3 min-h-0 flex-1 overflow-y-auto bg-surface-2 px-3 py-3" style={{ touchAction: 'pan-x pan-y pinch-zoom' }}>
-              {!url ? (
-                <p className="py-10 text-center text-sm text-text-muted">Pas de document pour cette feuille.</p>
-              ) : doc ? (
-                // pageInitiale : au retour du plein écran, la page qu'on y lisait.
-                <PagesDefilantes key={url} doc={doc} pageInitiale={page} onPageVisible={surPageVisible} />
-              ) : (
-                <Etat erreur={erreur} onReessayer={reessayer} />
-              )}
-            </div>
-            {doc && (
-              <p className="shrink-0 py-1 text-center text-xs tabular-nums text-text-muted">
-                page {page} / {nbPages}
-              </p>
+            {modeTexte ? (
+              // Exercice seul, en texte ; en bas, la feuille et son PDF.
+              <div className="mt-3 min-h-0 flex-1 overflow-y-auto border-t border-border px-4 py-4">
+                <TexteExercice html={html ?? ''} />
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border pt-3">
+                  <span className="min-w-0 truncate text-xs text-text-muted">{exercice.titre}</span>
+                  {urlPdf && (
+                    <button
+                      type="button"
+                      onClick={() => setFeuilleEntiere(true)}
+                      className="-mr-2 inline-flex min-h-[44px] items-center px-2 text-sm font-semibold text-accent hover:underline"
+                    >
+                      Voir la feuille entière
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                {html !== null && (
+                  <button
+                    type="button"
+                    onClick={() => setFeuilleEntiere(false)}
+                    className="mx-4 mt-2 inline-flex min-h-[44px] items-center self-start px-0 text-sm font-semibold text-accent hover:underline"
+                  >
+                    ‹ Retour à l’exercice
+                  </button>
+                )}
+                {/* Document */}
+                <div className="relative mt-3 min-h-0 flex-1 overflow-y-auto bg-surface-2 px-3 py-3" style={{ touchAction: 'pan-x pan-y pinch-zoom' }}>
+                  {!url ? (
+                    <p className="py-10 text-center text-sm text-text-muted">Pas de document pour cette feuille.</p>
+                  ) : doc ? (
+                    // pageInitiale : au retour du plein écran, la page qu'on y lisait.
+                    <PagesDefilantes key={url} doc={doc} pageInitiale={page} onPageVisible={surPageVisible} />
+                  ) : (
+                    <Etat erreur={erreur} onReessayer={reessayer} />
+                  )}
+                </div>
+                {doc && (
+                  <p className="shrink-0 py-1 text-center text-xs tabular-nums text-text-muted">
+                    page {page} / {nbPages}
+                  </p>
+                )}
+              </>
             )}
 
             <div className="shrink-0 px-4 pb-3 pt-1" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
@@ -263,6 +335,19 @@ export default function PanneauEnonce({
         )}
       </div>
     </div>
+  )
+}
+
+// HTML rendu côté serveur depuis la table exercice (lib/exerciceTexte.ts,
+// HTML brut du Markdown ignoré). Formules centrées trop larges : défilement.
+function TexteExercice({ html, grand = false }: { html: string; grand?: boolean }) {
+  return (
+    <div
+      className={`prose max-w-none text-text-primary prose-p:text-text-primary prose-strong:text-text-primary prose-pre:text-sm [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden ${
+        grand ? 'prose-lg' : 'prose-sm sm:prose-base'
+      }`}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   )
 }
 
